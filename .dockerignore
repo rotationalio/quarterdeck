@@ -16,3 +16,4 @@ docker-compose.yaml
 
 .air.toml
 docs
+tmp
