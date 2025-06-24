@@ -31,7 +31,7 @@ RUN go mod verify
 COPY . .
 
 # Build binary
-RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
+RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} CC=aarch64-linux-gnu-gcc go build \
     -ldflags="-X 'go.rtnl.ai/quarterdeck/pkg.GitVersion=${GIT_REVISION}' -X 'go.rtnl.ai/quarterdeck/pkg.BuildDate=${BUILD_DATE}'" \
     -o /go/bin/quarterdeck \
     ./cmd/quarterdeck
