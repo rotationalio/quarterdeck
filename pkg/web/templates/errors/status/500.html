@@ -1,0 +1,12 @@
+{{ template "error.html" . }}
+{{ define "title" }}Internal Error | Quarterdeck{{ end }}
+{{ define "status" }}500{{ end }}
+{{ define "heading" }}Something went very wrong ⛓️‍💥{{ end }}
+{{ define "subheading" }}Something broke on our end and our admins have been notified; we're working to fix it!{{ end }}
+{{ define "info" }}
+  {{ if .Error }}
+  <p class="text-danger mt-3">
+    Error: {{ .Error }}.
+  </p>
+  {{ end }}
+{{ end }}
