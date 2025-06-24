@@ -1,0 +1,16 @@
+{{ template "base" . }}
+{{ define "container" }}
+<div class="auth-full-page d-flex">
+  <div class="auth-form p-3">
+    <div class="text-center">
+      <h1 class="display-1 fw-bold">{{ block "status" . }}{{ end }}</h1>
+      <p class="h2">{{ block "heading" . }}{{ end }}</p>
+      {{ block "info" . }}{{ end }}
+      <p class="lead fw-normal mt-3 mb-4">{{ block "subheading" . }}{{ end }}</p>
+      {{ block "actions" . }}
+      <a class='btn btn-primary btn-lg' href='/'>Return to Quarterdeck</a>
+      {{ end }}
+    </div>
+  </div>
+</div>
+{{ end }}

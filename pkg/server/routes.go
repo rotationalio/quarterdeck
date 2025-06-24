@@ -7,9 +7,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.rtnl.ai/quarterdeck/pkg/logger"
 	"go.rtnl.ai/quarterdeck/pkg/metrics"
+	"go.rtnl.ai/quarterdeck/pkg/web"
 )
 
 func (s *Server) setupRoutes() (err error) {
+	// Setup HTML template renderer
+	if s.router.HTMLRender, err = web.HTMLRender(web.Templates()); err != nil {
+		return err
+	}
 
 	// Create CORS configuration
 	corsConf := cors.Config{
@@ -56,6 +61,26 @@ func (s *Server) setupRoutes() (err error) {
 	// NotFound and NotAllowed routes
 	s.router.NoRoute(s.NotFound)
 	s.router.NoMethod(s.NotAllowed)
+
+	// Error routes for HTMX redirect handling
+	s.router.GET("/not-found", s.NotFound)
+	s.router.GET("/not-allowed", s.NotAllowed)
+	s.router.GET("/error", s.InternalError)
+
+	// Static Files
+	s.router.StaticFS("/static", web.Static())
+
+	// TODO: authentication middleware
+
+	// TODO: authorization middleware
+
+	// Web UI Routes (Unauthenticated)
+	ui := s.router.Group("")
+	{
+		ui.GET("/", s.Home)
+	}
+
+	// Web UI Routes (Authenticated)
 
 	// API Routes (Including Content Negotiated Partials)
 	v1 := s.router.Group("/v1")

@@ -1,0 +1,14 @@
+{{ define "body" }}
+<body>
+  {{ block "container" . }}{{ end }}
+
+  <!-- Application scripts -->
+  {{ block "scripts" . }}
+  <script src="/static/js/htmx.min.js"></script>
+  <script src="/static/js/app.js"></script>
+  {{ end }}
+
+  <!-- Page specific scripts -->
+  {{ block "appcode" . }}{{ end }}
+</body>
+{{ end }}

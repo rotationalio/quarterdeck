@@ -22,7 +22,7 @@ func (s *Server) Maintenance() gin.HandlerFunc {
 					Version: pkg.Version(false),
 					Uptime:  time.Since(s.started).String(),
 				},
-				HTMLName: "maintenance.html",
+				HTMLName: "errors/maintenance/index.html",
 			})
 			c.Abort()
 		}

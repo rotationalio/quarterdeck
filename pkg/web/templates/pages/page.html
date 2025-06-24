@@ -1,0 +1,14 @@
+{{ template "base" . }}
+{{ define "container" }}
+<div class="wrapper">
+  {{ template "sidebar" . }}
+  <div class="main">
+    {{ template "topnav" . }}
+    <main class="content">
+      <div id="content-block" class="container-fluid p-0">
+        {{ block "content" . }}{{ end }}
+      </div>
+    </main>
+  </div>
+</div>
+{{ end }}

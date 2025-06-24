@@ -1,0 +1,28 @@
+{{ define "head" }}
+<head>
+  <meta charset="UTF-8">
+  <meta name="robots" content="noindex, nofollow">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+	<meta name="description" content="Authentication and authorization portal for Rotational applications.">
+	<meta name="author" content="Rotational Labs">
+
+  <title>{{ block "title" . }}Quarterdeck{{ end }}</title>
+
+  <!-- Favicon -->
+  <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon"/>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <!-- Stylesheets -->
+  {{ block "styles" . }}
+  <link rel="stylesheet" href="/static/css/app.css" />
+  {{ end }}
+
+  <!-- Page specific styles -->
+  {{ block "appstyles" . }}{{ end }}
+</head>
+{{ end }}
