@@ -22,7 +22,7 @@ WORKDIR $GOPATH/src/go.rtnl.ai/quarterdeck
 COPY go.mod .
 COPY go.sum .
 
-ENV CGO_ENABLED=0
+ENV CGO_ENABLED=1
 ENV GO111MODULE=on
 RUN go mod download
 RUN go mod verify
@@ -44,7 +44,7 @@ LABEL description="Quarterdeck authentication and authorization service"
 
 # Ensure ca-certificates are up to date
 RUN set -x && apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates sqlite3 && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the binary to the production image from the builder stage

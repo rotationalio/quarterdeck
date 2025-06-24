@@ -2,10 +2,10 @@ package logger
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/rs/zerolog"
+	"go.rtnl.ai/quarterdeck/pkg/errors"
 )
 
 // LogLevelDecoder deserializes the log level from a config string.
@@ -41,7 +41,7 @@ func (ll *LevelDecoder) Decode(value string) error {
 	case llTrace:
 		*ll = LevelDecoder(zerolog.TraceLevel)
 	default:
-		return fmt.Errorf("unknown log level %q", value)
+		return errors.Fmt("unknown log level %q", value)
 	}
 	return nil
 }
@@ -64,7 +64,7 @@ func (ll *LevelDecoder) Encode() (string, error) {
 	case zerolog.TraceLevel:
 		return llTrace, nil
 	default:
-		return "", fmt.Errorf("unknown log level %d", ll)
+		return "", errors.Fmt("unknown log level %d", ll)
 	}
 }
 
