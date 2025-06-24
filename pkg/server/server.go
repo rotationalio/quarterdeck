@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -15,6 +14,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"go.rtnl.ai/quarterdeck/pkg/config"
+	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/logger"
 	"go.rtnl.ai/quarterdeck/pkg/metrics"
 	"go.rtnl.ai/quarterdeck/pkg/store"
@@ -136,7 +136,7 @@ func (s *Server) Serve() (err error) {
 	// actually starts up in its own go routine below.
 	var sock net.Listener
 	if sock, err = net.Listen("tcp", s.srv.Addr); err != nil {
-		return fmt.Errorf("could not listen on bind addr %s: %s", s.srv.Addr, err)
+		return errors.Fmt("could not listen on bind addr %s: %s", s.srv.Addr, err)
 	}
 
 	s.setURL(sock.Addr())

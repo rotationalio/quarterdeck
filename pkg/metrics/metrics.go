@@ -1,13 +1,13 @@
 package metrics
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog/log"
+	"go.rtnl.ai/quarterdeck/pkg/errors"
 )
 
 const (
@@ -52,7 +52,7 @@ func registerCollectors(collectors []prometheus.Collector) {
 	// Register the collectors
 	for _, collector := range collectors {
 		if err = prometheus.Register(collector); err != nil {
-			err = fmt.Errorf("cannot register %s", collector)
+			err = errors.Fmt("cannot register %s", collector)
 			log.Warn().Err(err).Msg("collector already registered")
 		}
 	}
