@@ -14,24 +14,24 @@ import (
 
 // The test environment for all config tests, manipulated using curEnv and setEnv
 var testEnv = map[string]string{
-	"QD_MAINTENANCE":            "false",
-	"QD_BIND_ADDR":              ":3636",
-	"QD_MODE":                   gin.TestMode,
-	"QD_LOG_LEVEL":              "error",
-	"QD_CONSOLE_LOG":            "true",
-	"QD_ALLOW_ORIGINS":          "http://localhost:8888,http://localhost:8080",
-	"QD_RATE_LIMIT_ENABLED":     "true",
-	"QD_RATE_LIMIT_PER_SECOND":  "20",
-	"QD_RATE_LIMIT_BURST":       "100",
-	"QD_RATE_LIMIT_TTL":         "1h",
-	"QD_DATABASE_URL":           "sqlite3:///test.db",
-	"QD_DATABASE_READ_ONLY":     "true",
-	"QD_TOKEN_KEYS":             "01GECSDK5WJ7XWASQ0PMH6K41K:testdata/01GECSDK5WJ7XWASQ0PMH6K41K.pem,01GECSJGDCDN368D0EENX23C7R:testdata/01GECSJGDCDN368D0EENX23C7R.pem",
-	"QD_TOKEN_AUDIENCE":         "http://localhost:8888",
-	"QD_TOKEN_ISSUER":           "http://localhost:1025",
-	"QD_TOKEN_ACCESS_DURATION":  "5m",
-	"QD_TOKEN_REFRESH_DURATION": "10m",
-	"QD_TOKEN_REFRESH_OVERLAP":  "-2m",
+	"QD_MAINTENANCE":             "false",
+	"QD_BIND_ADDR":               ":3636",
+	"QD_MODE":                    gin.TestMode,
+	"QD_LOG_LEVEL":               "error",
+	"QD_CONSOLE_LOG":             "true",
+	"QD_ALLOW_ORIGINS":           "http://localhost:8888,http://localhost:8080",
+	"QD_RATE_LIMIT_ENABLED":      "true",
+	"QD_RATE_LIMIT_PER_SECOND":   "20",
+	"QD_RATE_LIMIT_BURST":        "100",
+	"QD_RATE_LIMIT_TTL":          "1h",
+	"QD_DATABASE_URL":            "sqlite3:///test.db",
+	"QD_DATABASE_READ_ONLY":      "true",
+	"QD_TOKEN_KEYS":              "01GECSDK5WJ7XWASQ0PMH6K41K:testdata/01GECSDK5WJ7XWASQ0PMH6K41K.pem,01GECSJGDCDN368D0EENX23C7R:testdata/01GECSJGDCDN368D0EENX23C7R.pem",
+	"QD_TOKEN_AUDIENCE":          "http://localhost:8888",
+	"QD_TOKEN_ISSUER":            "http://localhost:1025",
+	"QD_TOKEN_ACCESS_TOKEN_TTL":  "5m",
+	"QD_TOKEN_REFRESH_TOKEN_TTL": "10m",
+	"QD_TOKEN_TOKEN_OVERLAP":     "-2m",
 }
 
 func TestConfig(t *testing.T) {
@@ -65,9 +65,9 @@ func TestConfig(t *testing.T) {
 	require.Len(t, conf.Token.Keys, 2)
 	require.Equal(t, testEnv["QD_TOKEN_AUDIENCE"], conf.Token.Audience)
 	require.Equal(t, testEnv["QD_TOKEN_ISSUER"], conf.Token.Issuer)
-	require.Equal(t, 5*time.Minute, conf.Token.AccessDuration)
-	require.Equal(t, 10*time.Minute, conf.Token.RefreshDuration)
-	require.Equal(t, -2*time.Minute, conf.Token.RefreshOverlap)
+	require.Equal(t, 5*time.Minute, conf.Token.AccessTokenTTL)
+	require.Equal(t, 10*time.Minute, conf.Token.RefreshTokenTTL)
+	require.Equal(t, -2*time.Minute, conf.Token.TokenOverlap)
 	require.True(t, conf.RateLimit.Enabled)
 	require.Equal(t, 20.00, conf.RateLimit.PerSecond)
 	require.Equal(t, 100, conf.RateLimit.Burst)
@@ -129,7 +129,7 @@ func TestValidation(t *testing.T) {
 					ConsoleLog:   true,
 					AllowOrigins: []string{"*"},
 				},
-				errs: `invalid configuration: "invalid" is not a valid gin mode`,
+				errs: `invalid configuration: mode "invalid" is not a valid gin mode`,
 			},
 		}
 
@@ -188,7 +188,7 @@ func TestIsZero(t *testing.T) {
 
 			// Should not be able to mark a custom config that is invalid
 			conf, err := conf.Mark()
-			require.EqualError(t, err, `invalid configuration: "invalid" is not a valid gin mode`, "expected gin mode validation error")
+			require.EqualError(t, err, `invalid configuration: mode "invalid" is not a valid gin mode`, "expected gin mode validation error")
 			require.True(t, conf.IsZero(), "an invalid config when marked should be zero-valued")
 		})
 	})
@@ -223,7 +223,7 @@ func TestRateLimitConfigValidate(t *testing.T) {
 		}
 
 		for i, conf := range tests {
-			require.NoError(t, conf.Validate(), "expected config validation to pass on test case %d", i)
+			require.NoError(t, conf.Validate(), "expected rate limit config validation to pass on test case %d", i)
 		}
 	})
 
@@ -239,7 +239,7 @@ func TestRateLimitConfigValidate(t *testing.T) {
 					PerSecond: 20.00,
 					TTL:       5 * time.Minute,
 				},
-				errs: "invalid configuration: RateLimitConfig.Burst needs to be populated and must be a nonzero value",
+				errs: "invalid configuration: rateLimit.burst is required but not set",
 			},
 			{
 				conf: config.RateLimitConfig{
@@ -248,7 +248,7 @@ func TestRateLimitConfigValidate(t *testing.T) {
 					PerSecond: 0.00,
 					TTL:       5 * time.Minute,
 				},
-				errs: "invalid configuration: RateLimitConfig.PerSecond needs to be populated and must be a nonzero value",
+				errs: "invalid configuration: rateLimit.perSecond is required but not set",
 			},
 			{
 				conf: config.RateLimitConfig{
@@ -257,13 +257,132 @@ func TestRateLimitConfigValidate(t *testing.T) {
 					PerSecond: 20.00,
 					TTL:       0,
 				},
-				errs: "invalid configuration: RateLimitConfig.TTL needs to be populated and must be a nonzero value",
+				errs: "invalid configuration: rateLimit.ttl is required but not set",
 			},
 		}
 
 		for i, test := range tests {
 			err := test.conf.Validate()
-			require.EqualError(t, err, test.errs, "expected config validation error on test case %d", i)
+			require.EqualError(t, err, test.errs, "expected rate limit config validation error on test case %d", i)
+		}
+	})
+}
+
+func TestAuthConfigValidate(t *testing.T) {
+	t.Run("Valid", func(t *testing.T) {
+		tests := []config.AuthConfig{
+			{
+				Audience:        "https://example.com",
+				Issuer:          "https://auth.example.com",
+				AccessTokenTTL:  5 * time.Minute,
+				RefreshTokenTTL: 10 * time.Minute,
+				TokenOverlap:    -2 * time.Minute,
+			},
+			{
+				Keys:            map[string]string{},
+				Audience:        "https://example.com",
+				Issuer:          "https://example.com",
+				AccessTokenTTL:  24 * time.Hour,
+				RefreshTokenTTL: 48 * time.Hour,
+				TokenOverlap:    -12 * time.Hour,
+			},
+		}
+
+		for i, conf := range tests {
+			require.NoError(t, conf.Validate(), "expected auth config validation to pass on test case %d", i)
+		}
+	})
+
+	t.Run("Invalid", func(t *testing.T) {
+		tests := []struct {
+			conf config.AuthConfig
+			errs string
+		}{
+			{
+				conf: config.AuthConfig{
+					Audience:        "",
+					Issuer:          "https://auth.example.com",
+					AccessTokenTTL:  5 * time.Minute,
+					RefreshTokenTTL: 10 * time.Minute,
+					TokenOverlap:    -2 * time.Minute,
+				},
+				errs: "invalid configuration: auth.audience is required but not set",
+			},
+			{
+				conf: config.AuthConfig{
+					Audience:        "\x00",
+					Issuer:          "https://auth.example.com",
+					AccessTokenTTL:  5 * time.Minute,
+					RefreshTokenTTL: 10 * time.Minute,
+					TokenOverlap:    -2 * time.Minute,
+				},
+				errs: "invalid configuration: auth.audience could not parse audience: parse \"\\x00\": net/url: invalid control character in URL",
+			},
+			{
+				conf: config.AuthConfig{
+					Audience:        "https://example.com",
+					Issuer:          "",
+					AccessTokenTTL:  5 * time.Minute,
+					RefreshTokenTTL: 10 * time.Minute,
+					TokenOverlap:    -2 * time.Minute,
+				},
+				errs: "invalid configuration: auth.issuer is required but not set",
+			},
+			{
+				conf: config.AuthConfig{
+					Audience:        "https://example.com",
+					Issuer:          "\x00",
+					AccessTokenTTL:  5 * time.Minute,
+					RefreshTokenTTL: 10 * time.Minute,
+					TokenOverlap:    -2 * time.Minute,
+				},
+				errs: "invalid configuration: auth.issuer could not parse issuer: parse \"\\x00\": net/url: invalid control character in URL",
+			},
+			{
+				conf: config.AuthConfig{
+					Audience:        "https://example.com",
+					Issuer:          "https://auth.example.com",
+					AccessTokenTTL:  0 * time.Minute,
+					RefreshTokenTTL: 10 * time.Minute,
+					TokenOverlap:    0 * time.Minute,
+				},
+				errs: "invalid configuration: auth.accessTokenTTL is required but not set",
+			},
+			{
+				conf: config.AuthConfig{
+					Audience:        "https://example.com",
+					Issuer:          "https://auth.example.com",
+					AccessTokenTTL:  20 * time.Minute,
+					RefreshTokenTTL: -10 * time.Minute,
+					TokenOverlap:    -5 * time.Minute,
+				},
+				errs: "invalid configuration: auth.refreshTokenTTL is required but not set",
+			},
+			{
+				conf: config.AuthConfig{
+					Audience:        "https://example.com",
+					Issuer:          "https://auth.example.com",
+					AccessTokenTTL:  20 * time.Minute,
+					RefreshTokenTTL: 10 * time.Minute,
+					TokenOverlap:    2 * time.Minute,
+				},
+				errs: "invalid configuration: auth.tokenOverlap must be negative and not exceed the access duration",
+			},
+			{
+				conf: config.AuthConfig{
+					Audience:        "https://example.com",
+					Issuer:          "https://auth.example.com",
+					AccessTokenTTL:  20 * time.Minute,
+					RefreshTokenTTL: 10 * time.Minute,
+					TokenOverlap:    -24 * time.Minute,
+				},
+				errs: "invalid configuration: auth.tokenOverlap must be negative and not exceed the access duration",
+			},
+		}
+
+		for i, test := range tests {
+			err := test.conf.Validate()
+			require.EqualError(t, err, test.errs, "expected auth config validation error on test case %d", i)
 		}
 	})
 }
