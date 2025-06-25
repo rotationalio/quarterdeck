@@ -29,6 +29,22 @@ var (
 	ErrNotAccepted = errors.New("the accepted formats are not offered by the server")
 	ErrNotAllowed  = errors.New("the requested action is not allowed")
 	ErrInternal    = errors.New("something critical went wrong, please try again later")
+
+	// Authentication errors
+	ErrUnknownSigningKey = errors.New("unknown signing key")
+	ErrNoKeyID           = errors.New("token does not have kid in header")
+	ErrInvalidKeyID      = errors.New("invalid key id")
+	ErrUnparsableClaims  = errors.New("could not parse or verify claims")
+	ErrUnauthenticated   = errors.New("request is unauthenticated")
+	ErrNoClaims          = errors.New("no claims found on the request context")
+	ErrNoUserInfo        = errors.New("no user info found on the request context")
+	ErrInvalidAuthToken  = errors.New("invalid authorization token")
+	ErrAuthRequired      = errors.New("this endpoint requires authentication")
+	ErrNotAuthorized     = errors.New("user does not have permission to perform this operation")
+	ErrNoAuthUser        = errors.New("could not identify authenticated user in request")
+	ErrParseBearer       = errors.New("could not parse Bearer token from Authorization header")
+	ErrNoAuthorization   = errors.New("no authorization header or cookies in request")
+	ErrNoRefreshToken    = errors.New("cannot reauthenticate no refresh token in request")
 )
 
 // Reduce namespacing conflicts by adding error functions from the errors package.

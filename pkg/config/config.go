@@ -1,12 +1,13 @@
 package config
 
 import (
-	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rotationalio/confire"
 	"github.com/rs/zerolog"
+	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/logger"
 )
 
@@ -21,7 +22,7 @@ type Config struct {
 	AllowOrigins []string            `split_words:"true" default:"http://localhost:8000" desc:"a list of allowed origins (domains including port) for CORS requests"`
 	RateLimit    RateLimitConfig     `split_words:"true"`
 	Database     DatabaseConfig
-	Token        TokenConfig
+	Token        AuthConfig
 	processed    bool
 }
 
@@ -37,13 +38,13 @@ type DatabaseConfig struct {
 	ReadOnly bool   `split_words:"true" default:"false" desc:"if true, quarterdeck will not write to the database, only read from it"`
 }
 
-type TokenConfig struct {
+type AuthConfig struct {
 	Keys            map[string]string `required:"false" desc:"a map of keyID to key path for JWT signing and verification; if omitted keys will be generated"`
 	Audience        string            `default:"http://localhost:8000" desc:"the audience claim for JWT tokens; used to verify the token is intended for this service"`
 	Issuer          string            `default:"http://localhost:8888" desc:"the issuer claim for JWT tokens; used to verify the token is issued by this service"`
-	AccessDuration  time.Duration     `split_words:"true" default:"1h" desc:"the duration for which access tokens are valid"`
-	RefreshDuration time.Duration     `split_words:"true" default:"2h" desc:"the duration for which refresh tokens are valid"`
-	RefreshOverlap  time.Duration     `split_words:"true" default:"-15m" desc:"the duration before an access token expires that the refresh token is valid"`
+	AccessTokenTTL  time.Duration     `split_words:"true" default:"1h" desc:"the duration for which access tokens are valid"`
+	RefreshTokenTTL time.Duration     `split_words:"true" default:"2h" desc:"the duration for which refresh tokens are valid"`
+	TokenOverlap    time.Duration     `split_words:"true" default:"-15m" desc:"the duration before an access token expires that the refresh token is valid"`
 }
 
 func New() (conf Config, err error) {
@@ -71,9 +72,9 @@ func (c Config) Mark() (_ Config, err error) {
 
 func (c Config) Validate() (err error) {
 	if c.Mode != gin.ReleaseMode && c.Mode != gin.DebugMode && c.Mode != gin.TestMode {
-		return fmt.Errorf("invalid configuration: %q is not a valid gin mode", c.Mode)
+		err = errors.ConfigError(err, errors.InvalidConfig("", "mode", "%q is not a valid gin mode", c.Mode))
 	}
-	return nil
+	return err
 }
 
 func (c Config) GetLogLevel() zerolog.Level {
@@ -88,22 +89,54 @@ func (c Config) AllowAllOrigins() bool {
 	return false
 }
 
-func (c RateLimitConfig) Validate() error {
+func (c RateLimitConfig) Validate() (err error) {
 	if !c.Enabled {
 		return nil
 	}
 
 	if c.PerSecond == 0.00 {
-		return fmt.Errorf("invalid configuration: RateLimitConfig.PerSecond needs to be populated and must be a nonzero value")
+		err = errors.ConfigError(err, errors.RequiredConfig("rateLimit", "perSecond"))
 	}
 
 	if c.Burst == 0 {
-		return fmt.Errorf("invalid configuration: RateLimitConfig.Burst needs to be populated and must be a nonzero value")
+		err = errors.ConfigError(err, errors.RequiredConfig("rateLimit", "burst"))
 	}
 
-	if c.TTL == 0*time.Second {
-		return fmt.Errorf("invalid configuration: RateLimitConfig.TTL needs to be populated and must be a nonzero value")
+	if c.TTL == 0 {
+		err = errors.ConfigError(err, errors.RequiredConfig("rateLimit", "ttl"))
 	}
 
-	return nil
+	return err
+}
+
+func (c AuthConfig) Validate() (err error) {
+	if c.Audience == "" {
+		err = errors.ConfigError(err, errors.RequiredConfig("auth", "audience"))
+	}
+
+	if _, perr := url.Parse(c.Audience); perr != nil {
+		err = errors.ConfigError(err, errors.ConfigParseError("auth", "audience", perr))
+	}
+
+	if c.Issuer == "" {
+		err = errors.ConfigError(err, errors.RequiredConfig("auth", "issuer"))
+	}
+
+	if _, perr := url.Parse(c.Issuer); perr != nil {
+		err = errors.ConfigError(err, errors.ConfigParseError("auth", "issuer", perr))
+	}
+
+	if c.AccessTokenTTL <= 0 {
+		err = errors.ConfigError(err, errors.RequiredConfig("auth", "accessTokenTTL"))
+	}
+
+	if c.RefreshTokenTTL <= 0 {
+		err = errors.ConfigError(err, errors.RequiredConfig("auth", "refreshTokenTTL"))
+	}
+
+	if (c.TokenOverlap*-1) > c.AccessTokenTTL || c.TokenOverlap > 0 {
+		err = errors.ConfigError(err, errors.InvalidConfig("auth", "tokenOverlap", "must be negative and not exceed the access duration"))
+	}
+
+	return err
 }
