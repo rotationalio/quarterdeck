@@ -15,6 +15,7 @@ require (
 	github.com/urfave/cli/v2 v2.27.7
 	go.rtnl.ai/ulid v1.1.1
 	go.rtnl.ai/x v1.4.0
+	golang.org/x/crypto v0.39.0
 	golang.org/x/text v0.26.0
 )
 
@@ -52,7 +53,6 @@ require (
 	github.com/ugorji/go/codec v1.3.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
 	golang.org/x/arch v0.18.0 // indirect
-	golang.org/x/crypto v0.39.0 // indirect
 	golang.org/x/net v0.41.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
