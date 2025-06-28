@@ -17,6 +17,7 @@ import (
 // ===========================================================================
 // Top Level Tests
 // ===========================================================================
+
 func TestConnectClose(t *testing.T) {
 	t.Run("ReadWrite", func(t *testing.T) {
 		uri, _ := dsn.Parse("sqlite3:///" + filepath.Join(t.TempDir(), "test.db"))
