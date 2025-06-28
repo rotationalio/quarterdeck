@@ -1,22 +1,21 @@
 package main
 
 import (
+	"database/sql/driver"
 	"fmt"
 	"log"
 	"os"
-	"text/tabwriter"
+	"time"
 
 	"github.com/joho/godotenv"
-	confire "github.com/rotationalio/confire/usage"
+
 	"github.com/urfave/cli/v2"
 	"go.rtnl.ai/quarterdeck/pkg"
 	"go.rtnl.ai/quarterdeck/pkg/auth"
-	"go.rtnl.ai/quarterdeck/pkg/config"
-	"go.rtnl.ai/quarterdeck/pkg/server"
+	"go.rtnl.ai/quarterdeck/pkg/auth/passwords"
 	"go.rtnl.ai/ulid"
+	"go.rtnl.ai/x/vero"
 )
-
-var conf config.Config
 
 func main() {
 	// If a dotenv file exists, load it for configuration
@@ -24,35 +23,30 @@ func main() {
 
 	// Create a multi-command CLI application
 	app := cli.NewApp()
-	app.Name = "quarterdeck"
+	app.Name = "bosun"
 	app.Version = pkg.Version(false)
-	app.Usage = "run and manage quarterdeck services"
+	app.Usage = "helpers for quarterdeck testing, debugging, and code generation"
 	app.Flags = []cli.Flag{}
 	app.Commands = []*cli.Command{
 		{
-			Name:     "serve",
-			Usage:    "run the quarterdeck server",
-			Action:   serve,
-			Category: "service",
-			Flags:    []cli.Flag{},
+			Name:      "argon2",
+			Usage:     "create a derived key to use as a fixture for testing",
+			Category:  "testing",
+			Action:    derkey,
+			ArgsUsage: "password [password ...]",
+			Flags:     []cli.Flag{},
 		},
 		{
-			Name:     "config",
-			Usage:    "print quarterdeck configuration guide",
-			Category: "utility",
-			Action:   usage,
-			Flags: []cli.Flag{
-				&cli.BoolFlag{
-					Name:    "list",
-					Aliases: []string{"l"},
-					Usage:   "print in list mode instead of table mode",
-				},
-			},
+			Name:     "keypair",
+			Usage:    "create a fake apikey client ID and secret to use as a fixture for testing",
+			Category: "testing",
+			Action:   keypair,
+			Flags:    []cli.Flag{},
 		},
 		{
 			Name:     "mkkey",
 			Usage:    "generate an RSA token key pair and kid (ulid) for JWT token signing",
-			Category: "utility",
+			Category: "testing",
 			Action:   mkkey,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
@@ -68,6 +62,13 @@ func main() {
 				},
 			},
 		},
+		{
+			Name:     "vero",
+			Usage:    "generate a vero token serialized as a database input for testing",
+			Category: "testing",
+			Action:   veroToken,
+			Flags:    []cli.Flag{},
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -76,41 +77,29 @@ func main() {
 }
 
 //===========================================================================
-// Server Commands
+// Commands
 //===========================================================================
 
-func serve(c *cli.Context) (err error) {
-	if conf, err = config.New(); err != nil {
-		return cli.Exit(err, 1)
+func derkey(c *cli.Context) error {
+	if c.NArg() == 0 {
+		return cli.Exit("specify password(s) to create argon2 derived key(s) from", 1)
 	}
 
-	var srv *server.Server
-	if srv, err = server.New(conf); err != nil {
-		return cli.Exit(err, 1)
+	for i := 0; i < c.NArg(); i++ {
+		pwdk, err := passwords.CreateDerivedKey(c.Args().Get(i))
+		if err != nil {
+			return cli.Exit(err, 1)
+		}
+		fmt.Println(pwdk)
 	}
 
-	if err = srv.Serve(); err != nil {
-		return cli.Exit(err, 1)
-	}
 	return nil
 }
 
-//===========================================================================
-// Utility Commands
-//===========================================================================
-
-func usage(c *cli.Context) (err error) {
-	tabs := tabwriter.NewWriter(os.Stdout, 1, 0, 4, ' ', 0)
-	format := confire.DefaultTableFormat
-	if c.Bool("list") {
-		format = confire.DefaultListFormat
-	}
-
-	var conf config.Config
-	if err := confire.Usagef("quarterdeck", &conf, tabs, format); err != nil {
-		return cli.Exit(err, 1)
-	}
-	tabs.Flush()
+func keypair(c *cli.Context) error {
+	clientID := passwords.ClientID()
+	secret := passwords.ClientSecret()
+	fmt.Printf("%s.%s\n", clientID, secret)
 	return nil
 }
 
@@ -135,5 +124,28 @@ func mkkey(c *cli.Context) (err error) {
 	}
 
 	fmt.Printf("signing key id: %s -- saved with PEM encoding to %s\n", keyid, out)
+	return nil
+}
+
+func veroToken(c *cli.Context) (err error) {
+	resourceID := ulid.MakeSecure()
+	expiration := time.Now().Add(87600 * time.Hour)
+
+	var token *vero.Token
+	if token, err = vero.New(resourceID[:], expiration); err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	var signature *vero.SignedToken
+	if _, signature, err = token.Sign(); err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	var value driver.Value
+	if value, err = signature.Value(); err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	fmt.Println(value)
 	return nil
 }

@@ -22,8 +22,8 @@ type TokenTestSuite struct {
 func (s *TokenTestSuite) SetupSuite() {
 	// Create the keys map from the testdata directory to create new token managers.
 	s.testdata = make(map[string]string)
-	s.testdata["01GE6191AQTGMCJ9BN0QC3CCVG"] = "testdata/01GE6191AQTGMCJ9BN0QC3CCVG.pem"
-	s.testdata["01GE62EXXR0X0561XD53RDFBQJ"] = "testdata/01GE62EXXR0X0561XD53RDFBQJ.pem"
+	s.testdata["01JYSHGWTSMK34J100N2Q0D21C"] = "testdata/01JYSHGWTSMK34J100N2Q0D21C.pem"
+	s.testdata["01JYSW0C9QK2TN3MQ1T7F411DX"] = "testdata/01JYSW0C9QK2TN3MQ1T7F411DX.pem"
 }
 
 func (s *TokenTestSuite) AuthConfig() config.AuthConfig {
@@ -49,7 +49,7 @@ func (s *TokenTestSuite) TestClaimsIssuer() {
 		// Check that the keys are loaded correctly and the latest key is set as the current key.
 		keys := tm.Keys()
 		require.Len(keys, 2)
-		require.Equal("01GE62EXXR0X0561XD53RDFBQJ", tm.CurrentKey().String())
+		require.Equal("01JYSW0C9QK2TN3MQ1T7F411DX", tm.CurrentKey().String())
 	})
 
 	s.Run("TokenIssuance", func() {
@@ -223,7 +223,7 @@ func (s *TokenTestSuite) TestInvalidTokens() {
 			signingMethod jwt.SigningMethod
 		)
 		if signingMethod, ok = fields["signingMethod"].(jwt.SigningMethod); !ok {
-			signingMethod = jwt.SigningMethodRS384
+			signingMethod = jwt.SigningMethodEdDSA
 		}
 
 		token := jwt.NewWithClaims(signingMethod, claims)
@@ -232,12 +232,25 @@ func (s *TokenTestSuite) TestInvalidTokens() {
 		}
 
 		if genKey, ok := fields["genKey"].(bool); ok && genKey {
-			key, err := rsa.GenerateKey(rand.Reader, 1024)
-			require.NoError(err, "could not generate rsa keys")
+			if signingMethod.Alg() == jwt.SigningMethodEdDSA.Alg() {
+				key, err := auth.GenerateKeys()
+				require.NoError(err, "could not generate signing keys")
 
-			tks, err := token.SignedString(key)
-			require.NoError(err, "could not sign token with generated keys")
-			return tks
+				tks, err := token.SignedString(key.PrivateKey())
+				require.NoError(err, "could not sign token with generated keys")
+				return tks
+			}
+
+			if signingMethod.Alg() == jwt.SigningMethodRS256.Alg() {
+				key, err := rsa.GenerateKey(rand.Reader, 4096)
+				require.NoError(err, "could not generate RSA signing keys")
+
+				tks, err := token.SignedString(key)
+				require.NoError(err, "could not sign token with generated keys")
+				return tks
+			}
+
+			require.Fail("unknown signing method for generated keys", signingMethod.Alg())
 		}
 
 		tks, err := tm.Sign(token)
@@ -272,11 +285,11 @@ func (s *TokenTestSuite) TestInvalidTokens() {
 		},
 		{
 			tks: makeToken(map[string]any{"kid": "01GE62EXXR0X0561XD53RDFBQJ", "genKey": true}),
-			err: rsa.ErrVerification,
+			err: jwt.ErrTokenUnverifiable,
 			msg: "signed with known kid but wrong keys",
 		},
 		{
-			tks: makeToken(map[string]any{"signingMethod": jwt.SigningMethodRS256}),
+			tks: makeToken(map[string]any{"signingMethod": jwt.SigningMethodRS256, "genKey": true}),
 			err: jwt.ErrTokenSignatureInvalid,
 			msg: "incorrect signing method used",
 		},
@@ -320,7 +333,7 @@ func (s *TokenTestSuite) TestKeyRotation() {
 
 	// Create the "old claims issuer"
 	testdata := make(map[string]string)
-	testdata["01GE6191AQTGMCJ9BN0QC3CCVG"] = "testdata/01GE6191AQTGMCJ9BN0QC3CCVG.pem"
+	testdata["01JYSHGWTSMK34J100N2Q0D21C"] = "testdata/01JYSHGWTSMK34J100N2Q0D21C.pem"
 
 	conf := s.AuthConfig()
 	conf.Keys = testdata
