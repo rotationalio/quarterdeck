@@ -1,20 +1,20 @@
 package main
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
+	"database/sql/driver"
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
 
 	"github.com/urfave/cli/v2"
 	"go.rtnl.ai/quarterdeck/pkg"
+	"go.rtnl.ai/quarterdeck/pkg/auth"
 	"go.rtnl.ai/quarterdeck/pkg/auth/passwords"
 	"go.rtnl.ai/ulid"
+	"go.rtnl.ai/x/vero"
 )
 
 func main() {
@@ -31,7 +31,7 @@ func main() {
 		{
 			Name:      "argon2",
 			Usage:     "create a derived key to use as a fixture for testing",
-			Category:  "debug",
+			Category:  "testing",
 			Action:    derkey,
 			ArgsUsage: "password [password ...]",
 			Flags:     []cli.Flag{},
@@ -39,14 +39,14 @@ func main() {
 		{
 			Name:     "keypair",
 			Usage:    "create a fake apikey client ID and secret to use as a fixture for testing",
-			Category: "debug",
+			Category: "testing",
 			Action:   keypair,
 			Flags:    []cli.Flag{},
 		},
 		{
 			Name:     "mkkey",
 			Usage:    "generate an RSA token key pair and kid (ulid) for JWT token signing",
-			Category: "utility",
+			Category: "testing",
 			Action:   mkkey,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
@@ -61,6 +61,13 @@ func main() {
 					Value:   4096,
 				},
 			},
+		},
+		{
+			Name:     "vero",
+			Usage:    "generate a vero token serialized as a database input for testing",
+			Category: "testing",
+			Action:   veroToken,
+			Flags:    []cli.Flag{},
 		},
 	}
 
@@ -105,25 +112,40 @@ func mkkey(c *cli.Context) (err error) {
 		out = fmt.Sprintf("%s.pem", keyid)
 	}
 
-	// Generate RSA keys using crypto random
-	var key *rsa.PrivateKey
-	if key, err = rsa.GenerateKey(rand.Reader, c.Int("size")); err != nil {
+	// Generate Signing Key Pair using Signing Key algorithm currently in use.
+	var keypair auth.SigningKey
+	if keypair, err = auth.GenerateKeys(); err != nil {
 		return cli.Exit(err, 1)
 	}
 
-	// Open file to PEM encode keys to
-	var f *os.File
-	if f, err = os.OpenFile(out, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600); err != nil {
+	// Save the keypair to the specified file in PEM format.
+	if err = keypair.Dump(out); err != nil {
 		return cli.Exit(err, 1)
 	}
 
-	if err = pem.Encode(f, &pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(key),
-	}); err != nil {
+	fmt.Printf("signing key id: %s -- saved with PEM encoding to %s\n", keyid, out)
+	return nil
+}
+
+func veroToken(c *cli.Context) (err error) {
+	resourceID := ulid.MakeSecure()
+	expiration := time.Now().Add(87600 * time.Hour)
+
+	var token *vero.Token
+	if token, err = vero.New(resourceID[:], expiration); err != nil {
 		return cli.Exit(err, 1)
 	}
 
-	fmt.Printf("RSA key id: %s -- saved with PEM encoding to %s\n", keyid, out)
+	var signature *vero.SignedToken
+	if _, signature, err = token.Sign(); err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	var value driver.Value
+	if value, err = signature.Value(); err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	fmt.Println(value)
 	return nil
 }

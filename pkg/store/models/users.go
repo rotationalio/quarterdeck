@@ -17,6 +17,11 @@ type User struct {
 	permissions []string
 }
 
+type UserList struct {
+	Page  *UserPage
+	Users []*User
+}
+
 // UserPage allows a list of paginated users to be optionally filtered by role.
 type UserPage struct {
 	Page

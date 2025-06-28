@@ -33,6 +33,15 @@ type MockTestModel struct {
 	TestBytes        []byte
 	TestBool         bool
 
+	// pointers to base types
+	TestPtrULID    *ulid.ULID
+	TestPtrTime    *time.Time
+	TestPtrString  *string
+	TestPtrInt     *int
+	TestPtrInt64   *int64
+	TestPtrFloat64 *float64
+	TestPtrBool    *bool
+
 	// "no scan" test (`convertAssign()` should fail for `time.Duration`)
 	TestNoScan time.Duration
 }
@@ -54,29 +63,55 @@ func (m *MockTestModel) Scan(scanner models.Scanner) error {
 		&m.TestString,
 		&m.TestBytes,
 		&m.TestBool,
+		&m.TestPtrULID,
+		&m.TestPtrTime,
+		&m.TestPtrString,
+		&m.TestPtrInt,
+		&m.TestPtrInt64,
+		&m.TestPtrFloat64,
+		&m.TestPtrBool,
 		&m.TestNoScan,
 	)
 }
 
 func TestScanner(t *testing.T) {
+	var (
+		tulid      = ulid.MakeSecure()
+		tnow       = time.Now()
+		tint       = 808
+		tint64     = int64(16016)
+		tfloat64   = 3.14159
+		tstring    = "Mahalo"
+		tbytes     = []byte("Makai")
+		tbool      = true
+		ttimestamp = "2025-01-01T12:34:56.123456-10:00"
+	)
+
 	t.Run("ScanTests", func(t *testing.T) {
 		// setup
 		data := []any{
-			ulid.MakeSecure().String(),         // i = 0  (TestNullULID)
-			time.Now(),                         // i = 1  (TestNullTime)
-			808,                                // i = 2  (TestNullInt64)
-			3.14159,                            // i = 3  (TestNullFloat64)
-			"Mahalo",                           // i = 4  (TestNullString)
-			ulid.MakeSecure().String(),         // i = 5  (TestULID)
-			time.Now(),                         // i = 6  (TestTime)
-			"2025-01-01T12:34:56.123456-10:00", // i = 7  (TestStringToTime)
-			808,                                // i = 8  (TestInt)
-			int64(808),                         // i = 9  (TestInt64)
-			3.14159,                            // i = 10 (TestFloat64)
-			"Mauka",                            // i = 11 (TestString)
-			[]byte("Makai"),                    // i = 12 (TestBytes)
-			true,                               // i = 13 (TestBool)
-			nil,                                // i = 14 (TestNoScan)
+			tulid.String(), // i = 0  (TestNullULID)
+			tnow,           // i = 1  (TestNullTime)
+			tint64,         // i = 2  (TestNullInt64)
+			tfloat64,       // i = 3  (TestNullFloat64)
+			tstring,        // i = 4  (TestNullString)
+			tulid.String(), // i = 5  (TestULID)
+			tnow,           // i = 6  (TestTime)
+			ttimestamp,     // i = 7  (TestStringToTime)
+			tint,           // i = 8  (TestInt)
+			tint64,         // i = 9  (TestInt64)
+			tfloat64,       // i = 10 (TestFloat64)
+			tstring,        // i = 11 (TestString)
+			tbytes,         // i = 12 (TestBytes)
+			tbool,          // i = 13 (TestBool)
+			tulid[:],       // i = 14 (TestPtrULID)
+			tnow,           // i = 15 (TestPtrTime)
+			tstring,        // i = 16 (TestPtrString)
+			tint,           // i = 17 (TestPtrInt)
+			tint64,         // i = 18 (TestPtrInt64)
+			tfloat64,       // i = 19 (TestPtrFloat64)
+			tbool,          // i = 20 (TestPtrBool)
+			nil,            // i = 21 (TestNoScan)
 		}
 		mockScanner := &mock.Scanner{}
 		mockScanner.SetData(data)
@@ -107,20 +142,30 @@ func TestScanner(t *testing.T) {
 	t.Run("Panics", func(t *testing.T) {
 		// setup
 		data := []any{
-			ulid.MakeSecure().String(),         // i = 0  (TestNullULID)
-			time.Now(),                         // i = 1  (TestNullTime)
-			808,                                // i = 2  (TestNullInt64)
-			3.14159,                            // i = 3  (TestNullFloat64)
-			"Mahalo",                           // i = 4  (TestNullString)
-			ulid.MakeSecure().String(),         // i = 5  (TestULID)
-			time.Now(),                         // i = 6  (TestTime)
-			"2025-01-01T12:34:56.123456-10:00", // i = 7  (TestStringToTime)
-			808,                                // i = 8  (TestInt)
-			3.14159,                            // i = 9  (TestFloat64)
-			"Mauka",                            // i = 10 (TestString)
-			[]byte("Makai"),                    // i = 11 (TestBytes)
+			tulid.String(), // i = 0  (TestNullULID)
+			tnow,           // i = 1  (TestNullTime)
+			tint64,         // i = 2  (TestNullInt64)
+			tfloat64,       // i = 3  (TestNullFloat64)
+			tstring,        // i = 4  (TestNullString)
+			tulid.String(), // i = 5  (TestULID)
+			tnow,           // i = 6  (TestTime)
+			ttimestamp,     // i = 7  (TestStringToTime)
+			tint,           // i = 8  (TestInt)
+			tint64,         // i = 9  (TestInt64)
+			tfloat64,       // i = 10 (TestFloat64)
+			tstring,        // i = 11 (TestString)
+			tbytes,         // i = 12 (TestBytes)
+			tbool,          // i = 13 (TestBool)
+			tulid[:],       // i = 14 (TestPtrULID)
+			tnow,           // i = 15 (TestPtrTime)
+			tstring,        // i = 16 (TestPtrString)
+			tint,           // i = 17 (TestPtrInt)
+			tint64,         // i = 18 (TestPtrInt64)
+			tfloat64,       // i = 19 (TestPtrFloat64)
+			tbool,          // i = 20 (TestPtrBool)
+
 			// CAUSES A PANIC BY COMMENTING OUT LAST ITEM
-			// nil,                                // i = 12 (TestNoScan)
+			// nil,                                // i = 21 (TestNoScan)
 		}
 		mockScanner := &mock.Scanner{}
 		mockScanner.SetData(data)

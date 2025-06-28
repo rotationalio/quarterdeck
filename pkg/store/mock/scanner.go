@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -40,10 +41,28 @@ func (m *Scanner) Scan(dest ...any) (err error) {
 	for i, dst := range dest {
 		src := m.data[i]
 
+		// If dst is a pointer to a pointer, get dereferenced value and check scannable.
+		if val := reflect.ValueOf(dst); val.Kind() == reflect.Ptr {
+			if val.Elem().Type().Kind() == reflect.Ptr {
+				if val.Elem().IsNil() {
+					if src == nil {
+						// Both src and dst are nil, nothing to do.
+						m.scanned++
+						continue
+					}
+
+					vType := val.Elem().Type()
+					instance := reflect.New(vType.Elem())
+					val.Elem().Set(instance)
+				}
+				dst = val.Elem().Interface()
+			}
+		}
+
 		// If the type is a scanner type then scan it directly.
 		if scanner, ok := dst.(sql.Scanner); ok {
 			if err = scanner.Scan(src); err != nil {
-				return fmt.Errorf("failed to scan data into destination at index %d: %w", i, err)
+				return fmt.Errorf("failed to scan data into destination at index %d from %T into %T: %w", i, src, dst, err)
 			}
 			m.scanned++
 			continue

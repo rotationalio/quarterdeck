@@ -1,11 +1,10 @@
 package auth
 
 import (
+	"crypto"
 	"crypto/rand"
-	"crypto/rsa"
 	"fmt"
 	"net/url"
-	"os"
 	"sync"
 	"time"
 
@@ -18,7 +17,7 @@ import (
 
 // Global variables that should not be changed except between major versions.
 var (
-	signingMethod = jwt.SigningMethodRS384
+	signingMethod = jwt.SigningMethodEdDSA
 	refreshPath   = "/v1/reauthenticate"
 	entropy       = ulid.Monotonic(rand.Reader, 1000)
 	entropyMu     sync.Mutex
@@ -27,8 +26,8 @@ var (
 type ClaimsIssuer struct {
 	conf            config.AuthConfig
 	keyID           ulid.ULID
-	key             *rsa.PrivateKey
-	publicKeys      map[ulid.ULID]*rsa.PublicKey
+	key             crypto.PrivateKey
+	publicKeys      map[ulid.ULID]crypto.PublicKey
 	refreshAudience string
 }
 
@@ -40,42 +39,39 @@ func NewIssuer(conf config.AuthConfig) (_ *ClaimsIssuer, err error) {
 
 	issuer := &ClaimsIssuer{
 		conf:       conf,
-		publicKeys: make(map[ulid.ULID]*rsa.PublicKey, len(conf.Keys)),
+		publicKeys: make(map[ulid.ULID]crypto.PublicKey, len(conf.Keys)),
 	}
 
-	// Load the specified keys from the filesystem
-	// TODO: support loading keys from a vault or other secure storage.
+	// Load the specified keys from the filesystem.
 	for kid, path := range conf.Keys {
 		var keyID ulid.ULID
 		if keyID, err = ulid.Parse(kid); err != nil {
 			return nil, errors.Fmt("could not parse %s as a key id: %w", kid, err)
 		}
 
-		var data []byte
-		if data, err = os.ReadFile(path); err != nil {
-			return nil, errors.Fmt("could not read %s: %w", path, err)
+		keypair := &keys{}
+		if err = keypair.Load(path); err != nil {
+			return nil, err
 		}
 
-		var key *rsa.PrivateKey
-		if key, err = jwt.ParseRSAPrivateKeyFromPEM(data); err != nil {
-			return nil, errors.Fmt("could not parse private key %s: %w", path, err)
-		}
-
-		issuer.publicKeys[keyID] = &key.PublicKey
+		issuer.publicKeys[keyID] = keypair.PublicKey()
 		if issuer.key == nil || keyID.Time() > issuer.keyID.Time() {
-			issuer.key = key
+			issuer.key = keypair.PrivateKey()
 			issuer.keyID = keyID
 		}
 	}
 
 	// If we have no keys, generate one for use (e.g. for testing or simple deployment)
 	if issuer.key == nil {
-		if issuer.key, err = rsa.GenerateKey(rand.Reader, 4096); err != nil {
+		var keypair SigningKey
+		if keypair, err = GenerateKeys(); err != nil {
 			return nil, err
 		}
 
 		issuer.keyID = ulid.MustNew(ulid.Now(), entropy)
-		issuer.publicKeys[issuer.keyID] = &issuer.key.PublicKey
+		issuer.key = keypair.PrivateKey()
+		issuer.publicKeys[issuer.keyID] = keypair.PublicKey()
+
 		log.Warn().Str("keyID", issuer.keyID.String()).Msg("generated volatile claims issuer rsa key")
 	}
 
@@ -189,7 +185,7 @@ func (tm *ClaimsIssuer) CreateTokens(claims *Claims) (signedAccessToken, signedR
 }
 
 // Keys returns the map of ulid to public key for use externally.
-func (tm *ClaimsIssuer) Keys() map[ulid.ULID]*rsa.PublicKey {
+func (tm *ClaimsIssuer) Keys() map[ulid.ULID]crypto.PublicKey {
 	return tm.publicKeys
 }
 
@@ -210,13 +206,13 @@ func (tm *ClaimsIssuer) RefreshAudience() string {
 	return tm.refreshAudience
 }
 
-// keyFunc is an jwt.KeyFunc that selects the RSA public key from the list of managed
+// keyFunc is an jwt.KeyFunc that selects the public key from the list of managed
 // internal keys based on the kid in the token header. If the kid does not exist an
 // error is returned and the token will not be able to be verified.
 func (tm *ClaimsIssuer) keyFunc(token *jwt.Token) (key interface{}, err error) {
 	// Per JWT security notice: do not forget to validate alg is expected
-	if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-		return nil, errors.Fmt("unexpected signing method: %v", token.Header["alg"])
+	if token.Method.Alg() != signingMethod.Alg() {
+		return nil, errors.Fmt("unexpected signing method: %v", token.Method.Alg())
 	}
 
 	// Fetch the kid from the header

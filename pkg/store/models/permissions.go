@@ -17,12 +17,22 @@ type Role struct {
 	permissions []*Permission
 }
 
+type RoleList struct {
+	Page  *Page
+	Roles []*Role
+}
+
 type Permission struct {
 	ID          int64
 	Title       string
 	Description string
 	Created     time.Time
 	Modified    time.Time
+}
+
+type PermissionList struct {
+	Page        *Page
+	Permissions []*Permission
 }
 
 //===========================================================================
