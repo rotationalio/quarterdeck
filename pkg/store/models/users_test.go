@@ -159,21 +159,21 @@ func TestUserRoles(t *testing.T) {
 	_, err := user.Roles()
 	require.ErrorIs(t, err, errors.ErrMissingAssociation, "expected error when accessing role before setting it")
 
-	user.SetRole(&Role{
+	user.SetRoles([]*Role{{
 		ID:          int64(410),
 		Title:       "Observer",
 		Description: "observer role to view the system",
 		IsDefault:   true,
 		Created:     created,
 		Modified:    modified,
-	}, &Role{
+	}, {
 		ID:          int64(411),
 		Title:       "Editor",
 		Description: "Editor role with limited permissions",
 		IsDefault:   false,
 		Created:     created,
 		Modified:    modified,
-	})
+	}})
 
 	roles, err := user.Roles()
 	require.NoError(t, err, "expected no error when accessing role after setting it")

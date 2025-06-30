@@ -9,7 +9,7 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/store/dsn"
 	"go.rtnl.ai/quarterdeck/pkg/store/txn"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/mattn/go-sqlite3"
 )
 
 // Store implements the store.Store interface using sqlite3 as the storage backend.
@@ -121,4 +121,29 @@ func (t *Tx) QueryRow(query string, args ...any) *sql.Row {
 
 func (t *Tx) Exec(query string, args ...any) (sql.Result, error) {
 	return t.tx.Exec(query, args...)
+}
+
+// ===========================================================================
+// Database Helpers
+// ===========================================================================
+func dbe(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return errors.ErrNotFound
+	}
+
+	var sqliteErr sqlite3.Error
+	if errors.As(err, &sqliteErr) {
+		if errors.Is(sqliteErr.Code, sqlite3.ErrConstraint) {
+			// TODO: (ticket sc-32339) requires a minor fix to increase
+			// the granularity of the returned error because ErrConstraint
+			// can be a result of different types of constraint errors
+			return errors.ErrAlreadyExists
+		}
+	}
+
+	return errors.Fmt("sqlite3 error: %w", err)
 }

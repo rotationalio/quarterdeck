@@ -83,7 +83,7 @@ func (u User) Roles() ([]*Role, error) {
 }
 
 // SetRole sets the role for the user and updates the RoleID field.
-func (u *User) SetRole(roles ...*Role) {
+func (u *User) SetRoles(roles []*Role) {
 	u.roles = roles
 }
 

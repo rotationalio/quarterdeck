@@ -33,3 +33,15 @@ type Page struct {
 	NextPageID ulid.ULID `json:"next_page_id"`
 	PrevPageID ulid.ULID `json:"prev_page_id"`
 }
+
+func PageFrom(in *Page) (out *Page) {
+	out = &Page{
+		PageSize: DefaultPageSize,
+	}
+
+	if in != nil && in.PageSize > 0 {
+		out.PageSize = in.PageSize
+	}
+
+	return out
+}
