@@ -150,6 +150,20 @@ func (s *storeTestSuite) ResetDB() {
 	s.CreateDB()
 }
 
+func (s *storeTestSuite) Count(table string) (count int) {
+	require := s.Require()
+	tx, err := s.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
+	require.NoError(err, "could not begin read-only transaction")
+	defer tx.Rollback()
+
+	query := "SELECT count(*) FROM " + table
+	row := tx.QueryRow(query)
+	require.NoError(row.Scan(&count), "could not count rows in table %s", table)
+
+	require.NoError(tx.Commit(), "could not commit transaction")
+	return count
+}
+
 func (s *storeTestSuite) ReadOnly() bool {
 	return s.dsn.ReadOnly
 }
