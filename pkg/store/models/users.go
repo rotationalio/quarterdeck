@@ -27,6 +27,23 @@ type UserPage struct {
 	Role string `json:"role,omitempty"`
 }
 
+func UserPageFrom(in *UserPage) (out *UserPage) {
+	out = &UserPage{
+		Page: Page{
+			PageSize: DefaultPageSize,
+		},
+	}
+
+	if in != nil {
+		if in.PageSize > 0 {
+			out.PageSize = in.PageSize
+		}
+		out.Role = in.Role
+	}
+
+	return out
+}
+
 //===========================================================================
 // Scanning and Params
 //===========================================================================

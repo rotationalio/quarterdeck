@@ -64,6 +64,13 @@ func Open(uri *dsn.DSN) (_ *Store, err error) {
 		return nil, err
 	}
 
+	// Set the database to readonly mode after initializing the schema.
+	if uri.ReadOnly {
+		if _, err = s.conn.Exec("PRAGMA query_only = on;"); err != nil {
+			return nil, errors.Fmt("could not set database to readonly mode: %w", err)
+		}
+	}
+
 	return s, nil
 }
 
@@ -137,10 +144,11 @@ func dbe(err error) error {
 
 	var sqliteErr sqlite3.Error
 	if errors.As(err, &sqliteErr) {
+		if errors.Is(sqliteErr.Code, sqlite3.ErrReadonly) {
+			return errors.ErrReadOnly
+		}
+
 		if errors.Is(sqliteErr.Code, sqlite3.ErrConstraint) {
-			// TODO: (ticket sc-32339) requires a minor fix to increase
-			// the granularity of the returned error because ErrConstraint
-			// can be a result of different types of constraint errors
 			return errors.ErrAlreadyExists
 		}
 	}

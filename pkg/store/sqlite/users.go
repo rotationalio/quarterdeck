@@ -16,7 +16,7 @@ import (
 
 const (
 	listUsersSQL   = "SELECT id, name, email, last_login, created, modified FROM users ORDER BY created DESC"
-	filterUsersSQL = "SELECT u.id, u.name, u.email, u.role_id, u.last_login, u.created, u.modified FROM users u JOIN roles r ON role_id=r.id WHERE r.title=:role COLLATE NOCASE ORDER BY u.created DESC"
+	filterUsersSQL = "SELECT u.id, u.name, u.email, u.last_login, u.created, u.modified FROM users u JOIN user_roles ur ON u.id=ur.user_id JOIN roles r ON ur.role_id=r.id WHERE r.title=:role COLLATE NOCASE ORDER BY u.created DESC"
 )
 
 func (s *Store) ListUsers(ctx context.Context, page *models.UserPage) (out *models.UserList, err error) {
@@ -40,11 +40,11 @@ func (tx *Tx) ListUsers(page *models.UserPage) (out *models.UserList, err error)
 	// TODO: handle pagination
 	out = &models.UserList{
 		Users: make([]*models.User, 0),
-		Page:  &models.UserPage{Page: *models.PageFrom(&page.Page), Role: page.Role},
+		Page:  models.UserPageFrom(page),
 	}
 
 	var rows *sql.Rows
-	if page.Role != "" {
+	if page != nil && page.Role != "" {
 		if rows, err = tx.Query(filterUsersSQL, sql.Named("role", page.Role)); err != nil {
 			return nil, dbe(err)
 		}
@@ -69,8 +69,8 @@ func (tx *Tx) ListUsers(page *models.UserPage) (out *models.UserList, err error)
 
 const (
 	defaultRolesSQL   = "SELECT id FROM roles WHERE is_default='t'"
-	createUserSQL     = "INSERT INTO user (id, name, email, password, last_login, created, modified) VALUES (:id, :name, :email, :password, :lastLogin, :created, :modified)"
-	createUserRoleSQL = "INSERT INTO user_roles (user_id, role_id) VALUES (:userID, :roleID)"
+	createUserSQL     = "INSERT INTO users (id, name, email, password, last_login, created, modified) VALUES (:id, :name, :email, :password, :lastLogin, :created, :modified)"
+	createUserRoleSQL = "INSERT INTO user_roles (user_id, role_id, created, modified) VALUES (:userID, :roleID, :created, :modified)"
 )
 
 func (s *Store) CreateUser(ctx context.Context, user *models.User) (err error) {
@@ -124,7 +124,13 @@ func (tx *Tx) CreateUser(user *models.User) (err error) {
 	}
 
 	for _, role := range roles {
-		if _, err = tx.Exec(createUserRoleSQL, sql.Named("userID", user.ID), sql.Named("roleID", role.ID)); err != nil {
+		params := []any{
+			sql.Named("userID", user.ID),
+			sql.Named("roleID", role.ID),
+			sql.Named("created", user.Created),
+			sql.Named("modified", user.Modified),
+		}
+		if _, err = tx.Exec(createUserRoleSQL, params...); err != nil {
 			return dbe(err)
 		}
 	}
