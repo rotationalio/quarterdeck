@@ -33,16 +33,15 @@ func TestUserParams(t *testing.T) {
 		Name:      sql.NullString{Valid: true, String: "Carol King"},
 		Email:     "cking@example.com",
 		Password:  "$argon2id$v=19$m=65536,t=1,p=2$GCSPNYPRVwBT9E559vqOnQ==$QMiOdjzXvvyNiQid3G7WY6E2zprY00UI4xJDCbd1HkM=",
-		RoleID:    1,
 		LastLogin: sql.NullTime{Valid: false},
 	}
 
 	CheckParams(t, user.Params(),
 		[]string{
-			"id", "name", "email", "password", "roleID", "lastLogin", "created", "modified",
+			"id", "name", "email", "password", "lastLogin", "created", "modified",
 		},
 		[]any{
-			user.ID, user.Name, user.Email, user.Password, user.RoleID, user.LastLogin, user.Created, user.Modified,
+			user.ID, user.Name, user.Email, user.Password, user.LastLogin, user.Created, user.Modified,
 		},
 	)
 }
@@ -54,7 +53,6 @@ func TestUserScan(t *testing.T) {
 			"Greg Davies",              // Name
 			"gdavies@example.com",      // Email
 			"$argon2id$v=19$m=65536,t=1,p=2$GCSPNYPRVwBT9E559vqOnQ==$QMiOdjzXvvyNiQid3G7WY6E2zprY00UI4xJDCbd1HkM=", // Password
-			int64(808),                      // RoleID
 			time.Now().Add(-1 * time.Hour),  // LastLogin
 			time.Now().Add(-14 * time.Hour), // Created
 			time.Now().Add(-1 * time.Hour),  // Modified
@@ -71,10 +69,9 @@ func TestUserScan(t *testing.T) {
 		require.Equal(t, data[1], model.Name.String, "expected field Name to match data[1]")
 		require.Equal(t, data[2], model.Email, "expected field Email to match data[2]")
 		require.Equal(t, data[3], model.Password, "expected field Password to match data[3]")
-		require.Equal(t, data[4], model.RoleID, "expected field RoleID to match data[4]")
-		require.Equal(t, data[5], model.LastLogin.Time, "expected field LastLogin to match data[5]")
-		require.Equal(t, data[6], model.Created, "expected field Created to match data[6]")
-		require.Equal(t, data[7], model.Modified, "expected field Modified to match data[7]")
+		require.Equal(t, data[4], model.LastLogin.Time, "expected field LastLogin to match data[5]")
+		require.Equal(t, data[5], model.Created, "expected field Created to match data[6]")
+		require.Equal(t, data[6], model.Modified, "expected field Modified to match data[7]")
 	})
 
 	t.Run("Nulls", func(t *testing.T) {
@@ -83,7 +80,6 @@ func TestUserScan(t *testing.T) {
 			nil,                        // Name (testing null string)
 			"email@example.com",        // Email
 			"Password",                 // Password
-			int64(808),                 // RoleID
 			nil,                        // LastLogin (testing null time)
 			time.Now(),                 // Created
 			time.Time{},                // Modified (testing zero time)
@@ -118,7 +114,6 @@ func TestUserScanSummary(t *testing.T) {
 			ulid.MakeSecure().String(),    // ID
 			"First Last",                  // Name
 			"email@example.com",           // Email
-			int64(808),                    // RoleID
 			time.Now(),                    // LastLogin
 			time.Now(),                    // Created
 			time.Now().Add(1 * time.Hour), // Modified
@@ -135,10 +130,9 @@ func TestUserScanSummary(t *testing.T) {
 		require.Equal(t, data[1], model.Name.String, "expected field Name to match data[1]")
 		require.Equal(t, data[2], model.Email, "expected field Email to match data[2]")
 		require.Zero(t, model.Password, "important! password should be empty in summary scan")
-		require.Equal(t, data[3], model.RoleID, "expected field RoleID to match data[3]")
-		require.Equal(t, data[4], model.LastLogin.Time, "expected field LastLogin to match data[4]")
-		require.Equal(t, data[5], model.Created, "expected field Created to match data[5]")
-		require.Equal(t, data[6], model.Modified, "expected field Modified to match data[6]")
+		require.Equal(t, data[3], model.LastLogin.Time, "expected field LastLogin to match data[4]")
+		require.Equal(t, data[4], model.Created, "expected field Created to match data[5]")
+		require.Equal(t, data[5], model.Modified, "expected field Modified to match data[6]")
 	})
 
 	t.Run("Error", func(t *testing.T) {
@@ -151,7 +145,7 @@ func TestUserScanSummary(t *testing.T) {
 	})
 }
 
-func TestUserRole(t *testing.T) {
+func TestUserRoles(t *testing.T) {
 	user := &User{
 		Model: Model{
 			ID:       modelID,
@@ -162,23 +156,28 @@ func TestUserRole(t *testing.T) {
 		Email: "cking@example.com",
 	}
 
-	_, err := user.Role()
+	_, err := user.Roles()
 	require.ErrorIs(t, err, errors.ErrMissingAssociation, "expected error when accessing role before setting it")
-	require.Zero(t, user.RoleID, "expected RoleID to be zero before setting role")
 
-	user.SetRole(&Role{
+	user.SetRoles([]*Role{{
 		ID:          int64(410),
-		Title:       "Admin",
-		Description: "Administrator role with full permissions",
+		Title:       "Observer",
+		Description: "observer role to view the system",
 		IsDefault:   true,
 		Created:     created,
 		Modified:    modified,
-	})
+	}, {
+		ID:          int64(411),
+		Title:       "Editor",
+		Description: "Editor role with limited permissions",
+		IsDefault:   false,
+		Created:     created,
+		Modified:    modified,
+	}})
 
-	require.Equal(t, int64(410), user.RoleID, "expected RoleID to match set role ID")
-	role, err := user.Role()
+	roles, err := user.Roles()
 	require.NoError(t, err, "expected no error when accessing role after setting it")
-	require.Equal(t, "Admin", role.Title, "expected role title to match set role title")
+	require.Len(t, roles, 2, "expected two roles to be set for the user")
 }
 
 func TestUserPermissions(t *testing.T) {

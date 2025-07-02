@@ -49,8 +49,8 @@ func NewIssuer(conf config.AuthConfig) (_ *ClaimsIssuer, err error) {
 			return nil, errors.Fmt("could not parse %s as a key id: %w", kid, err)
 		}
 
-		keypair := &keys{}
-		if err = keypair.Load(path); err != nil {
+		var keypair SigningKey
+		if keypair, err = LoadKeys(path); err != nil {
 			return nil, err
 		}
 

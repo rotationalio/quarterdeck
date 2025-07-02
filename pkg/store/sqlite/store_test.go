@@ -17,6 +17,7 @@ import (
 // ===========================================================================
 // Top Level Tests
 // ===========================================================================
+
 func TestConnectClose(t *testing.T) {
 	t.Run("ReadWrite", func(t *testing.T) {
 		uri, _ := dsn.Parse("sqlite3:///" + filepath.Join(t.TempDir(), "test.db"))
@@ -91,7 +92,9 @@ func (s *storeTestSuite) SetupSuite() {
 }
 
 func (s *storeTestSuite) AfterTest(suiteName, testName string) {
-	s.ResetDB()
+	if !s.dsn.ReadOnly {
+		s.ResetDB()
+	}
 }
 
 func (s *storeTestSuite) CreateDB() {
@@ -117,12 +120,24 @@ func (s *storeTestSuite) CreateDB() {
 	require.NoError(err, "could not open transaction")
 	defer tx.Rollback()
 
+	if len(paths) > 0 && s.dsn.ReadOnly {
+		// If we're in read-only mode, temporarily disable it to insert fixtures.
+		_, err = tx.Exec("PRAGMA query_only = off;")
+		require.NoError(err, "could not disable query_only pragma for read-only mode")
+	}
+
 	for _, path := range paths {
 		stmt, err := os.ReadFile(path)
 		require.NoError(err, "could not read query from file")
 
 		_, err = tx.Exec(string(stmt))
 		require.NoError(err, "could not execute sql query from fixture %s", path)
+	}
+
+	if len(paths) > 0 && s.dsn.ReadOnly {
+		// Re-enable read-only mode after executing the fixtures.
+		_, err = tx.Exec("PRAGMA query_only = on;")
+		require.NoError(err, "could not re-enable query_only pragma for read-only mode")
 	}
 
 	require.NoError(tx.Commit(), "could not commit transaction")
@@ -135,8 +150,26 @@ func (s *storeTestSuite) ResetDB() {
 	s.CreateDB()
 }
 
+func (s *storeTestSuite) Count(table string) (count int) {
+	require := s.Require()
+	tx, err := s.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
+	require.NoError(err, "could not begin read-only transaction")
+	defer tx.Rollback()
+
+	query := "SELECT count(*) FROM " + table
+	row := tx.QueryRow(query)
+	require.NoError(row.Scan(&count), "could not count rows in table %s", table)
+
+	require.NoError(tx.Commit(), "could not commit transaction")
+	return count
+}
+
 func (s *storeTestSuite) ReadOnly() bool {
 	return s.dsn.ReadOnly
+}
+
+func (S *storeTestSuite) Context() context.Context {
+	return context.Background()
 }
 
 func TestStore(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/store/dsn"
 	"go.rtnl.ai/quarterdeck/pkg/store/txn"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/mattn/go-sqlite3"
 )
 
 // Store implements the store.Store interface using sqlite3 as the storage backend.
@@ -62,6 +62,13 @@ func Open(uri *dsn.DSN) (_ *Store, err error) {
 	// Ensure the schema is initialized.
 	if err = s.InitializeSchema(empty); err != nil {
 		return nil, err
+	}
+
+	// Set the database to readonly mode after initializing the schema.
+	if uri.ReadOnly {
+		if _, err = s.conn.Exec("PRAGMA query_only = on;"); err != nil {
+			return nil, errors.Fmt("could not set database to readonly mode: %w", err)
+		}
 	}
 
 	return s, nil
@@ -121,4 +128,26 @@ func (t *Tx) QueryRow(query string, args ...any) *sql.Row {
 
 func (t *Tx) Exec(query string, args ...any) (sql.Result, error) {
 	return t.tx.Exec(query, args...)
+}
+
+// ===========================================================================
+// Database Helpers
+// ===========================================================================
+func dbe(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return errors.ErrNotFound
+	}
+
+	var sqliteErr sqlite3.Error
+	if errors.As(err, &sqliteErr) {
+		if errors.Is(sqliteErr.Code, sqlite3.ErrReadonly) {
+			return errors.ErrReadOnly
+		}
+	}
+
+	return errors.Fmt("sqlite3 error: %w", err)
 }

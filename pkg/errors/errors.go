@@ -52,4 +52,5 @@ var (
 	New = errors.New
 	Fmt = fmt.Errorf
 	Is  = errors.Is
+	As  = errors.As
 )

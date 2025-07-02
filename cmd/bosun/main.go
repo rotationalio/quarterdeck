@@ -2,9 +2,13 @@ package main
 
 import (
 	"database/sql/driver"
+	"encoding/hex"
 	"fmt"
 	"log"
+	"math/rand/v2"
 	"os"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -68,6 +72,34 @@ func main() {
 			Category: "testing",
 			Action:   veroToken,
 			Flags:    []cli.Flag{},
+		},
+		{
+			Name:      "fixture",
+			Usage:     "generate a fixture stub for adding to database test cases",
+			Args:      true,
+			UsageText: "bosun fixture [ulid|int|modified|email|time|t|f|_|'string'|d|b'blob' ...]",
+			Category:  "testing",
+			Action:    fixtureStub,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:    "model",
+					Aliases: []string{"m"},
+					Usage:   "name of the model to generate a fixture stub for",
+					Value:   "",
+				},
+				&cli.TimestampFlag{
+					Name:   "epoch",
+					Usage:  "the date/time the database was created, to generate fixture timestamps",
+					Layout: time.RFC3339,
+					Value:  cli.NewTimestamp(time.Date(2025, 2, 14, 11, 21, 42, 0, time.UTC)),
+				},
+				&cli.DurationFlag{
+					Name:    "age",
+					Aliases: []string{"a"},
+					Usage:   "the age of the database to use for generating timestamps in the fixture stub",
+					Value:   time.Hour * 24 * 120, // Default to three months
+				},
+			},
 		},
 	}
 
@@ -148,4 +180,89 @@ func veroToken(c *cli.Context) (err error) {
 
 	fmt.Println(value)
 	return nil
+}
+
+var isDigit = regexp.MustCompile(`^\d+$`)
+
+func fixtureStub(c *cli.Context) error {
+	params := make([]string, 0, c.NArg()+2)
+	created, modified := auditTimes(c)
+
+	for i := 0; i < c.NArg(); i++ {
+		field := c.Args().Get(i)
+		switch field {
+		case "ulid":
+			uu, _ := ulid.New(ulid.Timestamp(created), ulid.DefaultEntropy())
+			params = append(params, fmt.Sprintf("x'%s'", hex.EncodeToString(uu[:])))
+		case "int":
+			params = append(params, fmt.Sprintf("'%d'", rand.IntN(1000)))
+		case "modified":
+			params = append(params, fmt.Sprintf("'%s'", modified.Format(time.RFC3339)))
+		case "email":
+			params = append(params, "'@example.com'")
+		case "time", "ts", "timestamp":
+			ts := timeInRange(created, modified)
+			params = append(params, fmt.Sprintf("'%s'", ts.Format(time.RFC3339)))
+		case "t", "true":
+			params = append(params, "'t'")
+		case "f", "false":
+			params = append(params, "'f'")
+		case "b", "blank", "_":
+			params = append(params, "''")
+		case "N", "null", "NULL", "nil":
+			params = append(params, "NULL")
+		default:
+			// If it is a number write it directly; if it is a string write it as a
+			// quoted string. If it is prefixed with a b' then treat it as a blob.
+			if strings.HasPrefix(field, "b'") {
+				// Remove the b' prefix and the trailing ' to get the hex value.
+				blob := strings.TrimSuffix(strings.TrimPrefix(field, "b'"), "'")
+				params = append(params, fmt.Sprintf("x'%s'", hex.EncodeToString([]byte(blob))))
+				continue
+			}
+
+			if strings.HasPrefix(field, "x'") {
+				// Write an x field exactly as it is, assuming it is a hex value.
+				params = append(params, field)
+				continue
+			}
+
+			if isDigit.MatchString(field) {
+				params = append(params, field)
+				continue
+			}
+
+			field = strings.Trim(field, `'"`)
+			params = append(params, fmt.Sprintf("'%s'", field))
+		}
+	}
+
+	params = append(params, fmt.Sprintf("'%s'", created.Format(time.RFC3339)))
+	params = append(params, fmt.Sprintf("'%s'", modified.Format(time.RFC3339)))
+
+	fmt.Printf("(%s),\n", strings.Join(params, ", "))
+	return nil
+}
+
+func auditTimes(c *cli.Context) (created, modified time.Time) {
+	var epochs time.Time
+	if ts := c.Timestamp("epoch"); ts != nil {
+		epochs = *ts
+	} else {
+		// Default to a fixed date if not provided
+		epochs = time.Date(2025, 2, 14, 11, 21, 42, 0, time.UTC)
+	}
+
+	epoche := epochs.Add(c.Duration("age"))
+
+	created = timeInRange(epochs, epoche)
+	modified = timeInRange(created, epoche)
+
+	return created, modified
+}
+
+func timeInRange(start, end time.Time) time.Time {
+	duration := end.Sub(start)
+	increase := time.Duration(rand.Int64N(int64(duration)))
+	return start.Add(increase)
 }

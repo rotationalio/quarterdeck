@@ -11,9 +11,8 @@ type User struct {
 	Name        sql.NullString
 	Email       string
 	Password    string
-	RoleID      int64
 	LastLogin   sql.NullTime
-	role        *Role
+	roles       []*Role
 	permissions []string
 }
 
@@ -28,6 +27,23 @@ type UserPage struct {
 	Role string `json:"role,omitempty"`
 }
 
+func UserPageFrom(in *UserPage) (out *UserPage) {
+	out = &UserPage{
+		Page: Page{
+			PageSize: DefaultPageSize,
+		},
+	}
+
+	if in != nil {
+		if in.PageSize > 0 {
+			out.PageSize = in.PageSize
+		}
+		out.Role = in.Role
+	}
+
+	return out
+}
+
 //===========================================================================
 // Scanning and Params
 //===========================================================================
@@ -39,7 +55,6 @@ func (u *User) Scan(scanner Scanner) error {
 		&u.Name,
 		&u.Email,
 		&u.Password,
-		&u.RoleID,
 		&u.LastLogin,
 		&u.Created,
 		&u.Modified,
@@ -52,7 +67,6 @@ func (u *User) ScanSummary(scanner Scanner) error {
 		&u.ID,
 		&u.Name,
 		&u.Email,
-		&u.RoleID,
 		&u.LastLogin,
 		&u.Created,
 		&u.Modified,
@@ -66,7 +80,6 @@ func (u User) Params() []any {
 		sql.Named("name", u.Name),
 		sql.Named("email", u.Email),
 		sql.Named("password", u.Password),
-		sql.Named("roleID", u.RoleID),
 		sql.Named("lastLogin", u.LastLogin),
 		sql.Named("created", u.Created),
 		sql.Named("modified", u.Modified),
@@ -79,17 +92,16 @@ func (u User) Params() []any {
 
 // Role returns the role associated with the user, if set, otherwise returns
 // ErrMissingAssociation.
-func (u User) Role() (*Role, error) {
-	if u.role == nil {
+func (u User) Roles() ([]*Role, error) {
+	if u.roles == nil {
 		return nil, errors.ErrMissingAssociation
 	}
-	return u.role, nil
+	return u.roles, nil
 }
 
 // SetRole sets the role for the user and updates the RoleID field.
-func (u *User) SetRole(role *Role) {
-	u.role = role
-	u.RoleID = role.ID
+func (u *User) SetRoles(roles []*Role) {
+	u.roles = roles
 }
 
 // Permissions returns the permissions associated with the user, if set.

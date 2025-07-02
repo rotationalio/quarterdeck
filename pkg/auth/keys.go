@@ -29,7 +29,6 @@ func GenerateKeys() (_ SigningKey, err error) {
 // SigningKey is an interface for cryptographic keys used for token signing without
 // the need for callers to understand the specific signature algorithm.
 type SigningKey interface {
-	Load(path string) error
 	Dump(path string) error
 	PublicKey() crypto.PublicKey
 	PrivateKey() crypto.PrivateKey
@@ -42,58 +41,59 @@ type keys struct {
 
 // Load the specified keys from the filesystem
 // TODO: support loading keys from a vault or other secure storage.
-func (k *keys) Load(path string) (err error) {
+func LoadKeys(path string) (_ SigningKey, err error) {
 	var f *os.File
 	if f, err = os.Open(path); err != nil {
-		return errors.Fmt("could not open %s: %w", path, err)
+		return nil, errors.Fmt("could not open %s: %w", path, err)
 	}
 	defer f.Close()
 
+	keypair := &keys{}
 	for block, err := range pemBlocks(f) {
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return err
+			return nil, err
 		}
 
 		switch block.Type {
 		case BlockPublicKey:
-			if k.public != nil {
-				return errors.Fmt("multiple public keys found in %s", path)
+			if keypair.public != nil {
+				return nil, errors.Fmt("multiple public keys found in %s", path)
 			}
 			var pub any
 			if pub, err = x509.ParsePKIXPublicKey(block.Bytes); err != nil {
-				return errors.Fmt("could not parse public key in %s: %w", path, err)
+				return nil, errors.Fmt("could not parse public key in %s: %w", path, err)
 			}
 
 			var ok bool
-			if k.public, ok = pub.(ed25519.PublicKey); !ok {
-				return errors.Fmt("public key in %s is not an ed25519 public key", path)
+			if keypair.public, ok = pub.(ed25519.PublicKey); !ok {
+				return nil, errors.Fmt("public key in %s is not an ed25519 public key", path)
 			}
 		case BlockPrivateKey:
-			if k.private != nil {
-				return errors.Fmt("multiple private keys found in %s", path)
+			if keypair.private != nil {
+				return nil, errors.Fmt("multiple private keys found in %s", path)
 			}
 
 			var prv any
 			if prv, err = x509.ParsePKCS8PrivateKey(block.Bytes); err != nil {
-				return errors.Fmt("could not parse private key in %s: %w", path, err)
+				return nil, errors.Fmt("could not parse private key in %s: %w", path, err)
 			}
 
 			var ok bool
-			if k.private, ok = prv.(ed25519.PrivateKey); !ok {
-				return errors.Fmt("private key in %s is not an ed25519 private key", path)
+			if keypair.private, ok = prv.(ed25519.PrivateKey); !ok {
+				return nil, errors.Fmt("private key in %s is not an ed25519 private key", path)
 			}
 		default:
-			return errors.Fmt("unexpected PEM block type %q in %s", block.Type, path)
+			return nil, errors.Fmt("unexpected PEM block type %q in %s", block.Type, path)
 		}
 	}
 
-	if k.public == nil || k.private == nil {
-		return errors.Fmt("missing public or private key in %s", path)
+	if keypair.public == nil || keypair.private == nil {
+		return nil, errors.Fmt("missing public or private key in %s", path)
 	}
-	return nil
+	return keypair, nil
 }
 
 func (k *keys) Dump(path string) (err error) {
