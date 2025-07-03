@@ -64,6 +64,10 @@ func (tx *Tx) ListUsers(page *models.UserPage) (out *models.UserList, err error)
 		out.Users = append(out.Users, user)
 	}
 
+	if err = rows.Err(); err != nil {
+		return nil, dbe(err)
+	}
+
 	return out, nil
 }
 
