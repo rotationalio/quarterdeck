@@ -42,7 +42,7 @@ func (s *storeTestSuite) TestCreateUser() {
 
 	s.Run("ReadOnly", func() {
 		if !s.ReadOnly() {
-			s.T().Skip("skipping read-only test in read-write mode")
+			s.T().Skip("skipping create read-only error test in read-write mode")
 		}
 
 		user := &models.User{
@@ -56,7 +56,7 @@ func (s *storeTestSuite) TestCreateUser() {
 
 	s.Run("CreateDefaultRole", func() {
 		if s.ReadOnly() {
-			s.T().Skip("skipping write test in read-only mode")
+			s.T().Skip("skipping create test in read-only mode")
 		}
 
 		require := s.Require()
@@ -79,7 +79,7 @@ func (s *storeTestSuite) TestCreateUser() {
 
 	s.Run("CreateMultipleRoles", func() {
 		if s.ReadOnly() {
-			s.T().Skip("skipping write test in read-only mode")
+			s.T().Skip("skipping create test in read-only mode")
 		}
 
 		require := s.Require()

@@ -155,7 +155,42 @@ func (tx *Tx) RetrieveRole(titleOrName any) (out *models.Role, err error) {
 		return nil, dbe(err)
 	}
 
+	// Retrieve associated permissions for the role.
+	var permissions []*models.Permission
+	if permissions, err = tx.rolePermissions(out.ID); err != nil {
+		return nil, err
+	}
+	out.SetPermissions(permissions)
+
 	return out, nil
+}
+
+const rolePermissionsSQL = `SELECT p.* FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id WHERE rp.role_id=:id`
+
+func (tx *Tx) rolePermissions(roleID int64) (permissions []*models.Permission, err error) {
+	if roleID == 0 {
+		return nil, errors.ErrMissingID
+	}
+
+	rows, err := tx.Query(rolePermissionsSQL, sql.Named("id", roleID))
+	if err != nil {
+		return nil, dbe(err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		permission := &models.Permission{}
+		if err = permission.Scan(rows); err != nil {
+			return nil, err
+		}
+		permissions = append(permissions, permission)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, dbe(err)
+	}
+
+	return permissions, nil
 }
 
 const updateRoleSQL = `UPDATE roles SET title=:title, description=:description, is_default=:isDefault, modified=:modified WHERE id=:id`
@@ -419,16 +454,28 @@ func (tx *Tx) RetrievePermission(titleOrID any) (permission *models.Permission, 
 
 	switch t := titleOrID.(type) {
 	case int:
+		if t == 0 {
+			return nil, errors.ErrMissingID
+		}
+
 		query = retrievePermissionByIDSQL
 		param = sql.Named("id", int64(t)) // Convert int to int64 for SQL query
 	case int64:
+		if t == 0 {
+			return nil, errors.ErrMissingID
+		}
+
 		query = retrievePermissionByIDSQL
 		param = sql.Named("id", t)
 	case string:
+		if t == "" {
+			return nil, errors.ErrMissingID
+		}
+
 		query = retrievePermissionByTitleSQL
 		param = sql.Named("title", t)
 	case *models.Permission:
-		if t.ID == 0 || t.Title == "" {
+		if t.ID == 0 && t.Title == "" {
 			return nil, errors.ErrMissingID
 		}
 
@@ -444,7 +491,7 @@ func (tx *Tx) RetrievePermission(titleOrID any) (permission *models.Permission, 
 	}
 
 	permission = &models.Permission{}
-	if err = tx.QueryRow(query, param).Scan(permission); err != nil {
+	if err = permission.Scan(tx.QueryRow(query, param)); err != nil {
 		return nil, dbe(err)
 	}
 
