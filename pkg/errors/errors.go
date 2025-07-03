@@ -24,6 +24,7 @@ var (
 	ErrMissingID          = errors.New("id required for this resource")
 	ErrIDMismatch         = errors.New("resource id does not match target")
 	ErrAmbiguous          = errors.New("ambiguous query: more than one result returned")
+	ErrZeroValuedNotNull  = errors.New("query contains a not null field with a zero valued parameter")
 
 	// Server related errors
 	ErrNotAccepted = errors.New("the accepted formats are not offered by the server")
