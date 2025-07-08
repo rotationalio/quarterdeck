@@ -27,13 +27,14 @@ var (
 const (
 	refreshPath = "/v1/reauthenticate"
 	keyUse      = "sig"
+	keyTTL      = time.Hour * 24 * 30 // 30 days
 )
 
 type ClaimsIssuer struct {
 	conf            config.AuthConfig
 	keyID           ulid.ULID
 	key             crypto.PrivateKey
-	publicKeys      map[ulid.ULID]crypto.PublicKey
+	publicKeys      *JWKS
 	refreshAudience string
 }
 
@@ -45,7 +46,7 @@ func NewIssuer(conf config.AuthConfig) (_ *ClaimsIssuer, err error) {
 
 	issuer := &ClaimsIssuer{
 		conf:       conf,
-		publicKeys: make(map[ulid.ULID]crypto.PublicKey, len(conf.Keys)),
+		publicKeys: &JWKS{JSONWebKeySet: jose.JSONWebKeySet{Keys: make([]jose.JSONWebKey, 0, len(conf.Keys))}},
 	}
 
 	// Load the specified keys from the filesystem.
@@ -60,10 +61,8 @@ func NewIssuer(conf config.AuthConfig) (_ *ClaimsIssuer, err error) {
 			return nil, err
 		}
 
-		issuer.publicKeys[keyID] = keypair.PublicKey()
-		if issuer.key == nil || keyID.Time() > issuer.keyID.Time() {
-			issuer.key = keypair.PrivateKey()
-			issuer.keyID = keyID
+		if err = issuer.AddKey(keyID, keypair); err != nil {
+			return nil, errors.Fmt("could not add key %s: %w", kid, err)
 		}
 	}
 
@@ -74,9 +73,9 @@ func NewIssuer(conf config.AuthConfig) (_ *ClaimsIssuer, err error) {
 			return nil, err
 		}
 
-		issuer.keyID = ulid.MustNew(ulid.Now(), entropy)
-		issuer.key = keypair.PrivateKey()
-		issuer.publicKeys[issuer.keyID] = keypair.PublicKey()
+		if err = issuer.AddKey(secureULID(), keypair); err != nil {
+			return nil, errors.Fmt("could not add generated key: %w", err)
+		}
 
 		log.Warn().Str("keyID", issuer.keyID.String()).Msg("generated volatile claims issuer rsa key")
 	}
@@ -96,7 +95,7 @@ func (tm *ClaimsIssuer) Verify(tks string) (claims *Claims, err error) {
 	}
 
 	var token *jwt.Token
-	if token, err = jwt.ParseWithClaims(tks, &Claims{}, tm.keyFunc, opts...); err != nil {
+	if token, err = jwt.ParseWithClaims(tks, &Claims{}, tm.GetKey, opts...); err != nil {
 		return nil, err
 	}
 
@@ -119,7 +118,7 @@ func (tm *ClaimsIssuer) Parse(tks string) (claims *Claims, err error) {
 	// TODO: will this still verify the signature?
 	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
 	claims = &Claims{}
-	if _, err = parser.ParseWithClaims(tks, claims, tm.keyFunc); err != nil {
+	if _, err = parser.ParseWithClaims(tks, claims, tm.GetKey); err != nil {
 		return nil, err
 	}
 	return claims, nil
@@ -195,28 +194,48 @@ func (tm *ClaimsIssuer) CreateTokens(claims *Claims) (signedAccessToken, signedR
 }
 
 // Keys returns the map of ulid to public key for use externally.
-func (tm *ClaimsIssuer) Keys() (keys jose.JSONWebKeySet, err error) {
-	keys = jose.JSONWebKeySet{
-		Keys: make([]jose.JSONWebKey, 0, len(tm.publicKeys)),
+func (tm *ClaimsIssuer) Keys() (_ JWKS, err error) {
+	if len(tm.publicKeys.Keys) == 0 {
+		return JWKS{}, errors.ErrNoSigningKeys
 	}
-
-	for kid, pubkey := range tm.publicKeys {
-		key := jose.JSONWebKey{
-			Key:       pubkey,
-			KeyID:     kid.String(),
-			Algorithm: signingMethod.Alg(),
-			Use:       keyUse,
-		}
-
-		keys.Keys = append(keys.Keys, key)
-	}
-
-	return keys, nil
+	return *tm.publicKeys, nil
 }
 
 // CurrentKey returns the ulid of the current key being used to sign tokens.
 func (tm *ClaimsIssuer) CurrentKey() ulid.ULID {
 	return tm.keyID
+}
+
+// Expires returns the time when we expect the current key to expire. This is
+// calculated based on the key's creation time and the configured key TTL. If the
+// current time is after that TTL, then it returns a time 1 hour from now.
+func (tm *ClaimsIssuer) Expires() time.Time {
+	if tm.keyID.IsZero() {
+		return time.Now().Add(time.Hour) // Default to 1 hour if no key is set
+	}
+
+	// Calculate the expiration time based on the key's creation time and TTL
+	expiration := tm.keyID.Timestamp().Add(keyTTL)
+	if expiration.Before(time.Now()) {
+		return time.Now().Add(time.Hour) // If the key is already expired, return 1 hour from now
+	}
+	return expiration
+}
+
+// AddKey adds a new key to the issuer and updates the current key if the new is newer
+// than the current key. The keyID must be a valid ULID and the ULID timestamp must
+// fall after the current key's timestamp.
+func (tm *ClaimsIssuer) AddKey(keyID ulid.ULID, key SigningKey) (err error) {
+	if err = tm.publicKeys.Add(keyID, key); err != nil {
+		return err
+	}
+
+	if tm.key == nil || keyID.Time() > tm.keyID.Time() {
+		tm.key = key.PrivateKey()
+		tm.keyID = keyID
+	}
+
+	return nil
 }
 
 func (tm *ClaimsIssuer) RefreshAudience() string {
@@ -231,10 +250,10 @@ func (tm *ClaimsIssuer) RefreshAudience() string {
 	return tm.refreshAudience
 }
 
-// keyFunc is an jwt.KeyFunc that selects the public key from the list of managed
+// GetKey is an jwt.KeyFunc that selects the public key from the list of managed
 // internal keys based on the kid in the token header. If the kid does not exist an
 // error is returned and the token will not be able to be verified.
-func (tm *ClaimsIssuer) keyFunc(token *jwt.Token) (key interface{}, err error) {
+func (tm *ClaimsIssuer) GetKey(token *jwt.Token) (key interface{}, err error) {
 	// Per JWT security notice: do not forget to validate alg is expected
 	if token.Method.Alg() != signingMethod.Alg() {
 		return nil, errors.Fmt("unexpected signing method: %v", token.Method.Alg())
@@ -257,10 +276,18 @@ func (tm *ClaimsIssuer) keyFunc(token *jwt.Token) (key interface{}, err error) {
 	}
 
 	// Fetch the key from the list of managed keys
-	if key, ok = tm.publicKeys[keyID]; !ok {
+	keys := tm.publicKeys.Key(keyID.String())
+	if len(keys) == 0 {
 		return nil, errors.ErrUnknownSigningKey
 	}
-	return key, nil
+
+	// If we have multiple keys, return the first one; this should not happen
+	if len(keys) > 1 {
+		log.Warn().Str("keyID", keyID.String()).
+			Msg("multiple signing keys found for kid")
+	}
+
+	return keys[0].Key, nil
 }
 
 func secureULID() ulid.ULID {

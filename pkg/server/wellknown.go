@@ -1,31 +1,65 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
+	"net/url"
+	"time"
 
 	"github.com/gin-gonic/gin"
-	jose "github.com/go-jose/go-jose/v4"
 
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
+	"go.rtnl.ai/quarterdeck/pkg/auth"
+)
+
+const (
+	HeaderExpires      = "Expires"
+	HeaderCacheControl = "Cache-Control"
+	HeaderIfNoneMatch  = "If-None-Match"
+	HeaderEtag         = "ETag"
 )
 
 // JWKS returns the JSON web key set for the public keys that are currently being used
 // by Quarterdeck to sign JWT access and refresh tokens. External callers can use these
 // keys to verify that a JWT token was in fact issued by Quarterdeck and has not been
-// tampered with.
+// tampered with. This endpoint also provides Cache-Control, Expires, and ETag headers
+// to allow clients to cache the keys for a period of time, based on key rotation
+// periods on the Quarterdeck server.
 func (s *Server) JWKS(c *gin.Context) {
-	// TODO: add Cache-Control or Expires header to the response.
 	var (
-		keys jose.JSONWebKeySet
+		keys auth.JWKS
 		err  error
+		etag string
 	)
 
+	// Get the current version of the keys from the issuer.
 	if keys, err = s.issuer.Keys(); err != nil {
 		c.Error(err)
 		c.JSON(http.StatusInternalServerError, api.Error(http.StatusText(http.StatusInternalServerError)))
 		return
 	}
 
+	// Compute the etag from the keyset. This is used to determine if the keys have changed
+	// since the last time the client requested them.
+	if etag, err = keys.ETag(); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error(http.StatusText(http.StatusInternalServerError)))
+		return
+	}
+
+	if ifNoneMatch := c.GetHeader(HeaderIfNoneMatch); ifNoneMatch != "" {
+		if etag == ifNoneMatch {
+			c.Status(http.StatusNotModified)
+			return
+		}
+	}
+
+	expires := s.issuer.Expires()
+	maxAge := time.Until(expires).Seconds()
+
+	c.Header(HeaderExpires, expires.Format(time.RFC1123))
+	c.Header(HeaderCacheControl, fmt.Sprintf("public, max-age=%d, must-revalidate", int64(maxAge)))
+	c.Header(HeaderEtag, etag)
 	c.JSON(http.StatusOK, keys)
 }
 
@@ -34,7 +68,29 @@ func (s *Server) JWKS(c *gin.Context) {
 // clients understand how to authenticate with Quarterdeck.
 // TODO: once OpenID endpoints have been configured add them to this JSON response
 func (s *Server) OpenIDConfiguration(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, api.Error("todo"))
+	// Parse the token issuer for the OpenID configuration
+	base, err := url.Parse(s.conf.Auth.Issuer)
+	if err != nil {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error("openid is not configured correctly"))
+		return
+	}
+
+	openid := &api.OpenIDConfiguration{
+		Issuer:                        base.ResolveReference(&url.URL{Path: "/"}).String(),
+		JWKSURI:                       base.ResolveReference(&url.URL{Path: "/.well-known/jwks.json"}).String(),
+		ScopesSupported:               []string{"openid", "profile", "email"},
+		ResponseTypesSupported:        []string{"token", "id_token"},
+		CodeChallengeMethodsSupported: []string{"S256", "plain"},
+		ResponseModesSupported:        []string{"query", "fragment", "form_post"},
+		SubjectTypesSupported:         []string{"public"},
+		IDTokenSigningAlgValues:       []string{"HS256", "RS256", "EdDSA"},
+		TokenEndpointAuthMethods:      []string{"client_secret_basic", "client_secret_post"},
+		ClaimsSupported:               []string{"aud", "email", "exp", "iat", "iss", "sub"},
+		RequestURIParameterSupported:  false,
+	}
+
+	c.JSON(http.StatusOK, openid)
 }
 
 func (s *Server) SecurityTxt(c *gin.Context) {
