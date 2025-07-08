@@ -32,6 +32,7 @@ var testEnv = map[string]string{
 	"QD_AUTH_ACCESS_TOKEN_TTL":  "5m",
 	"QD_AUTH_REFRESH_TOKEN_TTL": "10m",
 	"QD_AUTH_TOKEN_OVERLAP":     "-2m",
+	"QD_SECURITY_TXT_PATH":      "./security.txt",
 }
 
 func TestConfig(t *testing.T) {
@@ -72,6 +73,7 @@ func TestConfig(t *testing.T) {
 	require.Equal(t, 20.00, conf.RateLimit.PerSecond)
 	require.Equal(t, 100, conf.RateLimit.Burst)
 	require.Equal(t, 60*time.Minute, conf.RateLimit.TTL)
+	require.Equal(t, testEnv["QD_SECURITY_TXT_PATH"], conf.Security.TxtPath)
 }
 
 func TestValidation(t *testing.T) {

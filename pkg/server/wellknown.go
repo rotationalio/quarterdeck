@@ -94,5 +94,12 @@ func (s *Server) OpenIDConfiguration(c *gin.Context) {
 }
 
 func (s *Server) SecurityTxt(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, api.Error("todo"))
+	// TODO: set Expires and Cache-Control headers for the security.txt file
+	// TODO: ensure Content-Type is set to text/plain
+	// TODO: generate the security.txt file if it does not exist
+	if s.conf.Security.TxtPath == "" {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	c.File(s.conf.Security.TxtPath)
 }
