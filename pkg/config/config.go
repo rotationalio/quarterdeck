@@ -22,7 +22,8 @@ type Config struct {
 	AllowOrigins []string            `split_words:"true" default:"http://localhost:8000" desc:"a list of allowed origins (domains including port) for CORS requests"`
 	RateLimit    RateLimitConfig     `split_words:"true"`
 	Database     DatabaseConfig
-	Token        AuthConfig
+	Auth         AuthConfig
+	Security     SecurityConfig
 	processed    bool
 }
 
@@ -45,6 +46,10 @@ type AuthConfig struct {
 	AccessTokenTTL  time.Duration     `split_words:"true" default:"1h" desc:"the duration for which access tokens are valid"`
 	RefreshTokenTTL time.Duration     `split_words:"true" default:"2h" desc:"the duration for which refresh tokens are valid"`
 	TokenOverlap    time.Duration     `split_words:"true" default:"-15m" desc:"the duration before an access token expires that the refresh token is valid"`
+}
+
+type SecurityConfig struct {
+	TxtPath string `split_words:"true" required:"false" desc:"path to the security.txt file to serve at /.well-known/security.txt"`
 }
 
 func New() (conf Config, err error) {

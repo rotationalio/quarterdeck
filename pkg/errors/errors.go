@@ -46,6 +46,7 @@ var (
 	ErrParseBearer       = errors.New("could not parse Bearer token from Authorization header")
 	ErrNoAuthorization   = errors.New("no authorization header or cookies in request")
 	ErrNoRefreshToken    = errors.New("cannot reauthenticate no refresh token in request")
+	ErrNoSigningKeys     = errors.New("claims issuer has no signing keys configured")
 )
 
 // Reduce namespacing conflicts by adding error functions from the errors package.

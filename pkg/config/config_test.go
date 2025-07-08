@@ -14,24 +14,25 @@ import (
 
 // The test environment for all config tests, manipulated using curEnv and setEnv
 var testEnv = map[string]string{
-	"QD_MAINTENANCE":             "false",
-	"QD_BIND_ADDR":               ":3636",
-	"QD_MODE":                    gin.TestMode,
-	"QD_LOG_LEVEL":               "error",
-	"QD_CONSOLE_LOG":             "true",
-	"QD_ALLOW_ORIGINS":           "http://localhost:8888,http://localhost:8080",
-	"QD_RATE_LIMIT_ENABLED":      "true",
-	"QD_RATE_LIMIT_PER_SECOND":   "20",
-	"QD_RATE_LIMIT_BURST":        "100",
-	"QD_RATE_LIMIT_TTL":          "1h",
-	"QD_DATABASE_URL":            "sqlite3:///test.db",
-	"QD_DATABASE_READ_ONLY":      "true",
-	"QD_TOKEN_KEYS":              "01GECSDK5WJ7XWASQ0PMH6K41K:testdata/01GECSDK5WJ7XWASQ0PMH6K41K.pem,01GECSJGDCDN368D0EENX23C7R:testdata/01GECSJGDCDN368D0EENX23C7R.pem",
-	"QD_TOKEN_AUDIENCE":          "http://localhost:8888",
-	"QD_TOKEN_ISSUER":            "http://localhost:1025",
-	"QD_TOKEN_ACCESS_TOKEN_TTL":  "5m",
-	"QD_TOKEN_REFRESH_TOKEN_TTL": "10m",
-	"QD_TOKEN_TOKEN_OVERLAP":     "-2m",
+	"QD_MAINTENANCE":            "false",
+	"QD_BIND_ADDR":              ":3636",
+	"QD_MODE":                   gin.TestMode,
+	"QD_LOG_LEVEL":              "error",
+	"QD_CONSOLE_LOG":            "true",
+	"QD_ALLOW_ORIGINS":          "http://localhost:8888,http://localhost:8080",
+	"QD_RATE_LIMIT_ENABLED":     "true",
+	"QD_RATE_LIMIT_PER_SECOND":  "20",
+	"QD_RATE_LIMIT_BURST":       "100",
+	"QD_RATE_LIMIT_TTL":         "1h",
+	"QD_DATABASE_URL":           "sqlite3:///test.db",
+	"QD_DATABASE_READ_ONLY":     "true",
+	"QD_AUTH_KEYS":              "01GECSDK5WJ7XWASQ0PMH6K41K:testdata/01GECSDK5WJ7XWASQ0PMH6K41K.pem,01GECSJGDCDN368D0EENX23C7R:testdata/01GECSJGDCDN368D0EENX23C7R.pem",
+	"QD_AUTH_AUDIENCE":          "http://localhost:8888",
+	"QD_AUTH_ISSUER":            "http://localhost:1025",
+	"QD_AUTH_ACCESS_TOKEN_TTL":  "5m",
+	"QD_AUTH_REFRESH_TOKEN_TTL": "10m",
+	"QD_AUTH_TOKEN_OVERLAP":     "-2m",
+	"QD_SECURITY_TXT_PATH":      "./security.txt",
 }
 
 func TestConfig(t *testing.T) {
@@ -62,16 +63,17 @@ func TestConfig(t *testing.T) {
 	require.Len(t, conf.AllowOrigins, 2)
 	require.Equal(t, testEnv["QD_DATABASE_URL"], conf.Database.URL)
 	require.True(t, conf.Database.ReadOnly)
-	require.Len(t, conf.Token.Keys, 2)
-	require.Equal(t, testEnv["QD_TOKEN_AUDIENCE"], conf.Token.Audience)
-	require.Equal(t, testEnv["QD_TOKEN_ISSUER"], conf.Token.Issuer)
-	require.Equal(t, 5*time.Minute, conf.Token.AccessTokenTTL)
-	require.Equal(t, 10*time.Minute, conf.Token.RefreshTokenTTL)
-	require.Equal(t, -2*time.Minute, conf.Token.TokenOverlap)
+	require.Len(t, conf.Auth.Keys, 2)
+	require.Equal(t, testEnv["QD_AUTH_AUDIENCE"], conf.Auth.Audience)
+	require.Equal(t, testEnv["QD_AUTH_ISSUER"], conf.Auth.Issuer)
+	require.Equal(t, 5*time.Minute, conf.Auth.AccessTokenTTL)
+	require.Equal(t, 10*time.Minute, conf.Auth.RefreshTokenTTL)
+	require.Equal(t, -2*time.Minute, conf.Auth.TokenOverlap)
 	require.True(t, conf.RateLimit.Enabled)
 	require.Equal(t, 20.00, conf.RateLimit.PerSecond)
 	require.Equal(t, 100, conf.RateLimit.Burst)
 	require.Equal(t, 60*time.Minute, conf.RateLimit.TTL)
+	require.Equal(t, testEnv["QD_SECURITY_TXT_PATH"], conf.Security.TxtPath)
 }
 
 func TestValidation(t *testing.T) {

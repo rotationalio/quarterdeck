@@ -6,10 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-jose/go-jose/v4"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/suite"
 	"go.rtnl.ai/quarterdeck/pkg/auth"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/ulid"
 
 	"go.rtnl.ai/quarterdeck/pkg/config"
 )
@@ -47,8 +49,9 @@ func (s *TokenTestSuite) TestClaimsIssuer() {
 
 	s.Run("KeyLoading", func() {
 		// Check that the keys are loaded correctly and the latest key is set as the current key.
-		keys := tm.Keys()
-		require.Len(keys, 2)
+		keys, err := tm.Keys()
+		require.NoError(err, "could not fetch jwks from issuer")
+		require.Len(keys.Keys, 2)
 		require.Equal("01JYSW0C9QK2TN3MQ1T7F411DX", tm.CurrentKey().String())
 	})
 
@@ -130,8 +133,9 @@ func (s *TokenTestSuite) TestKeysGenerated() {
 	require.NoError(err, "could not initialize token manager")
 
 	// Check that the keys are generated
-	keys := tm.Keys()
-	require.Len(keys, 1)
+	keys, err := tm.Keys()
+	require.NoError(err, "could not fetch jwks from issuer")
+	require.Len(keys.Keys, 1)
 }
 
 func (s *TokenTestSuite) TestValidTokens() {
@@ -449,6 +453,106 @@ func (s *TokenTestSuite) TestRefreshAudience() {
 			_ = tm.RefreshAudience()
 		})
 	})
+}
+
+func (s *TokenTestSuite) TestExpires() {
+	require := s.Require()
+
+	s.Run("NoKeys", func() {
+		// If the claims issuer has no keys configured, it should return 1 hour in the future.
+		issuer := &auth.ClaimsIssuer{}
+		expires := issuer.Expires()
+		require.WithinRange(expires, time.Now().Add(59*time.Minute), time.Now().Add(61*time.Minute))
+	})
+
+	s.Run("Current", func() {
+		// If the keyID is current, then it should return 30 days in the future.
+		conf := s.AuthConfig()
+		conf.Keys = nil
+		issuer, err := auth.NewIssuer(conf)
+		require.NoError(err, "could not initialize token manager")
+
+		expires := issuer.Expires()
+		require.WithinRange(expires, time.Now().Add(time.Hour*24*30).Add(-5*time.Minute), time.Now().Add(time.Hour*24*30).Add(5*time.Minute))
+	})
+
+	s.Run("Expired", func() {
+		// If the keyID expiration is before now, then it should return 1 hour in the future.
+		ts := time.Now().Add(-31 * 24 * time.Hour) // 31 days ago
+		keyID := ulid.MustNew(ulid.Timestamp(ts), rand.Reader)
+
+		conf := s.AuthConfig()
+		conf.Keys = map[string]string{
+			keyID.String(): "testdata/01JYSHGWTSMK34J100N2Q0D21C.pem",
+		}
+
+		issuer, err := auth.NewIssuer(conf)
+		require.NoError(err, "could not initialize token manager")
+
+		expires := issuer.Expires()
+		require.WithinRange(expires, time.Now().Add(59*time.Minute), time.Now().Add(61*time.Minute))
+	})
+}
+
+func (s *TokenTestSuite) TestGetKeyErrors() {
+	require := s.Require()
+	conf := s.AuthConfig()
+	tm, err := auth.NewIssuer(conf)
+	require.NoError(err, "could not initialize token manager")
+
+	tests := []struct {
+		token *jwt.Token
+		err   string
+	}{
+		{
+			token: &jwt.Token{
+				Header: map[string]any{"kid": "01JYSHGWTSMK34J100N2Q0D21C"},
+				Method: jwt.SigningMethodNone,
+			},
+			err: "unexpected signing method: none",
+		},
+		{
+			token: &jwt.Token{
+				Header: map[string]any{"kid": "\x000000foo"},
+				Method: jwt.SigningMethodEdDSA,
+			},
+			err: "could not parse kid: ulid: bad data size when unmarshaling",
+		},
+		{
+			token: &jwt.Token{
+				Method: jwt.SigningMethodEdDSA,
+			},
+			err: errors.ErrNoKeyID.Error(),
+		},
+		{
+			token: &jwt.Token{
+				Header: map[string]any{"kid": "00000000000000000000000000"},
+				Method: jwt.SigningMethodEdDSA,
+			},
+			err: errors.ErrInvalidKeyID.Error(),
+		},
+		{
+			token: &jwt.Token{
+				Header: map[string]any{"kid": "01JZNMMNJ4SR4DM9ZBMSSXHJEK"},
+				Method: jwt.SigningMethodEdDSA,
+			},
+			err: errors.ErrUnknownSigningKey.Error(),
+		},
+	}
+
+	for i, tc := range tests {
+		key, err := tm.GetKey(tc.token)
+		require.EqualError(err, tc.err, "expected error for test case %d", i)
+		require.Nil(key, "expected nil key for test case %d", i)
+	}
+
+}
+
+func (s *TokenTestSuite) TestAlgorithm() {
+	// Ensure the JWKS key algorithm constant is set correctly between libraries.
+	// We use go-jose for JWKS and golang-jwt for JWT tokens, so the algorithm must match.
+	require := s.Require()
+	require.Equal(auth.SigningMethod().Alg(), string(jose.EdDSA), "go-jose and golang-jwt signing methods do not match")
 }
 
 // Execute suite as a go test.

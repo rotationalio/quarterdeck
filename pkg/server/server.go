@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"go.rtnl.ai/quarterdeck/pkg/auth"
 	"go.rtnl.ai/quarterdeck/pkg/config"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/logger"
@@ -48,6 +49,7 @@ type Server struct {
 	store   store.Store
 	srv     *http.Server
 	router  *gin.Engine
+	issuer  *auth.ClaimsIssuer
 	url     *url.URL
 	started time.Time
 	errc    chan error
@@ -78,7 +80,10 @@ func New(conf config.Config) (s *Server, err error) {
 		errc: make(chan error, 1),
 	}
 
-	// TODO: configure the token issuer
+	// Initialize the claims issuer for JWT tokens.
+	if s.issuer, err = auth.NewIssuer(conf.Auth); err != nil {
+		return nil, err
+	}
 
 	// Configure the gin router
 	gin.SetMode(conf.Mode)

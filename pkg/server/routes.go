@@ -94,5 +94,13 @@ func (s *Server) setupRoutes() (err error) {
 		// v1.GET("/dbinfo", authenticate, authorize(permiss.ConfigView), s.DBInfo)
 	}
 
+	// The "well known" routes expose client security information and credentials.
+	wk := s.router.Group("/.well-known")
+	{
+		wk.GET("/jwks.json", s.JWKS)
+		wk.GET("/security.txt", s.SecurityTxt)
+		wk.GET("/openid-configuration", s.OpenIDConfiguration)
+	}
+
 	return nil
 }
