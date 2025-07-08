@@ -4,13 +4,16 @@ import (
 	"context"
 	"database/sql"
 	"io"
+	"time"
 
 	"go.rtnl.ai/quarterdeck/pkg/config"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store/dsn"
 	"go.rtnl.ai/quarterdeck/pkg/store/mock"
+	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/quarterdeck/pkg/store/sqlite"
 	"go.rtnl.ai/quarterdeck/pkg/store/txn"
+	"go.rtnl.ai/ulid"
 )
 
 // Open a directory storage provider with the specified URI. Database URLs should either
@@ -42,12 +45,23 @@ func Open(conf config.DatabaseConfig) (s Store, err error) {
 // interface is added to the Store interface, it should be added to the txn.Tx interface
 // as well (to ensure the Txn has the same methods as the Store).
 type Store interface {
-	io.Closer
-
 	Begin(context.Context, *sql.TxOptions) (txn.Txn, error)
+
+	io.Closer
+	UserStore
 }
 
 // The Stats interface exposes database statistics if it is available from the backend.
 type Stats interface {
 	Stats() sql.DBStats
+}
+
+type UserStore interface {
+	ListUsers(context.Context, *models.UserPage) (*models.UserList, error)
+	CreateUser(context.Context, *models.User) error
+	RetrieveUser(context.Context, any) (*models.User, error)
+	UpdateUser(context.Context, *models.User) error
+	UpdatePassword(context.Context, ulid.ULID, string) error
+	UpdateLastLogin(context.Context, ulid.ULID, time.Time) error
+	DeleteUser(context.Context, ulid.ULID) error
 }
