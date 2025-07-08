@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-jose/go-jose/v4"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/suite"
 	"go.rtnl.ai/quarterdeck/pkg/auth"
@@ -47,8 +48,9 @@ func (s *TokenTestSuite) TestClaimsIssuer() {
 
 	s.Run("KeyLoading", func() {
 		// Check that the keys are loaded correctly and the latest key is set as the current key.
-		keys := tm.Keys()
-		require.Len(keys, 2)
+		keys, err := tm.Keys()
+		require.NoError(err, "could not fetch jwks from issuer")
+		require.Len(keys.Keys, 2)
 		require.Equal("01JYSW0C9QK2TN3MQ1T7F411DX", tm.CurrentKey().String())
 	})
 
@@ -130,8 +132,9 @@ func (s *TokenTestSuite) TestKeysGenerated() {
 	require.NoError(err, "could not initialize token manager")
 
 	// Check that the keys are generated
-	keys := tm.Keys()
-	require.Len(keys, 1)
+	keys, err := tm.Keys()
+	require.NoError(err, "could not fetch jwks from issuer")
+	require.Len(keys.Keys, 1)
 }
 
 func (s *TokenTestSuite) TestValidTokens() {
@@ -449,6 +452,13 @@ func (s *TokenTestSuite) TestRefreshAudience() {
 			_ = tm.RefreshAudience()
 		})
 	})
+}
+
+func (s *TokenTestSuite) TestAlgorithm() {
+	// Ensure the JWKS key algorithm constant is set correctly between libraries.
+	// We use go-jose for JWKS and golang-jwt for JWT tokens, so the algorithm must match.
+	require := s.Require()
+	require.Equal(auth.SigningMethod().Alg(), string(jose.EdDSA), "go-jose and golang-jwt signing methods do not match")
 }
 
 // Execute suite as a go test.

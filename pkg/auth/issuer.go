@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	jose "github.com/go-jose/go-jose/v4"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/rs/zerolog/log"
 	"go.rtnl.ai/quarterdeck/pkg/config"
@@ -18,9 +19,14 @@ import (
 // Global variables that should not be changed except between major versions.
 var (
 	signingMethod = jwt.SigningMethodEdDSA
-	refreshPath   = "/v1/reauthenticate"
 	entropy       = ulid.Monotonic(rand.Reader, 1000)
 	entropyMu     sync.Mutex
+)
+
+// Global constants that should not be changed except between major versions.
+const (
+	refreshPath = "/v1/reauthenticate"
+	keyUse      = "sig"
 )
 
 type ClaimsIssuer struct {
@@ -76,6 +82,10 @@ func NewIssuer(conf config.AuthConfig) (_ *ClaimsIssuer, err error) {
 	}
 
 	return issuer, nil
+}
+
+func SigningMethod() jwt.SigningMethod {
+	return signingMethod
 }
 
 func (tm *ClaimsIssuer) Verify(tks string) (claims *Claims, err error) {
@@ -185,8 +195,23 @@ func (tm *ClaimsIssuer) CreateTokens(claims *Claims) (signedAccessToken, signedR
 }
 
 // Keys returns the map of ulid to public key for use externally.
-func (tm *ClaimsIssuer) Keys() map[ulid.ULID]crypto.PublicKey {
-	return tm.publicKeys
+func (tm *ClaimsIssuer) Keys() (keys jose.JSONWebKeySet, err error) {
+	keys = jose.JSONWebKeySet{
+		Keys: make([]jose.JSONWebKey, 0, len(tm.publicKeys)),
+	}
+
+	for kid, pubkey := range tm.publicKeys {
+		key := jose.JSONWebKey{
+			Key:       pubkey,
+			KeyID:     kid.String(),
+			Algorithm: signingMethod.Alg(),
+			Use:       keyUse,
+		}
+
+		keys.Keys = append(keys.Keys, key)
+	}
+
+	return keys, nil
 }
 
 // CurrentKey returns the ulid of the current key being used to sign tokens.

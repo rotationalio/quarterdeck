@@ -22,7 +22,7 @@ type Config struct {
 	AllowOrigins []string            `split_words:"true" default:"http://localhost:8000" desc:"a list of allowed origins (domains including port) for CORS requests"`
 	RateLimit    RateLimitConfig     `split_words:"true"`
 	Database     DatabaseConfig
-	Token        AuthConfig
+	Auth         AuthConfig
 	processed    bool
 }
 
