@@ -73,6 +73,32 @@ func SetSecureCookie(c *gin.Context, name, value string, maxAge int, domain stri
 	c.SetCookie(name, value, maxAge, "/", domain, secure, httpOnly)
 }
 
+// ClearAuthCookies is a helper function to clear authentication cookies on a gin
+// request to effectively log out a user.
+func ClearAuthCookies(c *gin.Context, audience []string) {
+	// TODO: the cookie domains could probably be cached since they won't change.
+	cookieDomains := make([]string, 0, len(audience))
+	for _, audience := range audience {
+		// NOTE: ignoring errors here since those cookies wouldn't have been set anyway
+		if url, err := url.Parse(audience); err == nil {
+			cookieDomains = append(cookieDomains, url.Hostname())
+		}
+	}
+
+	for _, domain := range cookieDomains {
+		ClearSecureCookie(c, AccessTokenCookie, domain, true)
+		ClearSecureCookie(c, RefreshTokenCookie, domain, false)
+	}
+}
+
+func ClearSecureCookie(c *gin.Context, name, domain string, httpOnly bool) {
+	// Secure is true unless the domain is localhost or ends in .local
+	secure := !IsLocalhost(domain)
+
+	// Clear the cookie by setting its expiration to one second ago
+	c.SetCookie(name, "", -1, "/", domain, secure, httpOnly)
+}
+
 func IsLocalhost(domain string) bool {
 	return domain == localhost || strings.HasSuffix(domain, localTLD)
 }
