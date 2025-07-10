@@ -72,9 +72,8 @@ func (tx *Tx) ListUsers(page *models.UserPage) (out *models.UserList, err error)
 }
 
 const (
-	defaultRolesSQL   = "SELECT id FROM roles WHERE is_default='t'"
-	createUserSQL     = "INSERT INTO users (id, name, email, password, last_login, email_verified, created, modified) VALUES (:id, :name, :email, :password, :lastLogin, :emailVerified, :created, :modified)"
-	createUserRoleSQL = "INSERT INTO user_roles (user_id, role_id, created, modified) VALUES (:userID, :roleID, :created, :modified)"
+	defaultRolesSQL = "SELECT id FROM roles WHERE is_default='t'"
+	createUserSQL   = "INSERT INTO users (id, name, email, password, last_login, email_verified, created, modified) VALUES (:id, :name, :email, :password, :lastLogin, :emailVerified, :created, :modified)"
 )
 
 func (s *Store) CreateUser(ctx context.Context, user *models.User) (err error) {
@@ -128,14 +127,8 @@ func (tx *Tx) CreateUser(user *models.User) (err error) {
 	}
 
 	for _, role := range roles {
-		params := []any{
-			sql.Named("userID", user.ID),
-			sql.Named("roleID", role.ID),
-			sql.Named("created", user.Created),
-			sql.Named("modified", user.Modified),
-		}
-		if _, err = tx.Exec(createUserRoleSQL, params...); err != nil {
-			return dbe(err)
+		if err = tx.AddRoleToUser(user.ID, role); err != nil {
+			return err
 		}
 	}
 
@@ -280,6 +273,10 @@ func (tx *Tx) UpdateUser(user *models.User) (err error) {
 	return nil
 }
 
+const (
+	updatePasswordSQL = "UPDATE users SET password=:password, modified=:modified WHERE id=:id"
+)
+
 func (s *Store) UpdatePassword(ctx context.Context, userID ulid.ULID, password string) (err error) {
 	var tx *Tx
 	if tx, err = s.BeginTx(ctx, nil); err != nil {
@@ -293,10 +290,6 @@ func (s *Store) UpdatePassword(ctx context.Context, userID ulid.ULID, password s
 
 	return tx.Commit()
 }
-
-const (
-	updatePasswordSQL = "UPDATE users SET password=:password, modified=:modified WHERE id=:id"
-)
 
 func (tx *Tx) UpdatePassword(userID ulid.ULID, password string) (err error) {
 	if userID.IsZero() {
@@ -398,6 +391,87 @@ func (tx *Tx) VerifyEmail(userID ulid.ULID) (err error) {
 
 	if nRows, _ := result.RowsAffected(); nRows == 0 {
 		return errors.ErrNotFound
+	}
+
+	return nil
+}
+
+const (
+	addRoleToUserSQL = "INSERT INTO user_roles (user_id, role_id, created) VALUES (:userID, :roleID, :created)"
+)
+
+func (s *Store) AddRoleToUser(ctx context.Context, userID ulid.ULID, role any) (err error) {
+	var tx *Tx
+	if tx, err = s.BeginTx(ctx, nil); err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err = tx.AddRoleToUser(userID, role); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (tx *Tx) AddRoleToUser(userID ulid.ULID, role any) (err error) {
+	if userID.IsZero() {
+		return errors.ErrMissingID
+	}
+
+	var roleID int64
+	if roleID, err = tx.resolveRoleID(role); err != nil {
+		return err
+	}
+
+	params := []any{
+		sql.Named("userID", userID),
+		sql.Named("roleID", roleID),
+		sql.Named("created", time.Now()),
+	}
+
+	if _, err = tx.Exec(addRoleToUserSQL, params...); err != nil {
+		return dbe(err)
+	}
+
+	return nil
+}
+
+const (
+	removeRoleFromUserSQL = "DELETE FROM user_roles WHERE user_id=:userID and role_id=:roleID"
+)
+
+func (s *Store) RemoveRoleFromUser(ctx context.Context, userID ulid.ULID, role any) (err error) {
+	var tx *Tx
+	if tx, err = s.BeginTx(ctx, nil); err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err = tx.RemoveRoleFromUser(userID, role); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (tx *Tx) RemoveRoleFromUser(userID ulid.ULID, role any) (err error) {
+	if userID.IsZero() {
+		return errors.ErrMissingID
+	}
+
+	var roleID int64
+	if roleID, err = tx.resolveRoleID(role); err != nil {
+		return err
+	}
+
+	params := []any{
+		sql.Named("userID", userID),
+		sql.Named("roleID", roleID),
+	}
+
+	if _, err = tx.Exec(removeRoleFromUserSQL, params...); err != nil {
+		return err
 	}
 
 	return nil

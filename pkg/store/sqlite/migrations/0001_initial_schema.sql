@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS roles (
 
 -- Permissions authorize users and api keys to perform specific actions.
 CREATE TABLE IF NOT EXISTS permissions (
-    id              INTEGER PRIMARY KEY,
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
     title           TEXT NOT NULL UNIQUE,
     description     TEXT,
     created         DATETIME NOT NULL,
@@ -64,7 +64,6 @@ CREATE TABLE IF NOT EXISTS role_permissions (
     role_id         INTEGER NOT NULL,
     permission_id   INTEGER NOT NULL,
     created         DATETIME NOT NULL,
-    modified        DATETIME NOT NULL,
     PRIMARY KEY (role_id, permission_id),
     FOREIGN KEY (role_id) REFERENCES roles (id) ON DELETE CASCADE,
     FOREIGN KEY (permission_id) REFERENCES permissions (id) ON DELETE CASCADE
@@ -75,7 +74,6 @@ CREATE TABLE IF NOT EXISTS user_roles (
     user_id         TEXT NOT NULL,
     role_id         INTEGER NOT NULL,
     created         DATETIME NOT NULL,
-    modified        DATETIME NOT NULL,
     PRIMARY KEY (user_id, role_id),
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
     FOREIGN KEY (role_id) REFERENCES roles (id) ON DELETE CASCADE
@@ -86,7 +84,6 @@ CREATE TABLE IF NOT EXISTS api_key_permissions (
     api_key_id      TEXT NOT NULL,
     permission_id   INTEGER NOT NULL,
     created         DATETIME NOT NULL,
-    modified        DATETIME NOT NULL,
     PRIMARY KEY (api_key_id, permission_id),
     FOREIGN KEY (api_key_id) REFERENCES api_keys (id) ON DELETE CASCADE,
     FOREIGN KEY (permission_id) REFERENCES permissions (id) ON DELETE CASCADE
