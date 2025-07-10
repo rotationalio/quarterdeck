@@ -17,10 +17,10 @@ func (s *storeTestSuite) TestUserList() {
 	require.Len(out.Users, 5, "should return the four fixture users")
 }
 
-func (s *storeTestSuite) TestUserListWithRole() {
+func (s *storeTestSuite) TestUserListWithRoleFilter() {
 	require := s.Require()
 	out, err := s.db.ListUsers(s.Context(), &models.UserPage{Role: "admin"})
-	require.NoError(err, "should be able to list users with role")
+	require.NoError(err, "should be able to list users with role filter")
 	require.NotNil(out, "should return a user list")
 	require.Len(out.Users, 2, "should return the two fixture users with the admin role")
 }
@@ -243,6 +243,142 @@ func (s *storeTestSuite) TestUpdateUser() {
 		require.NoError(err, "should be able to retrieve updated user after email verification")
 		require.True(cmpt.EmailVerified, "should set the user email verified status to true")
 		require.WithinDuration(cmpt.Modified, time.Now(), time.Minute)
+	})
+
+	s.Run("AddRole", func() {
+		// Ensure the user does not have the keyholder role before running these tests.
+		user, err := s.db.RetrieveUser(s.Context(), userID)
+		require.NoError(err, "could not verify test user roles before add role tests")
+
+		roles, err := user.Roles()
+		require.NoError(err, "could not verify test user roles before add role tests")
+
+		for _, role := range roles {
+			require.NotEqual(role.Title, "keyholder", "test user should not have keyholder role before add role test")
+			require.NotEqual(role.ID, int64(4), "test user should not have keyholder role ID before add role test")
+		}
+
+		s.Run("Title", func() {
+			err := s.db.AddRoleToUser(s.Context(), userID, "keyholder")
+			require.NoError(err, "should be able to add role to user")
+
+			// Fetch updated user for comparison
+			cmpt, err := s.db.RetrieveUser(s.Context(), userID)
+			require.NoError(err, "should be able to retrieve updated user after role addition")
+
+			found := false
+			roles, _ := cmpt.Roles()
+			for _, role := range roles {
+				if role.Title == "keyholder" {
+					found = true
+					break
+				}
+			}
+
+			require.True(found, "could not find the added role in the user's roles")
+			s.ResetDB()
+		})
+
+		s.Run("ID", func() {
+			err := s.db.AddRoleToUser(s.Context(), userID, 4)
+			require.NoError(err, "should be able to add role to user")
+
+			// Fetch updated user for comparison
+			cmpt, err := s.db.RetrieveUser(s.Context(), userID)
+			require.NoError(err, "should be able to retrieve updated user after role addition")
+
+			found := false
+			roles, _ := cmpt.Roles()
+			for _, role := range roles {
+				if role.ID == 4 {
+					found = true
+					break
+				}
+			}
+
+			require.True(found, "could not find the added role in the user's roles")
+			s.ResetDB()
+		})
+
+		s.Run("Model", func() {
+			err := s.db.AddRoleToUser(s.Context(), userID, &models.Role{ID: 4, Title: "keyholder", IsDefault: false})
+			require.NoError(err, "should be able to add role to user")
+
+			// Fetch updated user for comparison
+			cmpt, err := s.db.RetrieveUser(s.Context(), userID)
+			require.NoError(err, "should be able to retrieve updated user after role addition")
+
+			found := false
+			roles, _ := cmpt.Roles()
+			for _, role := range roles {
+				if role.ID == 4 {
+					found = true
+					break
+				}
+			}
+
+			require.True(found, "could not find the added role in the user's roles")
+			s.ResetDB()
+		})
+
+	})
+
+	s.Run("RemoveRole", func() {
+		// Ensure the user does have the admin role before running these tests.
+		user, err := s.db.RetrieveUser(s.Context(), userID)
+		require.NoError(err, "could not verify test user roles before add role tests")
+
+		roles, err := user.Roles()
+		require.NoError(err, "could not verify test user roles before add role tests")
+
+		found := false
+		for _, role := range roles {
+			if role.Title == "admin" && role.ID == int64(1) {
+				found = true
+				break
+			}
+		}
+
+		require.True(found, "could not find the admin role in the user's roles before removal test")
+
+		s.Run("Title", func() {
+			err := s.db.RemoveRoleFromUser(s.Context(), userID, "admin")
+			require.NoError(err, "should be able to remove role from user")
+
+			// Fetch updated user for comparison
+			cmpt, err := s.db.RetrieveUser(s.Context(), userID)
+			require.NoError(err, "should be able to retrieve updated user after role removal")
+
+			roles, _ := cmpt.Roles()
+			require.Empty(roles, "should not find the removed role in the user's roles after removal")
+			s.ResetDB()
+		})
+
+		s.Run("ID", func() {
+			err := s.db.RemoveRoleFromUser(s.Context(), userID, 1)
+			require.NoError(err, "should be able to remove role from user")
+
+			// Fetch updated user for comparison
+			cmpt, err := s.db.RetrieveUser(s.Context(), userID)
+			require.NoError(err, "should be able to retrieve updated user after role removal")
+
+			roles, _ := cmpt.Roles()
+			require.Empty(roles, "should not find the removed role in the user's roles after removal")
+			s.ResetDB()
+		})
+
+		s.Run("Model", func() {
+			err := s.db.RemoveRoleFromUser(s.Context(), userID, &models.Role{ID: 1, Title: "admin", IsDefault: false})
+			require.NoError(err, "should be able to remove role from user")
+
+			// Fetch updated user for comparison
+			cmpt, err := s.db.RetrieveUser(s.Context(), userID)
+			require.NoError(err, "should be able to retrieve updated user after role removal")
+
+			roles, _ := cmpt.Roles()
+			require.Empty(roles, "should not find the removed role in the user's roles after removal")
+			s.ResetDB()
+		})
 	})
 
 	s.Run("NotFound", func() {
