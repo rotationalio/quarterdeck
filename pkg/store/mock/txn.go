@@ -5,9 +5,12 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/quarterdeck/pkg/store/models"
+	"go.rtnl.ai/ulid"
 )
 
 // Transaction method names
@@ -24,6 +27,14 @@ type Tx struct {
 
 	OnCommit   func() error
 	OnRollback func() error
+
+	OnListUsers       func(*models.UserPage) (*models.UserList, error)
+	OnCreateUser      func(*models.User) error
+	OnRetrieveUser    func(any) (*models.User, error)
+	OnUpdateUser      func(*models.User) error
+	OnUpdatePassword  func(ulid.ULID, string) error
+	OnUpdateLastLogin func(ulid.ULID, time.Time) error
+	OnDeleteUser      func(ulid.ULID) error
 }
 
 //===========================================================================
@@ -119,4 +130,64 @@ func (tx *Tx) Rollback() (err error) {
 
 	tx.rollback = true
 	return err
+}
+
+//===========================================================================
+// UserTxn Methods
+//===========================================================================
+
+func (tx *Tx) ListUsers(page *models.UserPage) (*models.UserList, error) {
+	tx.calls[ListUsers]++
+	if tx.OnListUsers != nil {
+		return tx.OnListUsers(page)
+	}
+	panic(errors.Fmt("%s callback is not mocked", ListUsers))
+}
+
+func (tx *Tx) CreateUser(user *models.User) error {
+	tx.calls[CreateUser]++
+	if tx.OnCreateUser != nil {
+		return tx.OnCreateUser(user)
+	}
+	panic(errors.Fmt("%s callback is not mocked", CreateUser))
+}
+
+func (tx *Tx) RetrieveUser(id any) (*models.User, error) {
+	tx.calls[RetrieveUser]++
+	if tx.OnRetrieveUser != nil {
+		return tx.OnRetrieveUser(id)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RetrieveUser))
+}
+
+func (tx *Tx) UpdateUser(user *models.User) error {
+	tx.calls[UpdateUser]++
+	if tx.OnUpdateUser != nil {
+		return tx.OnUpdateUser(user)
+	}
+	panic(errors.Fmt("%s callback is not mocked", UpdateUser))
+}
+
+func (tx *Tx) UpdatePassword(id ulid.ULID, password string) error {
+	tx.calls[UpdatePassword]++
+	if tx.OnUpdatePassword != nil {
+		return tx.OnUpdatePassword(id, password)
+	}
+	panic(errors.Fmt("%s callback is not mocked", UpdatePassword))
+}
+
+func (tx *Tx) UpdateLastLogin(id ulid.ULID, lastLogin time.Time) error {
+	tx.calls[UpdateLastLogin]++
+	if tx.OnUpdateLastLogin != nil {
+		return tx.OnUpdateLastLogin(id, lastLogin)
+	}
+	panic(errors.Fmt("%s callback is not mocked", UpdateLastLogin))
+}
+
+func (tx *Tx) DeleteUser(id ulid.ULID) error {
+	tx.calls[DeleteUser]++
+	if tx.OnDeleteUser != nil {
+		return tx.OnDeleteUser(id)
+	}
+	panic(errors.Fmt("%s callback is not mocked", DeleteUser))
 }

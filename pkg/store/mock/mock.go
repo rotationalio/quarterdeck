@@ -6,11 +6,14 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store/dsn"
+	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/quarterdeck/pkg/store/txn"
+	"go.rtnl.ai/ulid"
 )
 
 // Method names for the Store interface
@@ -28,6 +31,14 @@ type Store struct {
 
 	OnClose func() error
 	OnBegin func(context.Context, *sql.TxOptions) (txn.Txn, error)
+
+	OnListUsers       func(context.Context, *models.UserPage) (*models.UserList, error)
+	OnCreateUser      func(context.Context, *models.User) error
+	OnRetrieveUser    func(context.Context, any) (*models.User, error)
+	OnUpdateUser      func(context.Context, *models.User) error
+	OnUpdatePassword  func(context.Context, ulid.ULID, string) error
+	OnUpdateLastLogin func(context.Context, ulid.ULID, time.Time) error
+	OnDeleteUser      func(context.Context, ulid.ULID) error
 }
 
 func Open(uri *dsn.DSN) (*Store, error) {
@@ -100,4 +111,74 @@ func (s *Store) Begin(ctx context.Context, opts *sql.TxOptions) (txn.Txn, error)
 		opts:  opts,
 		calls: make(map[string]int),
 	}, nil
+}
+
+//===========================================================================
+// UserStore
+//===========================================================================
+
+const (
+	ListUsers       = "ListUsers"
+	CreateUser      = "CreateUser"
+	RetrieveUser    = "RetrieveUser"
+	UpdateUser      = "UpdateUser"
+	UpdatePassword  = "UpdatePassword"
+	UpdateLastLogin = "UpdateLastLogin"
+	DeleteUser      = "DeleteUser"
+)
+
+func (s *Store) ListUsers(ctx context.Context, page *models.UserPage) (*models.UserList, error) {
+	s.calls[ListUsers]++
+	if s.OnListUsers != nil {
+		return s.OnListUsers(ctx, page)
+	}
+	panic(errors.Fmt("%s callback is not mocked", ListUsers))
+}
+
+func (s *Store) CreateUser(ctx context.Context, user *models.User) error {
+	s.calls[CreateUser]++
+	if s.OnCreateUser != nil {
+		return s.OnCreateUser(ctx, user)
+	}
+	panic(errors.Fmt("%s callback is not mocked", CreateUser))
+}
+
+func (s *Store) RetrieveUser(ctx context.Context, id any) (*models.User, error) {
+	s.calls[RetrieveUser]++
+	if s.OnRetrieveUser != nil {
+		return s.OnRetrieveUser(ctx, id)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RetrieveUser))
+}
+
+func (s *Store) UpdateUser(ctx context.Context, user *models.User) error {
+	s.calls[UpdateUser]++
+	if s.OnUpdateUser != nil {
+		return s.OnUpdateUser(ctx, user)
+	}
+	panic(errors.Fmt("%s callback is not mocked", UpdateUser))
+}
+
+func (s *Store) UpdatePassword(ctx context.Context, id ulid.ULID, password string) error {
+	s.calls[UpdatePassword]++
+	if s.OnUpdatePassword != nil {
+		return s.OnUpdatePassword(ctx, id, password)
+	}
+	panic(errors.Fmt("%s callback is not mocked", UpdatePassword))
+}
+
+func (s *Store) UpdateLastLogin(ctx context.Context, id ulid.ULID, lastLogin time.Time) error {
+	s.calls[UpdateLastLogin]++
+	if s.OnUpdateLastLogin != nil {
+		return s.OnUpdateLastLogin(ctx, id, lastLogin)
+	}
+	panic(errors.Fmt("%s callback is not mocked", UpdateLastLogin))
+}
+
+func (s *Store) DeleteUser(ctx context.Context, id ulid.ULID) error {
+	s.calls[DeleteUser]++
+	if s.OnDeleteUser != nil {
+		return s.OnDeleteUser(ctx, id)
+	}
+	panic(errors.Fmt("%s callback is not mocked", DeleteUser))
 }

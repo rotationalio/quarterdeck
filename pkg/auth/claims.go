@@ -17,7 +17,7 @@ type Claims struct {
 	Name        string   `json:"name,omitempty"`        // Only used for users, not API keys.
 	Email       string   `json:"email,omitempty"`       // Only used for users, not API keys.
 	Gravatar    string   `json:"gravatar,omitempty"`    // Only used for users, not API keys.
-	Role        string   `json:"role,omitempty"`        // The role assigned to a user (not used with API keys).
+	Roles       []string `json:"roles,omitempty"`       // The roles assigned to a user (not used with API keys).
 	Permissions []string `json:"permissions,omitempty"` // The permissions assigned to the claims.
 }
 

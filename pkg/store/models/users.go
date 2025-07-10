@@ -3,17 +3,30 @@ package models
 import (
 	"database/sql"
 
+	"go.rtnl.ai/quarterdeck/pkg/auth"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/x/gravatar"
+)
+
+var (
+	gravatarOpts = &gravatar.Options{
+		Size:          256,
+		DefaultImage:  "identicon",
+		ForceDefault:  false,
+		Rating:        "pg",
+		FileExtension: "",
+	}
 )
 
 type User struct {
 	Model
-	Name        sql.NullString
-	Email       string
-	Password    string
-	LastLogin   sql.NullTime
-	roles       []*Role
-	permissions []string
+	Name          sql.NullString
+	Email         string
+	Password      string
+	LastLogin     sql.NullTime
+	EmailVerified bool
+	roles         []*Role
+	permissions   []string
 }
 
 type UserList struct {
@@ -56,6 +69,7 @@ func (u *User) Scan(scanner Scanner) error {
 		&u.Email,
 		&u.Password,
 		&u.LastLogin,
+		&u.EmailVerified,
 		&u.Created,
 		&u.Modified,
 	)
@@ -68,6 +82,7 @@ func (u *User) ScanSummary(scanner Scanner) error {
 		&u.Name,
 		&u.Email,
 		&u.LastLogin,
+		&u.EmailVerified,
 		&u.Created,
 		&u.Modified,
 	)
@@ -81,6 +96,7 @@ func (u User) Params() []any {
 		sql.Named("email", u.Email),
 		sql.Named("password", u.Password),
 		sql.Named("lastLogin", u.LastLogin),
+		sql.Named("emailVerified", u.EmailVerified),
 		sql.Named("created", u.Created),
 		sql.Named("modified", u.Modified),
 	}
@@ -112,4 +128,37 @@ func (u User) Permissions() []string {
 // SetPermissions sets the permissions for the user.
 func (u *User) SetPermissions(permissions []string) {
 	u.permissions = permissions
+}
+
+//===========================================================================
+// Helper Methods
+//===========================================================================
+
+func (u User) Claims() (claims *auth.Claims, err error) {
+	claims = &auth.Claims{
+		Name:        u.Name.String,
+		Email:       u.Email,
+		Gravatar:    u.Gravatar(),
+		Permissions: u.Permissions(),
+	}
+
+	var roles []*Role
+	if roles, err = u.Roles(); err != nil {
+		return nil, err
+	}
+
+	claims.Roles = make([]string, 0, len(roles))
+	for _, role := range roles {
+		claims.Roles = append(claims.Roles, role.Title)
+	}
+
+	claims.SetSubjectID(auth.SubjectUser, u.ID)
+	return claims, nil
+}
+
+func (u User) Gravatar() string {
+	if u.Email == "" {
+		return ""
+	}
+	return gravatar.New(u.Email, gravatarOpts)
 }

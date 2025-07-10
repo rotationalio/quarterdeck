@@ -216,7 +216,7 @@ func (s *TokenTestSuite) TestInvalidTokens() {
 			case "gravatar":
 				claims.Gravatar = v.(string)
 			case "role":
-				claims.Role = v.(string)
+				claims.Roles = v.([]string)
 			case "permissions":
 				claims.Permissions = v.([]string)
 			}

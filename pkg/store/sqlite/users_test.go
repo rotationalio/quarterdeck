@@ -187,6 +187,7 @@ func (s *storeTestSuite) TestUpdateUser() {
 		user.Email = "gfredfield@example.com"
 		user.Password = ""
 		user.LastLogin = sql.NullTime{Valid: false}
+		user.EmailVerified = true                                                  // Should not change
 		user.Created = time.Date(2025, time.January, 26, 14, 13, 12, 0, time.UTC)  // Should not change
 		user.Modified = time.Date(2025, time.January, 26, 14, 13, 12, 0, time.UTC) // Should be set to now
 
@@ -202,8 +203,10 @@ func (s *storeTestSuite) TestUpdateUser() {
 		require.Equal(user.Email, cmpt.Email, "should update the user email")
 		require.NotEqual(user.Password, cmpt.Password, "should not change/update the user password")
 		require.NotEqual(user.LastLogin, cmpt.LastLogin, "should not clear the user last login time")
+		require.NotEqual(user.EmailVerified, cmpt.EmailVerified, "should not change the user email verified status")
 		require.NotEqual(user.Created, cmpt.Created, "should not change the user created time")
 		require.NotEqual(user.Modified, cmpt.Modified, "should update the user modified time to now, not what was set")
+		require.WithinDuration(cmpt.Modified, time.Now(), time.Minute)
 	})
 
 	s.Run("UpdatePassword", func() {
@@ -215,6 +218,7 @@ func (s *storeTestSuite) TestUpdateUser() {
 		cmpt, err := s.db.RetrieveUser(s.Context(), userID)
 		require.NoError(err, "should be able to retrieve updated user after password change")
 		require.Equal(password, cmpt.Password, "should update the user password")
+		require.WithinDuration(cmpt.Modified, time.Now(), time.Minute)
 	})
 
 	s.Run("UpdateLastLogin", func() {
@@ -227,6 +231,18 @@ func (s *storeTestSuite) TestUpdateUser() {
 		require.NoError(err, "should be able to retrieve updated user after last login change")
 		require.True(cmpt.LastLogin.Valid, "should have a valid last login time")
 		require.Equal(lastLogin, cmpt.LastLogin.Time, "should update the user last login time")
+		require.WithinDuration(cmpt.Modified, time.Now(), time.Minute)
+	})
+
+	s.Run("VerifyEmail", func() {
+		err = s.db.VerifyEmail(s.Context(), userID)
+		require.NoError(err, "should be able to verify user email")
+
+		// Fetch updated user for comparison
+		cmpt, err := s.db.RetrieveUser(s.Context(), userID)
+		require.NoError(err, "should be able to retrieve updated user after email verification")
+		require.True(cmpt.EmailVerified, "should set the user email verified status to true")
+		require.WithinDuration(cmpt.Modified, time.Now(), time.Minute)
 	})
 
 	s.Run("NotFound", func() {
