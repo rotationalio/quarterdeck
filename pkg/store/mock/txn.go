@@ -25,9 +25,11 @@ type Tx struct {
 	commit   bool
 	rollback bool
 
+	// Txn callbacks
 	OnCommit   func() error
 	OnRollback func() error
 
+	// UserTxn Callbacks
 	OnListUsers       func(*models.UserPage) (*models.UserList, error)
 	OnCreateUser      func(*models.User) error
 	OnRetrieveUser    func(any) (*models.User, error)
@@ -35,6 +37,22 @@ type Tx struct {
 	OnUpdatePassword  func(ulid.ULID, string) error
 	OnUpdateLastLogin func(ulid.ULID, time.Time) error
 	OnDeleteUser      func(ulid.ULID) error
+
+	// RoleTxn Callbacks
+	OnListRoles                func(*models.Page) (*models.RoleList, error)
+	OnCreateRole               func(*models.Role) error
+	OnRetrieveRole             func(any) (*models.Role, error)
+	OnUpdateRole               func(*models.Role) error
+	OnAddPermissionToRole      func(int64, any) error
+	OnRemovePermissionFromRole func(int64, int64) error
+	OnDeleteRole               func(int64) error
+
+	// PermissionTxn Callbacks
+	OnListPermissions    func(*models.Page) (*models.PermissionList, error)
+	OnCreatePermission   func(*models.Permission) error
+	OnRetrievePermission func(any) (*models.Permission, error)
+	OnUpdatePermission   func(*models.Permission) error
+	OnDeletePermission   func(int64) error
 }
 
 //===========================================================================
@@ -190,4 +208,108 @@ func (tx *Tx) DeleteUser(id ulid.ULID) error {
 		return tx.OnDeleteUser(id)
 	}
 	panic(errors.Fmt("%s callback is not mocked", DeleteUser))
+}
+
+//===========================================================================
+// RoleTxn Methods
+//===========================================================================
+
+func (tx *Tx) ListRoles(in *models.Page) (*models.RoleList, error) {
+	tx.calls[ListRoles]++
+	if tx.OnListRoles != nil {
+		return tx.OnListRoles(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", ListRoles))
+}
+
+func (tx *Tx) CreateRole(role *models.Role) error {
+	tx.calls[CreateRole]++
+	if tx.OnCreateRole != nil {
+		return tx.OnCreateRole(role)
+	}
+	panic(errors.Fmt("%s callback is not mocked", CreateRole))
+}
+
+func (tx *Tx) RetrieveRole(in any) (*models.Role, error) {
+	tx.calls[RetrieveRole]++
+	if tx.OnRetrieveRole != nil {
+		return tx.OnRetrieveRole(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RetrieveRole))
+}
+
+func (tx *Tx) UpdateRole(role *models.Role) error {
+	tx.calls[UpdateRole]++
+	if tx.OnUpdateRole != nil {
+		return tx.OnUpdateRole(role)
+	}
+	panic(errors.Fmt("%s callback is not mocked", UpdateRole))
+}
+
+func (tx *Tx) AddPermissionToRole(roleID int64, permissionID any) error {
+	tx.calls[AddPermissionToRole]++
+	if tx.OnAddPermissionToRole != nil {
+		return tx.OnAddPermissionToRole(roleID, permissionID)
+	}
+	panic(errors.Fmt("%s callback is not mocked", AddPermissionToRole))
+}
+
+func (tx *Tx) RemovePermissionFromRole(roleID int64, permissionID int64) error {
+	tx.calls[RemovePermissionFromRole]++
+	if tx.OnRemovePermissionFromRole != nil {
+		return tx.OnRemovePermissionFromRole(roleID, permissionID)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RemovePermissionFromRole))
+}
+
+func (tx *Tx) DeleteRole(id int64) error {
+	tx.calls[DeleteRole]++
+	if tx.OnDeleteRole != nil {
+		return tx.OnDeleteRole(id)
+	}
+	panic(errors.Fmt("%s callback is not mocked", DeleteRole))
+}
+
+//===========================================================================
+// PermissionTxn Methods
+//===========================================================================
+
+func (tx *Tx) ListPermissions(in *models.Page) (*models.PermissionList, error) {
+	tx.calls[ListPermissions]++
+	if tx.OnListPermissions != nil {
+		return tx.OnListPermissions(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", ListPermissions))
+}
+
+func (tx *Tx) CreatePermission(in *models.Permission) error {
+	tx.calls[CreatePermission]++
+	if tx.OnCreatePermission != nil {
+		return tx.OnCreatePermission(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", CreatePermission))
+}
+
+func (tx *Tx) RetrievePermission(in any) (*models.Permission, error) {
+	tx.calls[RetrievePermission]++
+	if tx.OnRetrievePermission != nil {
+		return tx.OnRetrievePermission(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RetrievePermission))
+}
+
+func (tx *Tx) UpdatePermission(in *models.Permission) error {
+	tx.calls[UpdatePermission]++
+	if tx.OnUpdatePermission != nil {
+		return tx.OnUpdatePermission(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", UpdatePermission))
+}
+
+func (tx *Tx) DeletePermission(in int64) error {
+	tx.calls[DeletePermission]++
+	if tx.OnDeletePermission != nil {
+		return tx.OnDeletePermission(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", DeletePermission))
 }

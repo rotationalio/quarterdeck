@@ -17,6 +17,8 @@ type Txn interface {
 	Commit() error
 
 	UserTxn
+	RoleTxn
+	PermissionTxn
 }
 
 type UserTxn interface {
@@ -27,4 +29,22 @@ type UserTxn interface {
 	UpdatePassword(ulid.ULID, string) error
 	UpdateLastLogin(ulid.ULID, time.Time) error
 	DeleteUser(ulid.ULID) error
+}
+
+type RoleTxn interface {
+	ListRoles(*models.Page) (*models.RoleList, error)
+	CreateRole(*models.Role) error
+	RetrieveRole(any) (*models.Role, error)
+	UpdateRole(*models.Role) error
+	AddPermissionToRole(int64, any) error
+	RemovePermissionFromRole(int64, int64) error
+	DeleteRole(int64) error
+}
+
+type PermissionTxn interface {
+	ListPermissions(*models.Page) (*models.PermissionList, error)
+	CreatePermission(*models.Permission) error
+	RetrievePermission(any) (*models.Permission, error)
+	UpdatePermission(*models.Permission) error
+	DeletePermission(int64) error
 }
