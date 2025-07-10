@@ -15,8 +15,8 @@ import (
 //===========================================================================
 
 const (
-	listUsersSQL   = "SELECT id, name, email, last_login, created, modified FROM users ORDER BY created DESC"
-	filterUsersSQL = "SELECT u.id, u.name, u.email, u.last_login, u.created, u.modified FROM users u JOIN user_roles ur ON u.id=ur.user_id JOIN roles r ON ur.role_id=r.id WHERE r.title=:role COLLATE NOCASE ORDER BY u.created DESC"
+	listUsersSQL   = "SELECT id, name, email, last_login, email_verified, created, modified FROM users ORDER BY created DESC"
+	filterUsersSQL = "SELECT u.id, u.name, u.email, u.last_login, u.email_verified, u.created, u.modified FROM users u JOIN user_roles ur ON u.id=ur.user_id JOIN roles r ON ur.role_id=r.id WHERE r.title=:role COLLATE NOCASE ORDER BY u.created DESC"
 )
 
 func (s *Store) ListUsers(ctx context.Context, page *models.UserPage) (out *models.UserList, err error) {
@@ -73,7 +73,7 @@ func (tx *Tx) ListUsers(page *models.UserPage) (out *models.UserList, err error)
 
 const (
 	defaultRolesSQL   = "SELECT id FROM roles WHERE is_default='t'"
-	createUserSQL     = "INSERT INTO users (id, name, email, password, last_login, created, modified) VALUES (:id, :name, :email, :password, :lastLogin, :created, :modified)"
+	createUserSQL     = "INSERT INTO users (id, name, email, password, last_login, email_verified, created, modified) VALUES (:id, :name, :email, :password, :lastLogin, :emailVerified, :created, :modified)"
 	createUserRoleSQL = "INSERT INTO user_roles (user_id, role_id, created, modified) VALUES (:userID, :roleID, :created, :modified)"
 )
 
@@ -352,6 +352,47 @@ func (tx *Tx) UpdateLastLogin(userID ulid.ULID, lastLogin time.Time) (err error)
 
 	var result sql.Result
 	if result, err = tx.Exec(updateLastLoginSQL, params...); err != nil {
+		return dbe(err)
+	}
+
+	if nRows, _ := result.RowsAffected(); nRows == 0 {
+		return errors.ErrNotFound
+	}
+
+	return nil
+}
+
+const (
+	updateEmailVerifiedSQL = "UPDATE users SET email_verified=:emailVerified, modified=:modified WHERE id=:id"
+)
+
+func (s *Store) VerifyEmail(ctx context.Context, userID ulid.ULID) (err error) {
+	var tx *Tx
+	if tx, err = s.BeginTx(ctx, nil); err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err = tx.VerifyEmail(userID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (tx *Tx) VerifyEmail(userID ulid.ULID) (err error) {
+	if userID.IsZero() {
+		return errors.ErrMissingID
+	}
+
+	params := []any{
+		sql.Named("id", userID),
+		sql.Named("emailVerified", true),
+		sql.Named("modified", time.Now()),
+	}
+
+	var result sql.Result
+	if result, err = tx.Exec(updateEmailVerifiedSQL, params...); err != nil {
 		return dbe(err)
 	}
 

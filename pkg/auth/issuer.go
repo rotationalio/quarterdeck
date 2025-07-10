@@ -238,6 +238,8 @@ func (tm *ClaimsIssuer) AddKey(keyID ulid.ULID, key SigningKey) (err error) {
 	return nil
 }
 
+// Computes the refresh audience claim based on the issuer URL and a specific path to
+// better protect refresh tokens from being used in other contexts.
 func (tm *ClaimsIssuer) RefreshAudience() string {
 	if tm.refreshAudience == "" {
 		if aud, err := url.Parse(tm.conf.Issuer); err == nil && tm.conf.Issuer != "" {

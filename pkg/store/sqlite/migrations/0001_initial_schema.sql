@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
     email           TEXT NOT NULL UNIQUE,
     password        TEXT NOT NULL UNIQUE,
     last_login      DATETIME,
+    email_verified  BOOLEAN DEFAULT false NOT NULL,
     created         DATETIME NOT NULL,
     modified        DATETIME NOT NULL
 );

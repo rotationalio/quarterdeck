@@ -10,6 +10,7 @@ import (
 
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
 	"go.rtnl.ai/quarterdeck/pkg/auth"
+	"go.rtnl.ai/quarterdeck/pkg/errors"
 )
 
 const (
@@ -35,7 +36,7 @@ func (s *Server) JWKS(c *gin.Context) {
 	// Get the current version of the keys from the issuer.
 	if keys, err = s.issuer.Keys(); err != nil {
 		c.Error(err)
-		c.JSON(http.StatusInternalServerError, api.Error(http.StatusText(http.StatusInternalServerError)))
+		c.JSON(http.StatusInternalServerError, api.Error(errors.ErrInternal))
 		return
 	}
 
@@ -43,7 +44,7 @@ func (s *Server) JWKS(c *gin.Context) {
 	// since the last time the client requested them.
 	if etag, err = keys.ETag(); err != nil {
 		c.Error(err)
-		c.JSON(http.StatusInternalServerError, api.Error(http.StatusText(http.StatusInternalServerError)))
+		c.JSON(http.StatusInternalServerError, api.Error(errors.ErrInternal))
 		return
 	}
 
