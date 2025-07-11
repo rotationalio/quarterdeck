@@ -20,6 +20,7 @@ type Txn interface {
 	RoleTxn
 	PermissionTxn
 	APIKeyTxn
+	VeroTokenTxn
 }
 
 type UserTxn interface {
@@ -60,4 +61,11 @@ type APIKeyTxn interface {
 	RemovePermissionFromAPIKey(ulid.ULID, int64) error
 	RevokeAPIKey(ulid.ULID) error
 	DeleteAPIKey(ulid.ULID) error
+}
+
+type VeroTokenTxn interface {
+	CreateVeroToken(*models.VeroToken) error
+	RetrieveVeroToken(ulid.ULID) (*models.VeroToken, error)
+	UpdateVeroToken(*models.VeroToken) error
+	DeleteVeroToken(ulid.ULID) error
 }

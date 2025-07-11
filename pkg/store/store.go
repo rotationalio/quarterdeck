@@ -52,6 +52,7 @@ type Store interface {
 	RoleStore
 	PermissionStore
 	APIKeyStore
+	VeroTokenStore
 }
 
 // The Stats interface exposes database statistics if it is available from the backend.
@@ -97,4 +98,11 @@ type APIKeyStore interface {
 	RemovePermissionFromAPIKey(context.Context, ulid.ULID, int64) error
 	RevokeAPIKey(context.Context, ulid.ULID) error
 	DeleteAPIKey(context.Context, ulid.ULID) error
+}
+
+type VeroTokenStore interface {
+	CreateVeroToken(context.Context, *models.VeroToken) error
+	RetrieveVeroToken(context.Context, ulid.ULID) (*models.VeroToken, error)
+	UpdateVeroToken(context.Context, *models.VeroToken) error
+	DeleteVeroToken(context.Context, ulid.ULID) error
 }
