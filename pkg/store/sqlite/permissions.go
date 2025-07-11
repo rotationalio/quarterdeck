@@ -193,6 +193,50 @@ func (tx *Tx) rolePermissions(roleID int64) (permissions []*models.Permission, e
 	return permissions, nil
 }
 
+const (
+	resolveRoleByIDSQL    = "SELECT id FROM roles WHERE id=:id"
+	resolveRoleByTitleSQL = "SELECT id FROM roles WHERE title=:title"
+)
+
+func (tx *Tx) resolveRoleID(role any) (roleID int64, err error) {
+	var (
+		query string
+		param any
+	)
+
+	switch r := role.(type) {
+	case int:
+		query = resolveRoleByIDSQL
+		param = sql.Named("id", int64(r))
+	case int64:
+		query = resolveRoleByIDSQL
+		param = sql.Named("id", r)
+	case string:
+		query = resolveRoleByTitleSQL
+		param = sql.Named("title", r)
+	case *models.Role:
+		if r.ID == 0 && r.Title == "" {
+			return 0, errors.ErrMissingID
+		}
+
+		if r.ID != 0 {
+			query = resolveRoleByIDSQL
+			param = sql.Named("id", r.ID)
+		} else {
+			query = resolveRoleByTitleSQL
+			param = sql.Named("title", r.Title)
+		}
+	default:
+		return 0, errors.Fmt("invalid type %T for resolve role", r)
+	}
+
+	if err = tx.QueryRow(query, param).Scan(&roleID); err != nil {
+		return 0, dbe(err)
+	}
+
+	return roleID, nil
+}
+
 const updateRoleSQL = `UPDATE roles SET title=:title, description=:description, is_default=:isDefault, modified=:modified WHERE id=:id`
 
 func (s *Store) UpdateRole(ctx context.Context, role *models.Role) (err error) {
@@ -228,7 +272,7 @@ func (tx *Tx) UpdateRole(role *models.Role) (err error) {
 	return nil
 }
 
-const addPermissionToRoleSQL = `INSERT INTO role_permissions (role_id, permission_id, created, modified) VALUES (:roleID, :permissionID, :created, :modified)`
+const addPermissionToRoleSQL = `INSERT INTO role_permissions (role_id, permission_id, created) VALUES (:roleID, :permissionID, :created)`
 
 func (s *Store) AddPermissionToRole(ctx context.Context, roleID int64, permission any) (err error) {
 	var tx *Tx
@@ -245,18 +289,20 @@ func (s *Store) AddPermissionToRole(ctx context.Context, roleID int64, permissio
 }
 
 func (tx *Tx) AddPermissionToRole(roleID int64, permission any) (err error) {
+	if roleID == 0 {
+		return errors.ErrMissingID
+	}
+
 	// Retrieve the permission to ensure we have a valid ID.
 	var resolvedPermission *models.Permission
 	if resolvedPermission, err = tx.RetrievePermission(permission); err != nil {
 		return err
 	}
 
-	created := time.Now()
 	params := []any{
 		sql.Named("roleID", roleID),
 		sql.Named("permissionID", resolvedPermission.ID),
-		sql.Named("created", created),
-		sql.Named("modified", created),
+		sql.Named("created", time.Now()),
 	}
 
 	if _, err = tx.Exec(addPermissionToRoleSQL, params...); err != nil {

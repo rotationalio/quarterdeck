@@ -9,18 +9,20 @@ INSERT INTO api_keys (id, description, client_id, secret, created_by, last_seen,
     (x'01953201398a74d26664bd5111c76be9', 'Revoked without use', 'jgSQoHTwJznURdRNBqbNOh', '$argon2id$v=19$m=65536,t=1,p=2$ExKPQhQKaTiL4Q/F0EZ3HA==$BHJgxhoykEqDtREyNhZnVKQoHyIRMbW1l1M3bZFI8Us=', x'0195254846f950b31ba321d125d52df2', NULL, '2025-05-22T04:55:20Z', '2025-02-23T08:51:35Z', '2025-05-22T04:55:20Z')
 ;
 
-INSERT INTO api_key_permissions (api_key_id, permission_id, created, modified) VALUES
-    (x'0195628fcf8f90be870e12d5f4fb5d9a', 2, '2025-03-04T19:09:06Z', '2025-03-04T19:09:06Z'),
-    (x'0195628fcf8f90be870e12d5f4fb5d9a', 4, '2025-03-04T19:09:06Z', '2025-03-04T19:09:06Z'),
-    (x'0195628fcf8f90be870e12d5f4fb5d9a', 10, '2025-03-04T19:09:06Z', '2025-03-04T19:09:06Z'),
-    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 1, '2025-03-13T06:21:18Z', '2025-03-13T06:21:18Z'),
-    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 2, '2025-03-13T06:21:18Z', '2025-03-13T06:21:18Z'),
-    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 3, '2025-03-13T06:21:18Z', '2025-03-13T06:21:18Z'),
-    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 4, '2025-03-13T06:21:18Z', '2025-03-13T06:21:18Z'),
-    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 5, '2025-03-13T06:21:18Z', '2025-03-13T06:21:18Z'),
-    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 6, '2025-03-13T06:21:18Z', '2025-03-13T06:21:18Z'),
-    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 7, '2025-03-13T06:21:18Z', '2025-03-13T06:21:18Z'),
-    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 8, '2025-03-13T06:21:18Z', '2025-03-13T06:21:18Z'),
-    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 9, '2025-03-13T06:21:18Z', '2025-03-13T06:21:18Z'),
-    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 10, '2025-03-13T06:21:18Z', '2025-03-13T06:21:18Z')
+INSERT INTO api_key_permissions (api_key_id, permission_id, created) VALUES
+    (x'0195628fcf8f90be870e12d5f4fb5d9a', 2, '2025-03-04T19:09:06Z'),
+    (x'0195628fcf8f90be870e12d5f4fb5d9a', 4, '2025-03-04T19:09:06Z'),
+    (x'0195628fcf8f90be870e12d5f4fb5d9a', 10, '2025-03-04T19:09:06Z'),
+    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 1, '2025-03-13T06:21:18Z'),
+    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 2, '2025-03-13T06:21:18Z'),
+    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 3, '2025-03-13T06:21:18Z'),
+    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 4, '2025-03-13T06:21:18Z'),
+    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 5, '2025-03-13T06:21:18Z'),
+    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 6, '2025-03-13T06:21:18Z'),
+    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 7, '2025-03-13T06:21:18Z'),
+    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 8, '2025-03-13T06:21:18Z'),
+    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 9, '2025-03-13T06:21:18Z'),
+    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 10, '2025-03-13T06:21:18Z'),
+    (x'019744eea7b1560bd8e39bfbd9057a61', 2, '2025-06-09T21:54:33Z'),
+    (x'019744eea7b1560bd8e39bfbd9057a61', 4, '2025-06-09T21:54:33Z')
 ;

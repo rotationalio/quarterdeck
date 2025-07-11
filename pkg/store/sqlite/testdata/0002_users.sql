@@ -8,12 +8,12 @@ INSERT INTO users (id, name, email, password, last_login, created, modified) VAL
 ;
 
 -- Assign roles to the users
-INSERT INTO user_roles (user_id, role_id, created, modified) VALUES
-    (x'0195254846f950b31ba321d125d52df2', 4, '2025-02-20T21:34:08Z', '2025-02-20T21:34:08Z'),
-    (x'019545eb8b6e4c28bc6d4c684b20e9fd', 1, '2025-02-27T05:40:19Z', '2025-02-27T05:40:19Z'),
-    (x'0195bd8afa8e8d5df66412f742cb14ea', 1, '2025-03-22T11:09:16Z', '2025-03-22T11:09:16Z'),
-    (x'0195eb6b859180cd9d9eb8bcf5f58818', 2, '2025-03-31T08:57:27Z', '2025-03-31T08:57:27Z'),
-    (x'0196f8f5b7abac0d2adfe334c4a46343', 3, '2025-05-22T17:06:15Z', '2025-05-22T17:06:15Z')
+INSERT INTO user_roles (user_id, role_id, created) VALUES
+    (x'0195254846f950b31ba321d125d52df2', 4, '2025-02-20T21:34:08Z'),
+    (x'019545eb8b6e4c28bc6d4c684b20e9fd', 1, '2025-02-27T05:40:19Z'),
+    (x'0195bd8afa8e8d5df66412f742cb14ea', 1, '2025-03-22T11:09:16Z'),
+    (x'0195eb6b859180cd9d9eb8bcf5f58818', 2, '2025-03-31T08:57:27Z'),
+    (x'0196f8f5b7abac0d2adfe334c4a46343', 3, '2025-05-22T17:06:15Z')
 ;
 
 -- For the user "Observer User" (ID: "01JXTGSFRC88HAY8V173976Z9D")

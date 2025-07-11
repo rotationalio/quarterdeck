@@ -49,6 +49,9 @@ type Store interface {
 
 	io.Closer
 	UserStore
+	RoleStore
+	PermissionStore
+	APIKeyStore
 }
 
 // The Stats interface exposes database statistics if it is available from the backend.
@@ -64,4 +67,34 @@ type UserStore interface {
 	UpdatePassword(context.Context, ulid.ULID, string) error
 	UpdateLastLogin(context.Context, ulid.ULID, time.Time) error
 	DeleteUser(context.Context, ulid.ULID) error
+}
+
+type RoleStore interface {
+	ListRoles(context.Context, *models.Page) (*models.RoleList, error)
+	CreateRole(context.Context, *models.Role) error
+	RetrieveRole(context.Context, any) (*models.Role, error)
+	UpdateRole(context.Context, *models.Role) error
+	AddPermissionToRole(context.Context, int64, any) error
+	RemovePermissionFromRole(context.Context, int64, int64) error
+	DeleteRole(context.Context, int64) error
+}
+
+type PermissionStore interface {
+	ListPermissions(context.Context, *models.Page) (*models.PermissionList, error)
+	CreatePermission(context.Context, *models.Permission) error
+	RetrievePermission(context.Context, any) (*models.Permission, error)
+	UpdatePermission(context.Context, *models.Permission) error
+	DeletePermission(context.Context, int64) error
+}
+
+type APIKeyStore interface {
+	ListAPIKeys(context.Context, *models.Page) (*models.APIKeyList, error)
+	CreateAPIKey(context.Context, *models.APIKey) error
+	RetrieveAPIKey(context.Context, any) (*models.APIKey, error)
+	UpdateAPIKey(context.Context, *models.APIKey) error
+	UpdateLastSeen(context.Context, ulid.ULID, time.Time) error
+	AddPermissionToAPIKey(context.Context, ulid.ULID, any) error
+	RemovePermissionFromAPIKey(context.Context, ulid.ULID, int64) error
+	RevokeAPIKey(context.Context, ulid.ULID) error
+	DeleteAPIKey(context.Context, ulid.ULID) error
 }
