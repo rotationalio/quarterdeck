@@ -9,7 +9,7 @@ INSERT INTO roles (id, title, description, is_default, created, modified) VALUES
 INSERT INTO permissions (id, title, description, created, modified) VALUES
     (1, 'content:modify', 'Permission to create and edit content', '2025-02-14T11:21:42+00:00', '2025-02-14T11:21:42+00:00'),
     (2, 'content:view', 'Permission to view content', '2025-02-14T11:21:42+00:00', '2025-02-14T11:21:42+00:00'),
-    (3, 'delete:content', 'Permission to delete content', '2025-02-14T11:21:42+00:00', '2025-02-14T11:21:42+00:00'),
+    (3, 'content:delete', 'Permission to delete content', '2025-02-14T11:21:42+00:00', '2025-02-14T11:21:42+00:00'),
     (4, 'users:view', 'Permission to view users', '2025-02-14T11:21:42+00:00', '2025-02-14T11:21:42+00:00'),
     (5, 'users:invite', 'Permission to invite new users', '2025-02-14T11:21:42+00:00', '2025-02-14T11:21:42+00:00'),
     (6, 'users:delete', 'Permission to delete user accounts', '2025-02-14T11:21:42+00:00', '2025-02-14T11:21:42+00:00'),

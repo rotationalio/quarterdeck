@@ -105,6 +105,20 @@ func (s *storeTestSuite) TestCreateUser() {
 		require.Equal(userCount+1, s.Count("users"), "should increase the user count by one")
 		require.Equal(userRolesCount+2, s.Count("user_roles"), "should increase the user roles count by one")
 	})
+
+	s.Run("NoDuplicateEmail", func() {
+		if s.ReadOnly() {
+			s.T().Skip("skipping create test in read-only mode")
+		}
+
+		user := &models.User{
+			Name:     sql.NullString{String: "Test User", Valid: true},
+			Email:    "gary@example.com",
+			Password: "$argon2id$v=19$m=65536,t=1,p=2$nXCe+4HPx0YfO/BMRTtePQ==$vRxaszj/Y4NtfqL7DYDKp3zILXuAnEpzxCtCAc1fdTk=",
+		}
+		err := s.db.CreateUser(s.Context(), user)
+		s.Require().EqualError(err, "sqlite3 error: UNIQUE constraint failed: users.email", "should not allow creating user with duplicate email")
+	})
 }
 
 func (s *storeTestSuite) TestRetrieveUser() {
@@ -167,11 +181,12 @@ func (s *storeTestSuite) TestRetrieveUser() {
 		require := s.Require()
 		user, err := s.db.RetrieveUser(s.Context(), 42)
 		require.EqualError(err, "invalid type int for emailOrUserID")
-		require.Nil(user, "should not return a user for non-existent user ID")
+		require.Nil(user, "should not return a user for invalid ID type")
 	})
 }
 
 func (s *storeTestSuite) TestUpdateUser() {
+	// This test requires write access to the database, so skip it in read-only mode.
 	if s.ReadOnly() {
 		s.T().Skip("skipping update test in read-only mode")
 	}

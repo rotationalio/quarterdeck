@@ -22,5 +22,7 @@ INSERT INTO api_key_permissions (api_key_id, permission_id, created) VALUES
     (x'01958e2a1a7dcbe8175e13db6a2ce94a', 7, '2025-03-13T06:21:18Z'),
     (x'01958e2a1a7dcbe8175e13db6a2ce94a', 8, '2025-03-13T06:21:18Z'),
     (x'01958e2a1a7dcbe8175e13db6a2ce94a', 9, '2025-03-13T06:21:18Z'),
-    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 10, '2025-03-13T06:21:18Z')
+    (x'01958e2a1a7dcbe8175e13db6a2ce94a', 10, '2025-03-13T06:21:18Z'),
+    (x'019744eea7b1560bd8e39bfbd9057a61', 2, '2025-06-09T21:54:33Z'),
+    (x'019744eea7b1560bd8e39bfbd9057a61', 4, '2025-06-09T21:54:33Z')
 ;

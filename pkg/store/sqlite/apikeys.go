@@ -99,6 +99,12 @@ func (tx *Tx) CreateAPIKey(key *models.APIKey) (err error) {
 		return dbe(err)
 	}
 
+	for _, permission := range key.Permissions() {
+		if err = tx.AddPermissionToAPIKey(key.ID, permission); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -146,6 +152,8 @@ func (tx *Tx) RetrieveAPIKey(id any) (key *models.APIKey, err error) {
 
 		query = retrieveAPIKeyByIDSQL
 		param = sql.Named("id", t)
+	default:
+		return nil, errors.Fmt("invalid type %T for API key ID", id)
 	}
 
 	key = &models.APIKey{}
@@ -153,7 +161,41 @@ func (tx *Tx) RetrieveAPIKey(id any) (key *models.APIKey, err error) {
 		return nil, dbe(err)
 	}
 
+	// Fetch api keyh permissions
+	var permissions []string
+	if permissions, err = tx.apikeyPermissions(key.ID); err != nil {
+		return nil, err
+	}
+	key.SetPermissions(permissions)
+
 	return key, nil
+}
+
+const (
+	apikeyPermissionsSQL = "SELECT p.title FROM api_key_permissions akp JOIN permissions p ON akp.permission_id = p.id WHERE akp.api_key_id=:keyID ORDER BY p.title"
+)
+
+func (tx *Tx) apikeyPermissions(keyID ulid.ULID) (permissions []string, err error) {
+	var rows *sql.Rows
+	if rows, err = tx.Query(apikeyPermissionsSQL, sql.Named("keyID", keyID)); err != nil {
+		return nil, dbe(err)
+	}
+	defer rows.Close()
+
+	permissions = make([]string, 0)
+	for rows.Next() {
+		var permission string
+		if err = rows.Scan(&permission); err != nil {
+			return nil, dbe(err)
+		}
+		permissions = append(permissions, permission)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, dbe(err)
+	}
+
+	return permissions, nil
 }
 
 const (
