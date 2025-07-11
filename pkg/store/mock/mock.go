@@ -68,6 +68,12 @@ type Store struct {
 	OnRemovePermissionFromAPIKey func(context.Context, ulid.ULID, int64) error
 	OnRevokeAPIKey               func(context.Context, ulid.ULID) error
 	OnDeleteAPIKey               func(context.Context, ulid.ULID) error
+
+	// VeroTokenStore Callbacks
+	OnCreateVeroToken   func(context.Context, *models.VeroToken) error
+	OnRetrieveVeroToken func(context.Context, ulid.ULID) (*models.VeroToken, error)
+	OnUpdateVeroToken   func(context.Context, *models.VeroToken) error
+	OnDeleteVeroToken   func(context.Context, ulid.ULID) error
 }
 
 func Open(uri *dsn.DSN) (*Store, error) {
@@ -420,4 +426,47 @@ func (s *Store) DeleteAPIKey(ctx context.Context, id ulid.ULID) error {
 		return s.OnDeleteAPIKey(ctx, id)
 	}
 	panic(errors.Fmt("%s callback is not mocked", DeleteAPIKey))
+}
+
+//===========================================================================
+// VeroTokenStore
+//===========================================================================
+
+const (
+	CreateVeroToken   = "CreateVeroToken"
+	RetrieveVeroToken = "RetrieveVeroToken"
+	UpdateVeroToken   = "UpdateVeroToken"
+	DeleteVeroToken   = "DeleteVeroToken"
+)
+
+func (s *Store) CreateVeroToken(ctx context.Context, in *models.VeroToken) error {
+	s.calls[CreateVeroToken]++
+	if s.OnCreateVeroToken != nil {
+		return s.OnCreateVeroToken(ctx, in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", CreateVeroToken))
+}
+
+func (s *Store) RetrieveVeroToken(ctx context.Context, in ulid.ULID) (*models.VeroToken, error) {
+	s.calls[RetrieveVeroToken]++
+	if s.OnRetrieveVeroToken != nil {
+		return s.OnRetrieveVeroToken(ctx, in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RetrieveVeroToken))
+}
+
+func (s *Store) UpdateVeroToken(ctx context.Context, in *models.VeroToken) error {
+	s.calls[UpdateVeroToken]++
+	if s.OnUpdateVeroToken != nil {
+		return s.OnUpdateVeroToken(ctx, in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", UpdateVeroToken))
+}
+
+func (s *Store) DeleteVeroToken(ctx context.Context, in ulid.ULID) error {
+	s.calls[DeleteVeroToken]++
+	if s.OnDeleteVeroToken != nil {
+		return s.OnDeleteVeroToken(ctx, in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", DeleteVeroToken))
 }

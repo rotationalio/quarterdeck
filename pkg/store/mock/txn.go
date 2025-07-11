@@ -64,6 +64,12 @@ type Tx struct {
 	OnRemovePermissionFromAPIKey func(ulid.ULID, int64) error
 	OnRevokeAPIKey               func(ulid.ULID) error
 	OnDeleteAPIKey               func(ulid.ULID) error
+
+	// VeroTokenTxn Callbacks
+	OnCreateVeroToken   func(*models.VeroToken) error
+	OnRetrieveVeroToken func(ulid.ULID) (*models.VeroToken, error)
+	OnUpdateVeroToken   func(*models.VeroToken) error
+	OnDeleteVeroToken   func(ulid.ULID) error
 }
 
 //===========================================================================
@@ -399,4 +405,40 @@ func (tx *Tx) DeleteAPIKey(in ulid.ULID) error {
 		return tx.OnDeleteAPIKey(in)
 	}
 	panic(errors.Fmt("%s callback is not mocked", DeleteAPIKey))
+}
+
+//===========================================================================
+// VeroTokenTxn Methods
+//===========================================================================
+
+func (tx *Tx) CreateVeroToken(in *models.VeroToken) error {
+	tx.calls[CreateVeroToken]++
+	if tx.OnCreateVeroToken != nil {
+		return tx.OnCreateVeroToken(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", CreateVeroToken))
+}
+
+func (tx *Tx) RetrieveVeroToken(in ulid.ULID) (*models.VeroToken, error) {
+	tx.calls[RetrieveVeroToken]++
+	if tx.OnRetrieveVeroToken != nil {
+		return tx.OnRetrieveVeroToken(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RetrieveVeroToken))
+}
+
+func (tx *Tx) UpdateVeroToken(in *models.VeroToken) error {
+	tx.calls[UpdateVeroToken]++
+	if tx.OnUpdateVeroToken != nil {
+		return tx.OnUpdateVeroToken(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", UpdateVeroToken))
+}
+
+func (tx *Tx) DeleteVeroToken(in ulid.ULID) error {
+	tx.calls[DeleteVeroToken]++
+	if tx.OnDeleteVeroToken != nil {
+		return tx.OnDeleteVeroToken(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", DeleteVeroToken))
 }
