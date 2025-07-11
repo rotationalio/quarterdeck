@@ -198,15 +198,137 @@ func (s *storeTestSuite) TestUpdateAPIKey() {
 		s.T().Skip("skipping update test in read-only mode")
 	}
 
-	s.Run("HappyPath", func() {})
+	require := s.Require()
+	keyID := ulid.MustParse("01JNH8ZKWFJ2Z8E3GJTQTFPQCT")
+	key, err := s.db.RetrieveAPIKey(s.Context(), keyID)
+	require.NoError(err, "should be able to retrieve API key by ID")
+	require.NotNil(key, "should return an API key")
 
-	s.Run("UpdateLastSeen", func() {})
+	s.Run("HappyPath", func() {
+		key.Description = sql.NullString{String: "Updated API Key Description", Valid: true}
+		key.ClientID = "UpdatedClientID12345"                                     // Should not change
+		key.Secret = ""                                                           // Should not change
+		key.CreatedBy = ulid.Make()                                               // Should not change
+		key.LastSeen = sql.NullTime{Time: time.Now(), Valid: true}                // Should not change
+		key.Revoked = sql.NullTime{Time: time.Now(), Valid: true}                 // Should not change
+		key.Created = time.Date(2025, time.January, 26, 14, 13, 12, 0, time.UTC)  // Should not change
+		key.Modified = time.Date(2025, time.January, 26, 14, 13, 12, 0, time.UTC) // Should be set to now
 
-	s.Run("AddPermission", func() {})
+		err := s.db.UpdateAPIKey(s.Context(), key)
+		require.NoError(err, "should be able to update API key")
 
-	s.Run("RemovePermission", func() {})
+		// Fetch the updated key and verify changes
+		cmpt, err := s.db.RetrieveAPIKey(s.Context(), keyID)
+		require.NoError(err, "should be able to retrieve updated API key")
 
-	s.Run("NotFound", func() {})
+		require.Equal(key.ID, cmpt.ID, "should retain the same API key ID")
+		require.Equal("Updated API Key Description", cmpt.Description.String, "should update the description")
+		require.NotEqual(key.ClientID, cmpt.ClientID, "should not update the client ID")
+		require.NotEqual(key.Secret, cmpt.Secret, "should not change the secret")
+		require.NotEqual(key.CreatedBy, cmpt.CreatedBy, "should not change the created by user ID")
+		require.NotEqual(key.LastSeen.Time, cmpt.LastSeen.Time, "should not change the last seen time")
+		require.False(cmpt.Revoked.Valid, "should not change the revoked time")
+		require.NotEqual(key.Created, cmpt.Created, "should not change the created time")
+		require.WithinDuration(time.Now(), cmpt.Modified, 3*time.Second, "should update the modified time to now")
+	})
+
+	s.Run("UpdateLastSeen", func() {
+		err := s.db.UpdateLastSeen(s.Context(), keyID, time.Now())
+		require.NoError(err, "should be able to update last seen time")
+
+		cmpt, err := s.db.RetrieveAPIKey(s.Context(), keyID)
+		require.NoError(err, "should be able to retrieve updated API key after last seen update")
+		require.WithinDuration(time.Now(), cmpt.LastSeen.Time, 3*time.Second, "should update the last seen time to now")
+	})
+
+	s.Run("AddPermission", func() {
+		// Ensure the key does not have the keys:revoke permission before running tests
+		permissions := key.Permissions()
+		require.NotContains(permissions, "keys:revoke", "API key fixture should not have keys:revoke permission for this test")
+
+		s.Run("Title", func() {
+			permsCount := s.Count("api_key_permissions")
+
+			err := s.db.AddPermissionToAPIKey(s.Context(), key.ID, "keys:revoke")
+			require.NoError(err, "should be able to add permission to API key")
+
+			require.Equal(permsCount+1, s.Count("api_key_permissions"), "should increase the API key permissions count by one")
+
+			cmpt, err := s.db.RetrieveAPIKey(s.Context(), keyID)
+			require.NoError(err, "should be able to retrieve updated API key after adding permission")
+			permissions = cmpt.Permissions()
+			require.Contains(permissions, "keys:revoke", "API key should have keys:revoke permission after being added")
+
+			s.ResetDB()
+		})
+
+		s.Run("ID", func() {
+			permsCount := s.Count("api_key_permissions")
+
+			err := s.db.AddPermissionToAPIKey(s.Context(), key.ID, 9)
+			require.NoError(err, "should be able to add permission to API key")
+
+			require.Equal(permsCount+1, s.Count("api_key_permissions"), "should increase the API key permissions count by one")
+
+			cmpt, err := s.db.RetrieveAPIKey(s.Context(), keyID)
+			require.NoError(err, "should be able to retrieve updated API key after adding permission")
+			permissions = cmpt.Permissions()
+			require.Contains(permissions, "keys:revoke", "API key should have keys:revoke permission after being added")
+
+			s.ResetDB()
+		})
+
+		s.Run("Model", func() {
+			permsCount := s.Count("api_key_permissions")
+
+			err := s.db.AddPermissionToAPIKey(s.Context(), key.ID, &models.Permission{ID: 9, Title: "keys:revoke"})
+			require.NoError(err, "should be able to add permission to API key")
+
+			require.Equal(permsCount+1, s.Count("api_key_permissions"), "should increase the API key permissions count by one")
+
+			cmpt, err := s.db.RetrieveAPIKey(s.Context(), keyID)
+			require.NoError(err, "should be able to retrieve updated API key after adding permission")
+			permissions = cmpt.Permissions()
+			require.Contains(permissions, "keys:revoke", "API key should have keys:revoke permission after being added")
+
+			s.ResetDB()
+		})
+	})
+
+	s.Run("RemovePermission", func() {
+		// Ensure the key does has the content:view permission before running tests
+		permissions := key.Permissions()
+		require.Contains(permissions, "content:view", "API key fixture should have content:view permission for this test")
+
+		permsCount := s.Count("api_key_permissions")
+
+		err := s.db.RemovePermissionFromAPIKey(s.Context(), key.ID, 2)
+		require.NoError(err, "should be able to remove permission from API key")
+
+		require.Equal(permsCount-1, s.Count("api_key_permissions"), "should decrease the API key permissions count by one")
+
+		cmpt, err := s.db.RetrieveAPIKey(s.Context(), keyID)
+		require.NoError(err, "should be able to retrieve updated API key after removing permission")
+		permissions = cmpt.Permissions()
+		require.NotContains(permissions, "content:view", "API key should not have content:view permission after being removed")
+
+		s.ResetDB()
+	})
+
+	s.Run("NotFound", func() {
+		key.ID = ulid.Make() // Use a new ID that does not exist
+		key.Description = sql.NullString{String: "Updated API Key Description", Valid: true}
+		key.ClientID = "UpdatedClientID12345"                                     // Should not change
+		key.Secret = ""                                                           // Should not change
+		key.CreatedBy = ulid.Make()                                               // Should not change
+		key.LastSeen = sql.NullTime{Time: time.Now(), Valid: true}                // Should not change
+		key.Revoked = sql.NullTime{Time: time.Now(), Valid: true}                 // Should not change
+		key.Created = time.Date(2025, time.January, 26, 14, 13, 12, 0, time.UTC)  // Should not change
+		key.Modified = time.Date(2025, time.January, 26, 14, 13, 12, 0, time.UTC) // Should be set to now
+
+		err := s.db.UpdateAPIKey(s.Context(), key)
+		require.ErrorIs(err, errors.ErrNotFound, "should return not found error for non-existent API key")
+	})
 }
 
 func (s *storeTestSuite) TestRevokeAPIKey() {
