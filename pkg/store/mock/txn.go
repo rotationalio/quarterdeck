@@ -53,6 +53,17 @@ type Tx struct {
 	OnRetrievePermission func(any) (*models.Permission, error)
 	OnUpdatePermission   func(*models.Permission) error
 	OnDeletePermission   func(int64) error
+
+	// APIKeyTxn Callbacks
+	OnListAPIKeys                func(*models.Page) (*models.APIKeyList, error)
+	OnCreateAPIKey               func(*models.APIKey) error
+	OnRetrieveAPIKey             func(any) (*models.APIKey, error)
+	OnUpdateAPIKey               func(*models.APIKey) error
+	OnUpdateLastSeen             func(ulid.ULID, time.Time) error
+	OnAddPermissionToAPIKey      func(ulid.ULID, any) error
+	OnRemovePermissionFromAPIKey func(ulid.ULID, int64) error
+	OnRevokeAPIKey               func(ulid.ULID) error
+	OnDeleteAPIKey               func(ulid.ULID) error
 }
 
 //===========================================================================
@@ -312,4 +323,80 @@ func (tx *Tx) DeletePermission(in int64) error {
 		return tx.OnDeletePermission(in)
 	}
 	panic(errors.Fmt("%s callback is not mocked", DeletePermission))
+}
+
+//===========================================================================
+// APIKeyTxn Methods
+//===========================================================================
+
+func (tx *Tx) ListAPIKeys(in *models.Page) (*models.APIKeyList, error) {
+	tx.calls[ListAPIKeys]++
+	if tx.OnListAPIKeys != nil {
+		return tx.OnListAPIKeys(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", ListAPIKeys))
+}
+
+func (tx *Tx) CreateAPIKey(in *models.APIKey) error {
+	tx.calls[CreateAPIKey]++
+	if tx.OnCreateAPIKey != nil {
+		return tx.OnCreateAPIKey(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", CreateAPIKey))
+}
+
+func (tx *Tx) RetrieveAPIKey(in any) (*models.APIKey, error) {
+	tx.calls[RetrieveAPIKey]++
+	if tx.OnRetrieveAPIKey != nil {
+		return tx.OnRetrieveAPIKey(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RetrieveAPIKey))
+}
+
+func (tx *Tx) UpdateAPIKey(in *models.APIKey) error {
+	tx.calls[UpdateAPIKey]++
+	if tx.OnUpdateAPIKey != nil {
+		return tx.OnUpdateAPIKey(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", UpdateAPIKey))
+}
+
+func (tx *Tx) UpdateLastSeen(id ulid.ULID, lastSeen time.Time) error {
+	tx.calls[UpdateLastSeen]++
+	if tx.OnUpdateLastSeen != nil {
+		return tx.OnUpdateLastSeen(id, lastSeen)
+	}
+	panic(errors.Fmt("%s callback is not mocked", UpdateLastSeen))
+}
+
+func (tx *Tx) AddPermissionToAPIKey(id ulid.ULID, permission any) error {
+	tx.calls[AddPermissionToAPIKey]++
+	if tx.OnAddPermissionToAPIKey != nil {
+		return tx.OnAddPermissionToAPIKey(id, permission)
+	}
+	panic(errors.Fmt("%s callback is not mocked", AddPermissionToAPIKey))
+}
+
+func (tx *Tx) RemovePermissionFromAPIKey(id ulid.ULID, permission int64) error {
+	tx.calls[RemovePermissionFromAPIKey]++
+	if tx.OnRemovePermissionFromAPIKey != nil {
+		return tx.OnRemovePermissionFromAPIKey(id, permission)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RemovePermissionFromAPIKey))
+}
+
+func (tx *Tx) RevokeAPIKey(in ulid.ULID) error {
+	tx.calls[RevokeAPIKey]++
+	if tx.OnRevokeAPIKey != nil {
+		return tx.OnRevokeAPIKey(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RevokeAPIKey))
+}
+
+func (tx *Tx) DeleteAPIKey(in ulid.ULID) error {
+	tx.calls[DeleteAPIKey]++
+	if tx.OnDeleteAPIKey != nil {
+		return tx.OnDeleteAPIKey(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", DeleteAPIKey))
 }

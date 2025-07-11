@@ -19,6 +19,7 @@ type Txn interface {
 	UserTxn
 	RoleTxn
 	PermissionTxn
+	APIKeyTxn
 }
 
 type UserTxn interface {
@@ -47,4 +48,16 @@ type PermissionTxn interface {
 	RetrievePermission(any) (*models.Permission, error)
 	UpdatePermission(*models.Permission) error
 	DeletePermission(int64) error
+}
+
+type APIKeyTxn interface {
+	ListAPIKeys(*models.Page) (*models.APIKeyList, error)
+	CreateAPIKey(*models.APIKey) error
+	RetrieveAPIKey(any) (*models.APIKey, error)
+	UpdateAPIKey(*models.APIKey) error
+	UpdateLastSeen(ulid.ULID, time.Time) error
+	AddPermissionToAPIKey(ulid.ULID, any) error
+	RemovePermissionFromAPIKey(ulid.ULID, int64) error
+	RevokeAPIKey(ulid.ULID) error
+	DeleteAPIKey(ulid.ULID) error
 }

@@ -51,6 +51,7 @@ type Store interface {
 	UserStore
 	RoleStore
 	PermissionStore
+	APIKeyStore
 }
 
 // The Stats interface exposes database statistics if it is available from the backend.
@@ -84,4 +85,16 @@ type PermissionStore interface {
 	RetrievePermission(context.Context, any) (*models.Permission, error)
 	UpdatePermission(context.Context, *models.Permission) error
 	DeletePermission(context.Context, int64) error
+}
+
+type APIKeyStore interface {
+	ListAPIKeys(context.Context, *models.Page) (*models.APIKeyList, error)
+	CreateAPIKey(context.Context, *models.APIKey) error
+	RetrieveAPIKey(context.Context, any) (*models.APIKey, error)
+	UpdateAPIKey(context.Context, *models.APIKey) error
+	UpdateLastSeen(context.Context, ulid.ULID, time.Time) error
+	AddPermissionToAPIKey(context.Context, ulid.ULID, any) error
+	RemovePermissionFromAPIKey(context.Context, ulid.ULID, int64) error
+	RevokeAPIKey(context.Context, ulid.ULID) error
+	DeleteAPIKey(context.Context, ulid.ULID) error
 }
