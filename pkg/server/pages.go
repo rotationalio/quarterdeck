@@ -12,3 +12,8 @@ func (s *Server) Home(c *gin.Context) {
 	// TODO: redirect to user dashboard if HTML request or to API docs if JSON request.
 	c.HTML(http.StatusOK, "pages/home/index.html", scene.New(c))
 }
+
+func (s *Server) LoginPage(c *gin.Context) {
+	// Render the login page
+	c.HTML(http.StatusOK, "auth/login/login.html", scene.New(c))
+}

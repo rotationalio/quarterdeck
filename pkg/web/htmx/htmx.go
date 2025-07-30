@@ -63,6 +63,14 @@ func IsHTMXRequest(c *gin.Context) bool {
 	return strings.ToLower(c.GetHeader(HXRequest)) == "true"
 }
 
+// Returns true if the request Accept header requests html or has the HX-Request header.
+func IsWebRequest(c *gin.Context) bool {
+	if fmt := c.NegotiateFormat(gin.MIMEJSON, gin.MIMEHTML); fmt == gin.MIMEHTML {
+		return true
+	}
+	return IsHTMXRequest(c)
+}
+
 // Trigger sets the HX-Trigger response header and returns a 204 no content to allow HTMX to handle the trigger.
 func Trigger(c *gin.Context, event string) {
 	if IsHTMXRequest(c) {

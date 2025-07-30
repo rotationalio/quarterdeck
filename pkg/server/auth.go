@@ -15,6 +15,21 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/web/htmx"
 )
 
+// PrepareLogin sets CSRF cookies to protect the login form and renders a login form
+// if the user requests HTML (otherwise it returns a 204 with just the cookies set).
+func (s *Server) PrepareLogin(c *gin.Context) {
+	// TODO: Set CSRF cookies for the login form
+
+	// Render the login page if this is an html/htmx request.
+	if htmx.IsWebRequest(c) {
+		c.HTML(http.StatusOK, "partials/auth/login.html", nil)
+		return
+	}
+
+	// Render a 204 No Content response with CSRF cookies set
+	c.Status(http.StatusNoContent)
+}
+
 // Login is oriented toward human users who use their email and password for
 // authentication (whereas Authenticate is used for machine access using API keys)
 // Login verifies the password submitted by tghe user is correct by looking up the user
