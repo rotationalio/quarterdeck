@@ -5,9 +5,10 @@ import (
 )
 
 type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	Next     string `json:"next,omitempty"` // Optional redirect URL after login
+	Email      string `json:"email"`
+	Password   string `json:"password"`
+	AutoLogout bool   `json:"auto_logout,omitempty"` // Optional flag to omit refresh token and persistent session
+	Next       string `json:"next,omitempty"`        // Optional redirect URL after login
 }
 
 type LoginReply struct {

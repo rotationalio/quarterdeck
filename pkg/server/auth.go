@@ -13,6 +13,7 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/quarterdeck/pkg/web/htmx"
+	"go.rtnl.ai/quarterdeck/pkg/web/scene"
 )
 
 // PrepareLogin sets CSRF cookies to protect the login form and renders a login form
@@ -21,8 +22,10 @@ func (s *Server) PrepareLogin(c *gin.Context) {
 	// TODO: Set CSRF cookies for the login form
 
 	// Render the login page if this is an html/htmx request.
+	// NOTE: the scene does a lot of work to fetch URL information for the login form.
 	if htmx.IsWebRequest(c) {
-		c.HTML(http.StatusOK, "partials/auth/login.html", nil)
+		ctx := scene.New(c).Login(c)
+		c.HTML(http.StatusOK, "partials/auth/login.html", ctx)
 		return
 	}
 

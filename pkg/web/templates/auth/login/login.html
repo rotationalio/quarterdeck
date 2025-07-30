@@ -1,5 +1,5 @@
 {{ template "auth.html" . }}
-
+{{ define "title" }}Please Login | Rotational Quarterdeck{{ end }}
 {{ define "auth" }}
 <div class="auth-form p-3" hx-get="/v1/login" hx-swap="replace" hx-trigger="load">
   <div class="text-center">
@@ -8,4 +8,26 @@
     </p>
   </div>
 </div>
+{{ end }}
+
+{{ define "appcode" }}
+  <script>
+    // Handle any login errors from the backend.
+    document.body.addEventListener("htmx:responseError", (e) => {
+      const error = JSON.parse(e.detail.xhr.response);
+      const alerts = document.getElementById("alerts");
+
+      alerts.insertAdjacentHTML("beforeend", `
+        <div class="alert alert-danger alert-outline alert-dismissible" role="alert">
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          <div class="alert-icon">
+            <i class="far fa-fw fa-bell"></i>
+          </div>
+          <div class="alert-message">
+            <p class="m-0 pe-4"><strong>Login Error</strong>: ${error.error}.</p>
+          </div>
+        </div>
+      `);
+    });
+  </script>
 {{ end }}

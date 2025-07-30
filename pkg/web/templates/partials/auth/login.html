@@ -8,24 +8,28 @@
 
   <div class="mb-3">
     <!-- TODO: add social login buttons and/or passkey login options -->
-    <form>
+    <form id="loginForm" hx-post="{{ .LoginURL }}" hx-ext="form-json">
       <div class="mb-3">
-        <label class="form-label">Email</label>
-        <input class="form-control form-control-lg" type="email" name="email" placeholder="Enter your email" autocomplete="username" required />
+        <label class="form-label" for="email">Email</label>
+        <input class="form-control form-control-lg" id="email" type="email" name="email" placeholder="Enter your email" autocomplete="username" required />
       </div>
       <div class="mb-3">
-        <label class="form-label">Password</label>
-        <input class="form-control form-control-lg" type="password" name="password" placeholder="Enter your password" autocomplete="current-password" required />
+        <label class="form-label" for="password">Password</label>
+        <input class="form-control form-control-lg" id="password" type="password" name="password" placeholder="Enter your password" autocomplete="current-password" required />
         <small>
-          <a href="/auth/reset-password">Forgot password?</a>
+          <a href="{{ .ForgotPasswordURL }}" referrerpolicy="origin-when-cross-origin">Forgot password?</a>
         </small>
       </div>
       <div>
         <div class="form-check align-items-center">
-          <input id="customControlInline" type="checkbox" class="form-check-input" value="remember-me" name="remember-me" checked>
-          <label class="form-check-label text-small" for="customControlInline">Remember me</label>
+          <input id="autoLogoutCB" type="checkbox" class="form-check-input" name="auto_logout">
+          <label class="form-check-label text-small" for="autoLogoutCB">
+            Auto Logout
+          </label>
+        </div>
       </div>
       <div class="d-grid gap-2 mt-3">
+        <input type="hidden" id="next" name="next" value="{{ .Next }}" />
         <button class="btn btn-lg btn-primary">Sign in</button>
       </div>
     </form>
