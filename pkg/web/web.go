@@ -27,7 +27,7 @@ const (
 
 var (
 	includes        = []string{"*.html", "components/*.html"}
-	partialsInclude = []string{partialsComponents}
+	partialsInclude = []string{} // TODO: include partialsComponents if needed
 
 	excludes = map[string]struct{}{
 		"partials":   {},

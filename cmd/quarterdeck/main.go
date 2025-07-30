@@ -1,9 +1,12 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
+	"strings"
+	"syscall"
 	"text/tabwriter"
 
 	"github.com/joho/godotenv"
@@ -11,12 +14,20 @@ import (
 	"github.com/urfave/cli/v2"
 	"go.rtnl.ai/quarterdeck/pkg"
 	"go.rtnl.ai/quarterdeck/pkg/auth"
+	"go.rtnl.ai/quarterdeck/pkg/auth/passwords"
 	"go.rtnl.ai/quarterdeck/pkg/config"
+	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/server"
+	"go.rtnl.ai/quarterdeck/pkg/store"
+	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/ulid"
+	"golang.org/x/term"
 )
 
-var conf config.Config
+var (
+	db   store.Store
+	conf config.Config
+)
 
 func main() {
 	// If a dotenv file exists, load it for configuration
@@ -39,7 +50,7 @@ func main() {
 		{
 			Name:     "config",
 			Usage:    "print quarterdeck configuration guide",
-			Category: "utility",
+			Category: "service",
 			Action:   usage,
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
@@ -50,9 +61,35 @@ func main() {
 			},
 		},
 		{
+			Name:     "createuser",
+			Usage:    "create a new user to access Quarterdeck with",
+			Category: "admin",
+			Before:   openDB,
+			Action:   createUser,
+			After:    closeDB,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:    "name",
+					Aliases: []string{"n"},
+					Usage:   "full name of user",
+				},
+				&cli.StringFlag{
+					Name:     "email",
+					Aliases:  []string{"e"},
+					Required: true,
+					Usage:    "email address of user",
+				},
+				&cli.StringSliceFlag{
+					Name:    "role",
+					Aliases: []string{"r"},
+					Usage:   "specify the user role(s) to set their permissions (role(s) must exist in database)",
+				},
+			},
+		},
+		{
 			Name:     "mkkey",
 			Usage:    "generate an RSA token key pair and kid (ulid) for JWT token signing",
-			Category: "utility",
+			Category: "admin",
 			Action:   mkkey,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
@@ -95,10 +132,6 @@ func serve(c *cli.Context) (err error) {
 	return nil
 }
 
-//===========================================================================
-// Utility Commands
-//===========================================================================
-
 func usage(c *cli.Context) (err error) {
 	tabs := tabwriter.NewWriter(os.Stdout, 1, 0, 4, ' ', 0)
 	format := confire.DefaultTableFormat
@@ -111,6 +144,61 @@ func usage(c *cli.Context) (err error) {
 		return cli.Exit(err, 1)
 	}
 	tabs.Flush()
+	return nil
+}
+
+//===========================================================================
+// Admin Commands
+//===========================================================================
+
+func createUser(c *cli.Context) (err error) {
+	// Lookup the role by name in the database
+	var (
+		roles     []*models.Role
+		roleNames []string
+	)
+
+	for _, roleName := range c.StringSlice("role") {
+		roleName = strings.ToLower(strings.TrimSpace(roleName))
+		if roleName == "" {
+			return cli.Exit("role name cannot be empty", 1)
+		}
+
+		var role *models.Role
+		if role, err = db.RetrieveRole(c.Context, roleName); err != nil {
+			if errors.Is(err, errors.ErrNotFound) {
+				return cli.Exit(fmt.Errorf("role %q does not exist", roleName), 1)
+			}
+			return cli.Exit(err, 1)
+		}
+
+		roles = append(roles, role)
+		roleNames = append(roleNames, role.Title)
+	}
+
+	// Assumes the user's email is verified since it is being set by an admin.
+	user := &models.User{
+		Name:          sql.NullString{Valid: c.String("name") != "", String: c.String("name")},
+		Email:         c.String("email"),
+		EmailVerified: true,
+	}
+
+	user.SetRoles(roles)
+
+	var password string
+	if password, err = inputPassword(); err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	if user.Password, err = passwords.CreateDerivedKey(password); err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	if err = db.CreateUser(c.Context, user); err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	fmt.Printf("created user %s with roles: %s\n", user.Email, strings.Join(roleNames, ", "))
 	return nil
 }
 
@@ -136,4 +224,52 @@ func mkkey(c *cli.Context) (err error) {
 
 	fmt.Printf("signing key id: %s -- saved with PEM encoding to %s\n", keyid, out)
 	return nil
+}
+
+//===========================================================================
+// Action Helpers
+//===========================================================================
+
+func openDB(c *cli.Context) (err error) {
+	if conf, err = config.New(); err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	if db, err = store.Open(conf.Database); err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	return nil
+}
+
+func closeDB(c *cli.Context) error {
+	if db != nil {
+		if err := db.Close(); err != nil {
+			return cli.Exit(err, 1)
+		}
+	}
+	return nil
+}
+
+func inputPassword() (_ string, err error) {
+	fmt.Print("Enter password: ")
+	password, err := term.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Print("\nConfirm password: ")
+	confirm, err := term.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		return "", err
+	}
+
+	// Clear the line after reading password input
+	fmt.Println()
+
+	if string(password) != string(confirm) {
+		return "", fmt.Errorf("passwords do not match")
+	}
+
+	return string(password), nil
 }

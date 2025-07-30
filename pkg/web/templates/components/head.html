@@ -1,11 +1,27 @@
 {{ define "head" }}
 <head>
   <meta charset="UTF-8">
-  <meta name="robots" content="noindex, nofollow">
+  <meta name="robots" content="noindex,nofollow">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
 	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 	<meta name="description" content="Authentication and authorization portal for Rotational applications.">
 	<meta name="author" content="Rotational Labs">
+
+  <!-- HTMX Configuration -->
+  {{- block "htmxConfig" . }}
+  <meta
+    name="htmx-config"
+    content='{
+      "responseHandling":[
+        {"code":"204", "swap": false},
+        {"code":"[23]..", "swap": true},
+        {"code":"422", "swap": true},
+        {"code":"[45]..", "swap": false, "error":true},
+        {"code":"...", "swap": true}
+      ]
+    }'
+  />
+  {{- end }}
 
   <title>{{ block "title" . }}Quarterdeck{{ end }}</title>
 
@@ -14,15 +30,15 @@
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-	<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500&display=swap" rel="stylesheet">
 
   <!-- Stylesheets -->
-  {{ block "styles" . }}
+  {{- block "styles" . }}
   <link rel="stylesheet" href="/static/css/app.css" />
   {{ end }}
 
   <!-- Page specific styles -->
-  {{ block "appstyles" . }}{{ end }}
+  {{- block "appstyles" . }}{{ end }}
 </head>
 {{ end }}

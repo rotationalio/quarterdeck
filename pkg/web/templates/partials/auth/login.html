@@ -1,0 +1,37 @@
+<div class="auth-form p-3">
+  <div class="text-center">
+    <p class="lead">
+      <h1 class="h2">Welcome back!</h1>
+      <p class="lead">Sign in to your account to continue</p>
+    </p>
+  </div>
+
+  <div class="mb-3">
+    <!-- TODO: add social login buttons and/or passkey login options -->
+    <form id="loginForm" hx-post="{{ .LoginURL }}" hx-ext="form-json">
+      <div class="mb-3">
+        <label class="form-label" for="email">Email</label>
+        <input class="form-control form-control-lg" id="email" type="email" name="email" placeholder="Enter your email" autocomplete="username" required />
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="password">Password</label>
+        <input class="form-control form-control-lg" id="password" type="password" name="password" placeholder="Enter your password" autocomplete="current-password" required />
+        <small>
+          <a href="{{ .ForgotPasswordURL }}" referrerpolicy="origin-when-cross-origin">Forgot password?</a>
+        </small>
+      </div>
+      <div>
+        <div class="form-check align-items-center">
+          <input id="autoLogoutCB" type="checkbox" class="form-check-input" name="auto_logout">
+          <label class="form-check-label text-small" for="autoLogoutCB">
+            Auto Logout
+          </label>
+        </div>
+      </div>
+      <div class="d-grid gap-2 mt-3">
+        <input type="hidden" id="next" name="next" value="{{ .Next }}" />
+        <button class="btn btn-lg btn-primary">Sign in</button>
+      </div>
+    </form>
+  </div>
+</div>

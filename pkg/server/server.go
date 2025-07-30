@@ -80,6 +80,11 @@ func New(conf config.Config) (s *Server, err error) {
 		errc: make(chan error, 1),
 	}
 
+	// Connect to the configured database store.
+	if s.store, err = store.Open(conf.Database); err != nil {
+		return nil, err
+	}
+
 	// Initialize the claims issuer for JWT tokens.
 	if s.issuer, err = auth.NewIssuer(conf.Auth); err != nil {
 		return nil, err

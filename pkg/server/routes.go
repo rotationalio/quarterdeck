@@ -77,6 +77,8 @@ func (s *Server) setupRoutes() (err error) {
 	// Web UI Routes (Unauthenticated)
 	ui := s.router.Group("")
 	{
+		ui.GET("/login", s.LoginPage)
+		ui.GET("/logout", s.Logout)
 		ui.GET("/", s.Home)
 	}
 
@@ -92,6 +94,10 @@ func (s *Server) setupRoutes() (err error) {
 		// TODO: ensure this is only available when authenticated
 		v1.GET("/dbinfo", s.DBInfo)
 		// v1.GET("/dbinfo", authenticate, authorize(permiss.ConfigView), s.DBInfo)
+
+		// Authentication endpoints
+		v1.GET("/login", s.PrepareLogin)
+		v1.POST("/login", s.Login)
 	}
 
 	// The "well known" routes expose client security information and credentials.
