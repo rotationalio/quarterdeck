@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"syscall"
 	"text/tabwriter"
 
 	"github.com/joho/godotenv"
@@ -20,7 +21,7 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/store"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/ulid"
-	"go.rtnl.ai/x/randstr"
+	"golang.org/x/term"
 )
 
 var (
@@ -184,7 +185,11 @@ func createUser(c *cli.Context) (err error) {
 
 	user.SetRoles(roles)
 
-	password := randstr.AlphaNumeric(12)
+	var password string
+	if password, err = inputPassword(); err != nil {
+		return cli.Exit(err, 1)
+	}
+
 	if user.Password, err = passwords.CreateDerivedKey(password); err != nil {
 		return cli.Exit(err, 1)
 	}
@@ -193,7 +198,7 @@ func createUser(c *cli.Context) (err error) {
 		return cli.Exit(err, 1)
 	}
 
-	fmt.Printf("created user %s\nroles: %s\npassword: %s\n", user.Email, strings.Join(roleNames, ", "), password)
+	fmt.Printf("created user %s with roles: %s\n", user.Email, strings.Join(roleNames, ", "))
 	return nil
 }
 
@@ -244,4 +249,27 @@ func closeDB(c *cli.Context) error {
 		}
 	}
 	return nil
+}
+
+func inputPassword() (_ string, err error) {
+	fmt.Print("Enter password: ")
+	password, err := term.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Print("\nConfirm password: ")
+	confirm, err := term.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		return "", err
+	}
+
+	// Clear the line after reading password input
+	fmt.Println()
+
+	if string(password) != string(confirm) {
+		return "", fmt.Errorf("passwords do not match")
+	}
+
+	return string(password), nil
 }
