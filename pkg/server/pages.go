@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/gin-gonic/gin"
 	"go.rtnl.ai/quarterdeck/pkg/web/scene"
@@ -14,6 +15,14 @@ func (s *Server) Home(c *gin.Context) {
 }
 
 func (s *Server) LoginPage(c *gin.Context) {
-	// Render the login page
-	c.HTML(http.StatusOK, "auth/login/login.html", scene.New(c))
+	prepareURL := &url.URL{Path: "/v1/login"}
+	if next := c.Query("next"); next != "" {
+		params := url.Values{}
+		params.Set("next", next)
+		prepareURL.RawQuery = params.Encode()
+	}
+
+	ctx := scene.New(c)
+	ctx["PrepareLoginURL"] = prepareURL.String()
+	c.HTML(http.StatusOK, "auth/login/login.html", ctx)
 }

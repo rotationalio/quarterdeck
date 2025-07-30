@@ -1,7 +1,7 @@
 {{ template "auth.html" . }}
 {{ define "title" }}Please Login | Rotational Quarterdeck{{ end }}
 {{ define "auth" }}
-<div class="auth-form p-3" hx-get="/v1/login" hx-swap="replace" hx-trigger="load">
+<div class="auth-form p-3" hx-get="{{ .PrepareLoginURL }}" hx-swap="replace" hx-trigger="load">
   <div class="text-center">
     <p class="lead">
       <i class="fa-solid fa-spinner fa-spin fs-2"></i>

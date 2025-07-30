@@ -51,7 +51,7 @@ const (
 func Redirect(c *gin.Context, code int, location string) {
 	if IsHTMXRequest(c) {
 		c.Header(HXRedirect, location)
-		c.Status(http.StatusNoContent)
+		c.JSON(http.StatusNoContent, nil)
 		return
 	}
 
@@ -75,7 +75,7 @@ func IsWebRequest(c *gin.Context) bool {
 func Trigger(c *gin.Context, event string) {
 	if IsHTMXRequest(c) {
 		c.Header(HXTrigger, event)
-		c.Status(http.StatusNoContent)
+		c.Data(http.StatusNoContent, gin.MIMEHTML, nil)
 		return
 	}
 }

@@ -30,7 +30,8 @@ func (s *Server) PrepareLogin(c *gin.Context) {
 	}
 
 	// Render a 204 No Content response with CSRF cookies set
-	c.Status(http.StatusNoContent)
+	// NOTE: c.Status(http.StatusNoContent) doesn't work, so we have to use c.Data or c.JSON
+	c.JSON(http.StatusNoContent, nil)
 }
 
 // Login is oriented toward human users who use their email and password for
