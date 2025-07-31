@@ -1,11 +1,11 @@
 package server
 
 import (
-	"time"
-
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"go.rtnl.ai/quarterdeck/pkg/logger"
+	"go.rtnl.ai/gimlet/logger"
+	"go.rtnl.ai/gimlet/ratelimit"
+	"go.rtnl.ai/quarterdeck/pkg"
 	"go.rtnl.ai/quarterdeck/pkg/metrics"
 	"go.rtnl.ai/quarterdeck/pkg/web"
 )
@@ -16,13 +16,10 @@ func (s *Server) setupRoutes() (err error) {
 		return err
 	}
 
-	// Create CORS configuration
-	corsConf := cors.Config{
-		AllowMethods:     []string{"GET", "HEAD"},
-		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-CSRF-TOKEN"},
-		AllowOrigins:     s.conf.AllowOrigins,
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
+	// Create rate limiting middleware
+	var throttle gin.HandlerFunc
+	if throttle, err = ratelimit.RateLimit(&s.conf.RateLimit); err != nil {
+		return err
 	}
 
 	// Application Middleware
@@ -30,16 +27,19 @@ func (s *Server) setupRoutes() (err error) {
 	middlewares := []gin.HandlerFunc{
 		// Logging should be on the outside so we can record the correct latency of requests
 		// NOTE: logging panics will not recover
-		logger.GinLogger(ServiceName),
+		logger.Logger(ServiceName, pkg.Version(true)),
 
 		// Panic recovery middleware
 		gin.Recovery(),
 
-		// CORS configuration allows the front-end to make cross-origin requests
-		cors.New(corsConf),
-
-		// Maintenance mode middleware to return unavailable
+		// Maintenance mode middleware to make system unavailable while running
 		s.Maintenance(),
+
+		// CORS configuration allows the front-end to make cross-origin requests
+		cors.New(s.conf.CORS()),
+
+		// Rate limiting middleware to prevent abuse of the API
+		throttle,
 	}
 
 	// Kubernetes liveness probes added before middleware.

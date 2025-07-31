@@ -8,8 +8,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+	"go.rtnl.ai/gimlet/logger"
 	"go.rtnl.ai/quarterdeck/pkg/config"
-	"go.rtnl.ai/quarterdeck/pkg/logger"
 )
 
 // The test environment for all config tests, manipulated using curEnv and setEnv
@@ -20,10 +20,10 @@ var testEnv = map[string]string{
 	"QD_LOG_LEVEL":              "error",
 	"QD_CONSOLE_LOG":            "true",
 	"QD_ALLOW_ORIGINS":          "http://localhost:8888,http://localhost:8080",
-	"QD_RATE_LIMIT_ENABLED":     "true",
-	"QD_RATE_LIMIT_PER_SECOND":  "20",
+	"QD_RATE_LIMIT_TYPE":        "ipaddr",
+	"QD_RATE_LIMIT_LIMIT":       "20",
 	"QD_RATE_LIMIT_BURST":       "100",
-	"QD_RATE_LIMIT_TTL":         "1h",
+	"QD_RATE_LIMIT_CACHE_TTL":   "1h",
 	"QD_DATABASE_URL":           "sqlite3:///test.db",
 	"QD_DATABASE_READ_ONLY":     "true",
 	"QD_AUTH_KEYS":              "01GECSDK5WJ7XWASQ0PMH6K41K:testdata/01GECSDK5WJ7XWASQ0PMH6K41K.pem,01GECSJGDCDN368D0EENX23C7R:testdata/01GECSJGDCDN368D0EENX23C7R.pem",
@@ -69,10 +69,10 @@ func TestConfig(t *testing.T) {
 	require.Equal(t, 5*time.Minute, conf.Auth.AccessTokenTTL)
 	require.Equal(t, 10*time.Minute, conf.Auth.RefreshTokenTTL)
 	require.Equal(t, -2*time.Minute, conf.Auth.TokenOverlap)
-	require.True(t, conf.RateLimit.Enabled)
-	require.Equal(t, 20.00, conf.RateLimit.PerSecond)
+	require.Equal(t, testEnv["QD_RATE_LIMIT_TYPE"], conf.RateLimit.Type)
+	require.Equal(t, 20.00, conf.RateLimit.Limit)
 	require.Equal(t, 100, conf.RateLimit.Burst)
-	require.Equal(t, 60*time.Minute, conf.RateLimit.TTL)
+	require.Equal(t, 60*time.Minute, conf.RateLimit.CacheTTL)
 	require.Equal(t, testEnv["QD_SECURITY_TXT_PATH"], conf.Security.TxtPath)
 }
 
@@ -210,64 +210,6 @@ func TestAllowAllOrigins(t *testing.T) {
 
 	conf.AllowOrigins = []string{"*"}
 	require.True(t, conf.AllowAllOrigins(), "expect allow all origins to be true when * is set")
-}
-
-func TestRateLimitConfigValidate(t *testing.T) {
-	t.Run("Valid", func(t *testing.T) {
-		tests := []config.RateLimitConfig{
-			{Enabled: false},
-			{
-				Enabled:   true,
-				Burst:     120,
-				PerSecond: 20.00,
-				TTL:       5 * time.Minute,
-			},
-		}
-
-		for i, conf := range tests {
-			require.NoError(t, conf.Validate(), "expected rate limit config validation to pass on test case %d", i)
-		}
-	})
-
-	t.Run("Invalid", func(t *testing.T) {
-		tests := []struct {
-			conf config.RateLimitConfig
-			errs string
-		}{
-			{
-				conf: config.RateLimitConfig{
-					Enabled:   true,
-					Burst:     0,
-					PerSecond: 20.00,
-					TTL:       5 * time.Minute,
-				},
-				errs: "invalid configuration: rateLimit.burst is required but not set",
-			},
-			{
-				conf: config.RateLimitConfig{
-					Enabled:   true,
-					Burst:     120,
-					PerSecond: 0.00,
-					TTL:       5 * time.Minute,
-				},
-				errs: "invalid configuration: rateLimit.perSecond is required but not set",
-			},
-			{
-				conf: config.RateLimitConfig{
-					Enabled:   true,
-					Burst:     120,
-					PerSecond: 20.00,
-					TTL:       0,
-				},
-				errs: "invalid configuration: rateLimit.ttl is required but not set",
-			},
-		}
-
-		for i, test := range tests {
-			err := test.conf.Validate()
-			require.EqualError(t, err, test.errs, "expected rate limit config validation error on test case %d", i)
-		}
-	})
 }
 
 func TestAuthConfigValidate(t *testing.T) {
