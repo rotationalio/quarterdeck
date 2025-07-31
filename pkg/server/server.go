@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"go.rtnl.ai/gimlet/csrf"
 	"go.rtnl.ai/gimlet/logger"
 	"go.rtnl.ai/quarterdeck/pkg/auth"
 	"go.rtnl.ai/quarterdeck/pkg/config"
@@ -50,6 +51,7 @@ type Server struct {
 	srv     *http.Server
 	router  *gin.Engine
 	issuer  *auth.ClaimsIssuer
+	csrf    csrf.TokenHandler
 	url     *url.URL
 	started time.Time
 	errc    chan error
@@ -87,6 +89,11 @@ func New(conf config.Config) (s *Server, err error) {
 
 	// Initialize the claims issuer for JWT tokens.
 	if s.issuer, err = auth.NewIssuer(conf.Auth); err != nil {
+		return nil, err
+	}
+
+	// Initialize the CSRF token handler if enabled.
+	if s.csrf, err = csrf.NewTokenHandler(s.conf.CSRF.CookieTTL, "/", s.conf.AllowOrigins, s.conf.CSRF.GetSecret()); err != nil {
 		return nil, err
 	}
 

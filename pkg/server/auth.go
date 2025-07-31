@@ -19,7 +19,11 @@ import (
 // PrepareLogin sets CSRF cookies to protect the login form and renders a login form
 // if the user requests HTML (otherwise it returns a 204 with just the cookies set).
 func (s *Server) PrepareLogin(c *gin.Context) {
-	// TODO: Set CSRF cookies for the login form
+	// Set CSRF cookies for the login form
+	if err := s.csrf.SetDoubleCookieToken(c); err != nil {
+		s.Error(c, err)
+		return
+	}
 
 	// Render the login page if this is an html/htmx request.
 	// NOTE: the scene does a lot of work to fetch URL information for the login form.
@@ -36,7 +40,7 @@ func (s *Server) PrepareLogin(c *gin.Context) {
 
 // Login is oriented toward human users who use their email and password for
 // authentication (whereas Authenticate is used for machine access using API keys)
-// Login verifies the password submitted by tghe user is correct by looking up the user
+// Login verifies the password submitted by the user is correct by looking up the user
 // in the database via email and using the argon2 derived key to verify the password.
 // Upon authentication an access and refresh token with the authorized claims of the
 // user are returned. The user can use the access token to authenticate to all systems
