@@ -7,8 +7,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rotationalio/confire"
 	"github.com/rs/zerolog"
+	"go.rtnl.ai/gimlet/logger"
+	"go.rtnl.ai/gimlet/ratelimit"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
-	"go.rtnl.ai/quarterdeck/pkg/logger"
 )
 
 const Prefix = "QD"
@@ -20,18 +21,11 @@ type Config struct {
 	LogLevel     logger.LevelDecoder `split_words:"true" default:"info" desc:"specify the verbosity of logging (trace, debug, info, warn, error, fatal panic)"`
 	ConsoleLog   bool                `split_words:"true" default:"false" desc:"if true logs colorized human readable output instead of json"`
 	AllowOrigins []string            `split_words:"true" default:"http://localhost:8000" desc:"a list of allowed origins (domains including port) for CORS requests"`
-	RateLimit    RateLimitConfig     `split_words:"true"`
+	RateLimit    ratelimit.Config    `split_words:"true"`
 	Database     DatabaseConfig
 	Auth         AuthConfig
 	Security     SecurityConfig
 	processed    bool
-}
-
-type RateLimitConfig struct {
-	Enabled   bool          `default:"true" desc:"enable the rate limiting middleware"`
-	PerSecond float64       `split_words:"true" default:"24" desc:"the number of requests allowed per second (e.g. tokens added to the bucket per second)"`
-	Burst     int           `default:"48" desc:"the maximum number of requests allowed at once (e.g. the max capacity of the token bucket)"`
-	TTL       time.Duration `default:"8m" desc:"interval before an IP is removed from the rate limiter map"`
 }
 
 type DatabaseConfig struct {
@@ -92,26 +86,6 @@ func (c Config) AllowAllOrigins() bool {
 		return true
 	}
 	return false
-}
-
-func (c RateLimitConfig) Validate() (err error) {
-	if !c.Enabled {
-		return nil
-	}
-
-	if c.PerSecond == 0.00 {
-		err = errors.ConfigError(err, errors.RequiredConfig("rateLimit", "perSecond"))
-	}
-
-	if c.Burst == 0 {
-		err = errors.ConfigError(err, errors.RequiredConfig("rateLimit", "burst"))
-	}
-
-	if c.TTL == 0 {
-		err = errors.ConfigError(err, errors.RequiredConfig("rateLimit", "ttl"))
-	}
-
-	return err
 }
 
 func (c AuthConfig) Validate() (err error) {
