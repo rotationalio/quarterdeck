@@ -21,7 +21,7 @@ var testEnv = map[string]string{
 	"QD_CONSOLE_LOG":            "true",
 	"QD_ALLOW_ORIGINS":          "http://localhost:8888,http://localhost:8080",
 	"QD_RATE_LIMIT_TYPE":        "ipaddr",
-	"QD_RATE_LIMIT_LIMIT":       "20",
+	"QD_RATE_LIMIT_PER_SECOND":  "20",
 	"QD_RATE_LIMIT_BURST":       "100",
 	"QD_RATE_LIMIT_CACHE_TTL":   "1h",
 	"QD_DATABASE_URL":           "sqlite3:///test.db",
@@ -32,6 +32,8 @@ var testEnv = map[string]string{
 	"QD_AUTH_ACCESS_TOKEN_TTL":  "5m",
 	"QD_AUTH_REFRESH_TOKEN_TTL": "10m",
 	"QD_AUTH_TOKEN_OVERLAP":     "-2m",
+	"QD_CSRF_COOKIE_TTL":        "20m",
+	"QD_CSRF_SECRET":            "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
 	"QD_SECURITY_TXT_PATH":      "./security.txt",
 }
 
@@ -70,9 +72,11 @@ func TestConfig(t *testing.T) {
 	require.Equal(t, 10*time.Minute, conf.Auth.RefreshTokenTTL)
 	require.Equal(t, -2*time.Minute, conf.Auth.TokenOverlap)
 	require.Equal(t, testEnv["QD_RATE_LIMIT_TYPE"], conf.RateLimit.Type)
-	require.Equal(t, 20.00, conf.RateLimit.Limit)
+	require.Equal(t, 20.00, conf.RateLimit.PerSecond)
 	require.Equal(t, 100, conf.RateLimit.Burst)
 	require.Equal(t, 60*time.Minute, conf.RateLimit.CacheTTL)
+	require.Equal(t, 20*time.Minute, conf.CSRF.CookieTTL)
+	require.Equal(t, testEnv["QD_CSRF_SECRET"], conf.CSRF.Secret)
 	require.Equal(t, testEnv["QD_SECURITY_TXT_PATH"], conf.Security.TxtPath)
 }
 
@@ -202,7 +206,7 @@ func TestAllowAllOrigins(t *testing.T) {
 	require.Equal(t, []string{"http://localhost:8000"}, conf.AllowOrigins, "allow origins should be localhost by default")
 	require.False(t, conf.AllowAllOrigins(), "expected allow all origins to be false by default")
 
-	conf.AllowOrigins = []string{"https://ensign.rotational.dev", "https://ensign.io"}
+	conf.AllowOrigins = []string{"https://auth.rotational.dev", "https://endeavor.io"}
 	require.False(t, conf.AllowAllOrigins(), "expected allow all origins to be false when allow origins is set")
 
 	conf.AllowOrigins = []string{}
@@ -327,6 +331,52 @@ func TestAuthConfigValidate(t *testing.T) {
 		for i, test := range tests {
 			err := test.conf.Validate()
 			require.EqualError(t, err, test.errs, "expected auth config validation error on test case %d", i)
+		}
+	})
+}
+
+func TestCSRFConfigValidate(t *testing.T) {
+	t.Run("Valid", func(t *testing.T) {
+		tests := []config.CSRFConfig{
+			{
+				CookieTTL: 20 * time.Minute,
+				Secret:    "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+			},
+			{
+				CookieTTL: 30 * time.Minute,
+				Secret:    "",
+			},
+		}
+
+		for i, conf := range tests {
+			require.NoError(t, conf.Validate(), "expected csrf config validation to pass on test case %d", i)
+		}
+	})
+
+	t.Run("Invalid", func(t *testing.T) {
+		tests := []struct {
+			conf config.CSRFConfig
+			errs string
+		}{
+			{
+				conf: config.CSRFConfig{
+					CookieTTL: 0,
+					Secret:    "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+				},
+				errs: "invalid configuration: csrf.cookieTTL is required but not set",
+			},
+			{
+				conf: config.CSRFConfig{
+					CookieTTL: 20 * time.Minute,
+					Secret:    "invalidhexstring",
+				},
+				errs: "invalid configuration: csrf.secret could not parse secret: encoding/hex: invalid byte: U+0069 'i'",
+			},
+		}
+
+		for i, test := range tests {
+			err := test.conf.Validate()
+			require.EqualError(t, err, test.errs, "expected csrf config validation error on test case %d", i)
 		}
 	})
 }

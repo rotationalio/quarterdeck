@@ -3,6 +3,7 @@ package server
 import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"go.rtnl.ai/gimlet/csrf"
 	"go.rtnl.ai/gimlet/logger"
 	"go.rtnl.ai/gimlet/ratelimit"
 	"go.rtnl.ai/quarterdeck/pkg"
@@ -74,6 +75,9 @@ func (s *Server) setupRoutes() (err error) {
 
 	// TODO: authorization middleware
 
+	// CSRF protection middleware
+	csrf := csrf.DoubleCookie(s.csrf)
+
 	// Web UI Routes (Unauthenticated)
 	ui := s.router.Group("")
 	{
@@ -97,7 +101,7 @@ func (s *Server) setupRoutes() (err error) {
 
 		// Authentication endpoints
 		v1.GET("/login", s.PrepareLogin)
-		v1.POST("/login", s.Login)
+		v1.POST("/login", csrf, s.Login)
 	}
 
 	// The "well known" routes expose client security information and credentials.
