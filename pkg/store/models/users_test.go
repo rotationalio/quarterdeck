@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.rtnl.ai/ulid"
 
-	"go.rtnl.ai/quarterdeck/pkg/auth"
+	"go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store/mock"
 	. "go.rtnl.ai/quarterdeck/pkg/store/models"

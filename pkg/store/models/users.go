@@ -3,7 +3,7 @@ package models
 import (
 	"database/sql"
 
-	"go.rtnl.ai/quarterdeck/pkg/auth"
+	"go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/x/gravatar"
 )

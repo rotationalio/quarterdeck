@@ -55,10 +55,10 @@ func (s *Server) JWKS(c *gin.Context) {
 		}
 	}
 
-	expires := s.issuer.Expires()
+	expires := s.issuer.Expires().In(time.UTC)
 	maxAge := time.Until(expires).Seconds()
 
-	c.Header(HeaderExpires, expires.Format(time.RFC1123))
+	c.Header(HeaderExpires, expires.Format(http.TimeFormat))
 	c.Header(HeaderCacheControl, fmt.Sprintf("public, max-age=%d, must-revalidate", int64(maxAge)))
 	c.Header(HeaderEtag, etag)
 	c.JSON(http.StatusOK, keys)

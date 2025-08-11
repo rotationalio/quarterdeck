@@ -3,11 +3,13 @@ package server
 import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/gimlet/csrf"
 	"go.rtnl.ai/gimlet/logger"
+	"go.rtnl.ai/gimlet/o11y"
 	"go.rtnl.ai/gimlet/ratelimit"
 	"go.rtnl.ai/quarterdeck/pkg"
-	"go.rtnl.ai/quarterdeck/pkg/metrics"
+	"go.rtnl.ai/quarterdeck/pkg/auth/permissions"
 	"go.rtnl.ai/quarterdeck/pkg/web"
 )
 
@@ -28,7 +30,7 @@ func (s *Server) setupRoutes() (err error) {
 	middlewares := []gin.HandlerFunc{
 		// Logging should be on the outside so we can record the correct latency of requests
 		// NOTE: logging panics will not recover
-		logger.Logger(ServiceName, pkg.Version(true)),
+		logger.Logger(ServiceName, pkg.Version(true), true),
 
 		// Panic recovery middleware
 		gin.Recovery(),
@@ -50,7 +52,7 @@ func (s *Server) setupRoutes() (err error) {
 
 	// Prometheus metrics handler added before middleware.
 	// Note metrics will be served at /metrics
-	metrics.Routes(s.router)
+	o11y.Routes(s.router)
 
 	// Add the middleware to the router
 	for _, middleware := range middlewares {
@@ -58,6 +60,15 @@ func (s *Server) setupRoutes() (err error) {
 			s.router.Use(middleware)
 		}
 	}
+
+	// Instantiate per-route middleware
+	var authenticate gin.HandlerFunc
+	if authenticate, err = auth.Authenticate(s.issuer); err != nil {
+		return err
+	}
+
+	// CSRF protection middleware
+	csrf := csrf.DoubleCookie(s.csrf)
 
 	// NotFound and NotAllowed routes
 	s.router.NoRoute(s.NotFound)
@@ -71,37 +82,17 @@ func (s *Server) setupRoutes() (err error) {
 	// Static Files
 	s.router.StaticFS("/static", web.Static())
 
-	// TODO: authentication middleware
-
-	// TODO: authorization middleware
-
-	// CSRF protection middleware
-	csrf := csrf.DoubleCookie(s.csrf)
-
 	// Web UI Routes (Unauthenticated)
-	ui := s.router.Group("")
+	uio := s.router.Group("")
 	{
-		ui.GET("/login", s.LoginPage)
-		ui.GET("/logout", s.Logout)
-		ui.GET("/", s.Home)
+		uio.GET("/login", s.LoginPage)
+		uio.GET("/logout", s.Logout)
 	}
 
 	// Web UI Routes (Authenticated)
-
-	// API Routes (Including Content Negotiated Partials)
-	v1 := s.router.Group("/v1")
+	uia := s.router.Group("")
 	{
-		// Status/Heartbeat endpoint
-		v1.GET("/status", s.Status)
-
-		// Database Statistics
-		// TODO: ensure this is only available when authenticated
-		v1.GET("/dbinfo", s.DBInfo)
-		// v1.GET("/dbinfo", authenticate, authorize(permiss.ConfigView), s.DBInfo)
-
-		// Authentication endpoints
-		v1.GET("/login", s.PrepareLogin)
-		v1.POST("/login", csrf, s.Login)
+		uia.GET("/", s.Home)
 	}
 
 	// The "well known" routes expose client security information and credentials.
@@ -110,6 +101,20 @@ func (s *Server) setupRoutes() (err error) {
 		wk.GET("/jwks.json", s.JWKS)
 		wk.GET("/security.txt", s.SecurityTxt)
 		wk.GET("/openid-configuration", s.OpenIDConfiguration)
+	}
+
+	// API Routes (Including Content Negotiated Partials)
+	v1 := s.router.Group("/v1")
+	{
+		// Status/Heartbeat endpoint
+		v1.GET("/status", s.Status)
+
+		// Database Statistics
+		v1.GET("/dbinfo", authenticate, auth.Authorize(permissions.ConfigView), s.DBInfo)
+
+		// Authentication endpoints
+		v1.GET("/login", s.PrepareLogin)
+		v1.POST("/login", csrf, s.Login)
 	}
 
 	return nil

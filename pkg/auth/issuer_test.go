@@ -9,7 +9,8 @@ import (
 	"github.com/go-jose/go-jose/v4"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/suite"
-	"go.rtnl.ai/quarterdeck/pkg/auth"
+	"go.rtnl.ai/gimlet/auth"
+	. "go.rtnl.ai/quarterdeck/pkg/auth"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/ulid"
 
@@ -44,7 +45,7 @@ func (s *TokenTestSuite) TestClaimsIssuer() {
 	require := s.Require()
 	conf := s.AuthConfig()
 
-	tm, err := auth.NewIssuer(conf)
+	tm, err := NewIssuer(conf)
 	require.NoError(err, "could not initialize token manager")
 
 	s.Run("KeyLoading", func() {
@@ -129,7 +130,7 @@ func (s *TokenTestSuite) TestKeysGenerated() {
 	conf.Keys = nil
 
 	// Create the token manager
-	tm, err := auth.NewIssuer(conf)
+	tm, err := NewIssuer(conf)
 	require.NoError(err, "could not initialize token manager")
 
 	// Check that the keys are generated
@@ -143,7 +144,7 @@ func (s *TokenTestSuite) TestValidTokens() {
 	conf := s.AuthConfig()
 	conf.TokenOverlap = -1 * conf.AccessTokenTTL
 
-	tm, err := auth.NewIssuer(conf)
+	tm, err := NewIssuer(conf)
 	require.NoError(err, "could not initialize token manager")
 
 	// Default creds
@@ -168,7 +169,7 @@ func (s *TokenTestSuite) TestInvalidTokens() {
 	require := s.Require()
 	conf := s.AuthConfig()
 
-	tm, err := auth.NewIssuer(conf)
+	tm, err := NewIssuer(conf)
 	require.NoError(err, "could not initialize token manager")
 
 	// Manually create a token to validate with the token manager
@@ -237,7 +238,7 @@ func (s *TokenTestSuite) TestInvalidTokens() {
 
 		if genKey, ok := fields["genKey"].(bool); ok && genKey {
 			if signingMethod.Alg() == jwt.SigningMethodEdDSA.Alg() {
-				key, err := auth.GenerateKeys()
+				key, err := GenerateKeys()
 				require.NoError(err, "could not generate signing keys")
 
 				tks, err := token.SignedString(key.PrivateKey())
@@ -342,12 +343,12 @@ func (s *TokenTestSuite) TestKeyRotation() {
 	conf := s.AuthConfig()
 	conf.Keys = testdata
 
-	oldTM, err := auth.NewIssuer(conf)
+	oldTM, err := NewIssuer(conf)
 	require.NoError(err, "could not initialize old token manager")
 
 	// Create the "new" claims issuer with the new key
 	conf2 := s.AuthConfig()
-	newTM, err := auth.NewIssuer(conf2)
+	newTM, err := NewIssuer(conf2)
 	require.NoError(err, "could not initialize new token manager")
 
 	// Create a valid token with the "old claims issuer"
@@ -385,7 +386,7 @@ func (s *TokenTestSuite) TestParseExpiredToken() {
 		TokenOverlap:    -15 * time.Minute,
 	}
 
-	tm, err := auth.NewIssuer(conf)
+	tm, err := NewIssuer(conf)
 	require.NoError(err, "could not initialize token manager")
 
 	// Default creds
@@ -439,7 +440,7 @@ func (s *TokenTestSuite) TestRefreshAudience() {
 		conf := s.AuthConfig()
 		conf.Issuer = "https://auth.rotational.app"
 
-		tm, err := auth.NewIssuer(conf)
+		tm, err := NewIssuer(conf)
 		require.NoError(err, "could not initialize token manager")
 
 		audience := tm.RefreshAudience()
@@ -448,7 +449,7 @@ func (s *TokenTestSuite) TestRefreshAudience() {
 
 	s.Run("Panics", func() {
 		// Cannot use NewIssuer because it requires a valid config
-		tm := &auth.ClaimsIssuer{}
+		tm := &Issuer{}
 		require.Panics(func() {
 			_ = tm.RefreshAudience()
 		})
@@ -460,7 +461,7 @@ func (s *TokenTestSuite) TestExpires() {
 
 	s.Run("NoKeys", func() {
 		// If the claims issuer has no keys configured, it should return 1 hour in the future.
-		issuer := &auth.ClaimsIssuer{}
+		issuer := &Issuer{}
 		expires := issuer.Expires()
 		require.WithinRange(expires, time.Now().Add(59*time.Minute), time.Now().Add(61*time.Minute))
 	})
@@ -469,7 +470,7 @@ func (s *TokenTestSuite) TestExpires() {
 		// If the keyID is current, then it should return 30 days in the future.
 		conf := s.AuthConfig()
 		conf.Keys = nil
-		issuer, err := auth.NewIssuer(conf)
+		issuer, err := NewIssuer(conf)
 		require.NoError(err, "could not initialize token manager")
 
 		expires := issuer.Expires()
@@ -486,7 +487,7 @@ func (s *TokenTestSuite) TestExpires() {
 			keyID.String(): "testdata/01JYSHGWTSMK34J100N2Q0D21C.pem",
 		}
 
-		issuer, err := auth.NewIssuer(conf)
+		issuer, err := NewIssuer(conf)
 		require.NoError(err, "could not initialize token manager")
 
 		expires := issuer.Expires()
@@ -497,7 +498,7 @@ func (s *TokenTestSuite) TestExpires() {
 func (s *TokenTestSuite) TestGetKeyErrors() {
 	require := s.Require()
 	conf := s.AuthConfig()
-	tm, err := auth.NewIssuer(conf)
+	tm, err := NewIssuer(conf)
 	require.NoError(err, "could not initialize token manager")
 
 	tests := []struct {
@@ -552,7 +553,7 @@ func (s *TokenTestSuite) TestAlgorithm() {
 	// Ensure the JWKS key algorithm constant is set correctly between libraries.
 	// We use go-jose for JWKS and golang-jwt for JWT tokens, so the algorithm must match.
 	require := s.Require()
-	require.Equal(auth.SigningMethod().Alg(), string(jose.EdDSA), "go-jose and golang-jwt signing methods do not match")
+	require.Equal(SigningMethod().Alg(), string(jose.EdDSA), "go-jose and golang-jwt signing methods do not match")
 }
 
 // Execute suite as a go test.

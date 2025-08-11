@@ -11,6 +11,7 @@ import (
 	jose "github.com/go-jose/go-jose/v4"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/rs/zerolog/log"
+	"go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/quarterdeck/pkg/config"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/ulid"
@@ -30,7 +31,7 @@ const (
 	keyTTL      = time.Hour * 24 * 30 // 30 days
 )
 
-type ClaimsIssuer struct {
+type Issuer struct {
 	conf            config.AuthConfig
 	keyID           ulid.ULID
 	key             crypto.PrivateKey
@@ -38,13 +39,13 @@ type ClaimsIssuer struct {
 	refreshAudience string
 }
 
-func NewIssuer(conf config.AuthConfig) (_ *ClaimsIssuer, err error) {
+func NewIssuer(conf config.AuthConfig) (_ *Issuer, err error) {
 	// Validate the issuer configuration
 	if err = conf.Validate(); err != nil {
 		return nil, err
 	}
 
-	issuer := &ClaimsIssuer{
+	issuer := &Issuer{
 		conf:       conf,
 		publicKeys: &JWKS{JSONWebKeySet: jose.JSONWebKeySet{Keys: make([]jose.JSONWebKey, 0, len(conf.Keys))}},
 	}
@@ -87,7 +88,7 @@ func SigningMethod() jwt.SigningMethod {
 	return signingMethod
 }
 
-func (tm *ClaimsIssuer) Verify(tks string) (claims *Claims, err error) {
+func (tm *Issuer) Verify(tks string) (claims *auth.Claims, err error) {
 	opts := []jwt.ParserOption{
 		jwt.WithValidMethods([]string{signingMethod.Alg()}),
 		jwt.WithAudience(tm.conf.Audience),
@@ -95,12 +96,12 @@ func (tm *ClaimsIssuer) Verify(tks string) (claims *Claims, err error) {
 	}
 
 	var token *jwt.Token
-	if token, err = jwt.ParseWithClaims(tks, &Claims{}, tm.GetKey, opts...); err != nil {
+	if token, err = jwt.ParseWithClaims(tks, &auth.Claims{}, tm.GetKey, opts...); err != nil {
 		return nil, err
 	}
 
 	var ok bool
-	if claims, ok = token.Claims.(*Claims); ok && token.Valid {
+	if claims, ok = token.Claims.(*auth.Claims); ok && token.Valid {
 		// TODO: add claims specific validation here if needed.
 		return claims, nil
 	}
@@ -114,22 +115,22 @@ func (tm *ClaimsIssuer) Verify(tks string) (claims *Claims, err error) {
 // claims. This ensures that valid JWT tokens are still accepted but claims can be
 // handled on a case-by-case basis; for example by validating an expired access token
 // during reauthentication.
-func (tm *ClaimsIssuer) Parse(tks string) (claims *Claims, err error) {
+func (tm *Issuer) Parse(tks string) (claims *auth.Claims, err error) {
 	// TODO: will this still verify the signature?
 	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
-	claims = &Claims{}
+	claims = &auth.Claims{}
 	if _, err = parser.ParseWithClaims(tks, claims, tm.GetKey); err != nil {
 		return nil, err
 	}
 	return claims, nil
 }
 
-func (tm *ClaimsIssuer) Sign(token *jwt.Token) (tks string, err error) {
+func (tm *Issuer) Sign(token *jwt.Token) (tks string, err error) {
 	token.Header["kid"] = tm.keyID.String()
 	return token.SignedString(tm.key)
 }
 
-func (tm *ClaimsIssuer) CreateAccessToken(claims *Claims) (_ *jwt.Token, err error) {
+func (tm *Issuer) CreateAccessToken(claims *auth.Claims) (_ *jwt.Token, err error) {
 	now := time.Now()
 	sub := claims.RegisteredClaims.Subject
 
@@ -146,8 +147,8 @@ func (tm *ClaimsIssuer) CreateAccessToken(claims *Claims) (_ *jwt.Token, err err
 	return jwt.NewWithClaims(signingMethod, claims), nil
 }
 
-func (tm *ClaimsIssuer) CreateRefreshToken(accessToken *jwt.Token) (_ *jwt.Token, err error) {
-	accessClaims, ok := accessToken.Claims.(*Claims)
+func (tm *Issuer) CreateRefreshToken(accessToken *jwt.Token) (_ *jwt.Token, err error) {
+	accessClaims, ok := accessToken.Claims.(*auth.Claims)
 	if !ok {
 		return nil, errors.ErrUnparsableClaims
 	}
@@ -155,7 +156,7 @@ func (tm *ClaimsIssuer) CreateRefreshToken(accessToken *jwt.Token) (_ *jwt.Token
 	// Add the refresh audience to the audience claims
 	audience := append(accessClaims.Audience, tm.RefreshAudience())
 
-	claims := &Claims{
+	claims := &auth.Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        accessClaims.ID,
 			Audience:  audience,
@@ -171,7 +172,7 @@ func (tm *ClaimsIssuer) CreateRefreshToken(accessToken *jwt.Token) (_ *jwt.Token
 }
 
 // CreateTokens creates and signs an access and refresh token in one step.
-func (tm *ClaimsIssuer) CreateTokens(claims *Claims) (signedAccessToken, signedRefreshToken string, err error) {
+func (tm *Issuer) CreateTokens(claims *auth.Claims) (signedAccessToken, signedRefreshToken string, err error) {
 	var accessToken, refreshToken *jwt.Token
 
 	if accessToken, err = tm.CreateAccessToken(claims); err != nil {
@@ -194,7 +195,7 @@ func (tm *ClaimsIssuer) CreateTokens(claims *Claims) (signedAccessToken, signedR
 }
 
 // Keys returns the map of ulid to public key for use externally.
-func (tm *ClaimsIssuer) Keys() (_ JWKS, err error) {
+func (tm *Issuer) Keys() (_ JWKS, err error) {
 	if len(tm.publicKeys.Keys) == 0 {
 		return JWKS{}, errors.ErrNoSigningKeys
 	}
@@ -202,14 +203,14 @@ func (tm *ClaimsIssuer) Keys() (_ JWKS, err error) {
 }
 
 // CurrentKey returns the ulid of the current key being used to sign tokens.
-func (tm *ClaimsIssuer) CurrentKey() ulid.ULID {
+func (tm *Issuer) CurrentKey() ulid.ULID {
 	return tm.keyID
 }
 
 // Expires returns the time when we expect the current key to expire. This is
 // calculated based on the key's creation time and the configured key TTL. If the
 // current time is after that TTL, then it returns a time 1 hour from now.
-func (tm *ClaimsIssuer) Expires() time.Time {
+func (tm *Issuer) Expires() time.Time {
 	if tm.keyID.IsZero() {
 		return time.Now().Add(time.Hour) // Default to 1 hour if no key is set
 	}
@@ -225,7 +226,7 @@ func (tm *ClaimsIssuer) Expires() time.Time {
 // AddKey adds a new key to the issuer and updates the current key if the new is newer
 // than the current key. The keyID must be a valid ULID and the ULID timestamp must
 // fall after the current key's timestamp.
-func (tm *ClaimsIssuer) AddKey(keyID ulid.ULID, key SigningKey) (err error) {
+func (tm *Issuer) AddKey(keyID ulid.ULID, key SigningKey) (err error) {
 	if err = tm.publicKeys.Add(keyID, key); err != nil {
 		return err
 	}
@@ -240,7 +241,7 @@ func (tm *ClaimsIssuer) AddKey(keyID ulid.ULID, key SigningKey) (err error) {
 
 // Computes the refresh audience claim based on the issuer URL and a specific path to
 // better protect refresh tokens from being used in other contexts.
-func (tm *ClaimsIssuer) RefreshAudience() string {
+func (tm *Issuer) RefreshAudience() string {
 	if tm.refreshAudience == "" {
 		if aud, err := url.Parse(tm.conf.Issuer); err == nil && tm.conf.Issuer != "" {
 			tm.refreshAudience = aud.ResolveReference(&url.URL{Path: refreshPath}).String()
@@ -255,7 +256,7 @@ func (tm *ClaimsIssuer) RefreshAudience() string {
 // GetKey is an jwt.KeyFunc that selects the public key from the list of managed
 // internal keys based on the kid in the token header. If the kid does not exist an
 // error is returned and the token will not be able to be verified.
-func (tm *ClaimsIssuer) GetKey(token *jwt.Token) (key interface{}, err error) {
+func (tm *Issuer) GetKey(token *jwt.Token) (key interface{}, err error) {
 	// Per JWT security notice: do not forget to validate alg is expected
 	if token.Method.Alg() != signingMethod.Alg() {
 		return nil, errors.Fmt("unexpected signing method: %v", token.Method.Alg())

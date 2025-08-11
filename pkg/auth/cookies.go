@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 )
 
@@ -32,7 +33,7 @@ const (
 func SetAuthCookies(c *gin.Context, accessToken, refreshToken string) (err error) {
 	// Parse the acccess token to get the audience and expiration time.
 	var claims *jwt.RegisteredClaims
-	if claims, err = ParseUnverified(accessToken); err != nil {
+	if claims, err = auth.ParseUnverified(accessToken); err != nil {
 		return errors.Fmt("could not parse access token: %w", err)
 	}
 
@@ -55,7 +56,7 @@ func SetAuthCookies(c *gin.Context, accessToken, refreshToken string) (err error
 
 	// Parse the refresh token to get the expiration time.
 	var refreshExpires time.Time
-	if refreshExpires, err = ExpiresAt(refreshToken); err != nil {
+	if refreshExpires, err = auth.ExpiresAt(refreshToken); err != nil {
 		return errors.Fmt("could not parse refresh token: %w", err)
 	}
 
