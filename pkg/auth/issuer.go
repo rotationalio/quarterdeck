@@ -29,7 +29,6 @@ var (
 const (
 	refreshPath = "/v1/reauthenticate"
 	keyUse      = "sig"
-	keyTTL      = time.Hour * 24 * 30 // 30 days
 )
 
 type Issuer struct {
@@ -89,29 +88,6 @@ func NewIssuer(conf config.AuthConfig) (_ *Issuer, err error) {
 
 func SigningMethod() jwt.SigningMethod {
 	return signingMethod
-}
-
-func (tm *Issuer) Verify(tks string) (claims *auth.Claims, err error) {
-	opts := []jwt.ParserOption{
-		jwt.WithValidMethods([]string{signingMethod.Alg()}),
-		jwt.WithAudience(tm.conf.Audience),
-		jwt.WithIssuer(tm.conf.Issuer),
-	}
-
-	var token *jwt.Token
-	if token, err = jwt.ParseWithClaims(tks, &auth.Claims{}, tm.GetKey, opts...); err != nil {
-		return nil, err
-	}
-
-	var ok bool
-	if claims, ok = token.Claims.(*auth.Claims); ok && token.Valid {
-		// TODO: add claims specific validation here if needed.
-		return claims, nil
-	}
-
-	// I haven't figured out a test that will allow us to reach this case; if you pass
-	// in a token with a different type of claims, it will return an empty auth.Claims.
-	return nil, errors.ErrUnparsableClaims
 }
 
 // Parse an access or refresh token verifying its signature but without verifying its
@@ -198,32 +174,16 @@ func (tm *Issuer) CreateTokens(claims *auth.Claims) (signedAccessToken, signedRe
 }
 
 // Keys returns the map of ulid to public key for use externally.
-func (tm *Issuer) Keys() (_ JWKS, err error) {
+func (tm *Issuer) Keys() (_ *JWKS, err error) {
 	if len(tm.publicKeys.Keys) == 0 {
-		return JWKS{}, errors.ErrNoSigningKeys
+		return nil, errors.ErrNoSigningKeys
 	}
-	return *tm.publicKeys, nil
+	return tm.publicKeys, nil
 }
 
 // CurrentKey returns the ulid of the current key being used to sign tokens.
 func (tm *Issuer) CurrentKey() ulid.ULID {
 	return tm.keyID
-}
-
-// Expires returns the time when we expect the current key to expire. This is
-// calculated based on the key's creation time and the configured key TTL. If the
-// current time is after that TTL, then it returns a time 1 hour from now.
-func (tm *Issuer) Expires() time.Time {
-	if tm.keyID.IsZero() {
-		return time.Now().Add(time.Hour) // Default to 1 hour if no key is set
-	}
-
-	// Calculate the expiration time based on the key's creation time and TTL
-	expiration := tm.keyID.Timestamp().Add(keyTTL)
-	if expiration.Before(time.Now()) {
-		return time.Now().Add(time.Hour) // If the key is already expired, return 1 hour from now
-	}
-	return expiration
 }
 
 // AddKey adds a new key to the issuer and updates the current key if the new is newer

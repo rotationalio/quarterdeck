@@ -4,6 +4,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"go.rtnl.ai/gimlet/auth"
+	"go.rtnl.ai/gimlet/cache"
 	"go.rtnl.ai/gimlet/csrf"
 	"go.rtnl.ai/gimlet/logger"
 	"go.rtnl.ai/gimlet/o11y"
@@ -98,7 +99,7 @@ func (s *Server) setupRoutes() (err error) {
 	// The "well known" routes expose client security information and credentials.
 	wk := s.router.Group("/.well-known")
 	{
-		wk.GET("/jwks.json", s.JWKS)
+		wk.GET("/jwks.json", cache.Control(s.issuer), s.JWKS)
 		wk.GET("/security.txt", s.SecurityTxt)
 		wk.GET("/openid-configuration", s.OpenIDConfiguration)
 	}

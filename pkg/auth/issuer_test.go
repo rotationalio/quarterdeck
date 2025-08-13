@@ -12,7 +12,6 @@ import (
 	"go.rtnl.ai/gimlet/auth"
 	. "go.rtnl.ai/quarterdeck/pkg/auth"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
-	"go.rtnl.ai/ulid"
 
 	"go.rtnl.ai/quarterdeck/pkg/config"
 )
@@ -453,45 +452,6 @@ func (s *TokenTestSuite) TestRefreshAudience() {
 		require.Panics(func() {
 			_ = tm.RefreshAudience()
 		})
-	})
-}
-
-func (s *TokenTestSuite) TestExpires() {
-	require := s.Require()
-
-	s.Run("NoKeys", func() {
-		// If the claims issuer has no keys configured, it should return 1 hour in the future.
-		issuer := &Issuer{}
-		expires := issuer.Expires()
-		require.WithinRange(expires, time.Now().Add(59*time.Minute), time.Now().Add(61*time.Minute))
-	})
-
-	s.Run("Current", func() {
-		// If the keyID is current, then it should return 30 days in the future.
-		conf := s.AuthConfig()
-		conf.Keys = nil
-		issuer, err := NewIssuer(conf)
-		require.NoError(err, "could not initialize token manager")
-
-		expires := issuer.Expires()
-		require.WithinRange(expires, time.Now().Add(time.Hour*24*30).Add(-5*time.Minute), time.Now().Add(time.Hour*24*30).Add(5*time.Minute))
-	})
-
-	s.Run("Expired", func() {
-		// If the keyID expiration is before now, then it should return 1 hour in the future.
-		ts := time.Now().Add(-31 * 24 * time.Hour) // 31 days ago
-		keyID := ulid.MustNew(ulid.Timestamp(ts), rand.Reader)
-
-		conf := s.AuthConfig()
-		conf.Keys = map[string]string{
-			keyID.String(): "testdata/01JYSHGWTSMK34J100N2Q0D21C.pem",
-		}
-
-		issuer, err := NewIssuer(conf)
-		require.NoError(err, "could not initialize token manager")
-
-		expires := issuer.Expires()
-		require.WithinRange(expires, time.Now().Add(59*time.Minute), time.Now().Add(61*time.Minute))
 	})
 }
 

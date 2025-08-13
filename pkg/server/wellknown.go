@@ -1,10 +1,8 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -28,9 +26,8 @@ const (
 // periods on the Quarterdeck server.
 func (s *Server) JWKS(c *gin.Context) {
 	var (
-		keys auth.JWKS
+		keys *auth.JWKS
 		err  error
-		etag string
 	)
 
 	// Get the current version of the keys from the issuer.
@@ -40,27 +37,6 @@ func (s *Server) JWKS(c *gin.Context) {
 		return
 	}
 
-	// Compute the etag from the keyset. This is used to determine if the keys have changed
-	// since the last time the client requested them.
-	if etag, err = keys.ETag(); err != nil {
-		c.Error(err)
-		c.JSON(http.StatusInternalServerError, api.Error(errors.ErrInternal))
-		return
-	}
-
-	if ifNoneMatch := c.GetHeader(HeaderIfNoneMatch); ifNoneMatch != "" {
-		if etag == ifNoneMatch {
-			c.Status(http.StatusNotModified)
-			return
-		}
-	}
-
-	expires := s.issuer.Expires().In(time.UTC)
-	maxAge := time.Until(expires).Seconds()
-
-	c.Header(HeaderExpires, expires.Format(http.TimeFormat))
-	c.Header(HeaderCacheControl, fmt.Sprintf("public, max-age=%d, must-revalidate", int64(maxAge)))
-	c.Header(HeaderEtag, etag)
 	c.JSON(http.StatusOK, keys)
 }
 

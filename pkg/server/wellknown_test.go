@@ -6,6 +6,12 @@ func (s *serverTestSuite) TestJWKS() {
 	// Ensure the expected keys are present in the response
 	// Ensure the response has the correct headers for caching
 	// Ensure the ETag header is set and matches the expected value
+	// Test Last-Modified header is set and matches the expected value
+	// Ensure no Expires header is returned in response
+	// Modify the JWKS and ensure that the ETag and last-modified change
+	// Ensure that If-None-Match returns 304
+	// Ensure that If-Modified-Since returns 304
+	// Ensure the Cache Control Directives are correct
 }
 
 func (s *serverTestSuite) TestOpenIDConfiguration() {
