@@ -43,28 +43,24 @@ func TestJWKS(t *testing.T) {
 			require.NoError(t, jwks.Add(ulid.Make(), key), "could not add key")
 		}
 
-		etag, err := jwks.ETag()
-		require.NoError(t, err, "could not compute ETag")
+		etag := jwks.ETag()
 		require.NotEmpty(t, etag, "expected non-empty ETag")
 
 		// Test caching/duplicate etag when no changes are made
-		etag2, err := jwks.ETag()
-		require.NoError(t, err, "could not compute ETag again")
+		etag2 := jwks.ETag()
 		require.Equal(t, etag, etag2, "ETag should not change if no keys are added or removed")
 
 		// Add another key and check if ETag changes
 		// NOTE: requires on the assumption that duplicate keys are only checked by keyID.
 		require.NoError(t, jwks.Add(ulid.Make(), keys[0]), "could not add key")
 
-		etag3, err := jwks.ETag()
-		require.NoError(t, err, "could not compute ETag again")
+		etag3 := jwks.ETag()
 		require.NotEqual(t, etag, etag3, "ETag should change if a new key is added")
 	})
 
 	t.Run("ETagEmpty", func(t *testing.T) {
 		jwks := &auth.JWKS{}
-		etag, err := jwks.ETag()
-		require.NoError(t, err, "could not compute ETag for empty JWKS")
+		etag := jwks.ETag()
 		require.Empty(t, etag, "expected empty ETag for empty JWKS")
 	})
 }

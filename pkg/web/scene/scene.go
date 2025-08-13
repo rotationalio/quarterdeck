@@ -7,6 +7,7 @@ package scene
 
 import (
 	"github.com/gin-gonic/gin"
+	"go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/quarterdeck/pkg"
 	"go.rtnl.ai/quarterdeck/pkg/config"
 	"go.rtnl.ai/ulid"
@@ -47,13 +48,13 @@ func New(c *gin.Context) Scene {
 	}
 
 	// Does the user exist in the gin context?
-	// if claims, err := auth.GetClaims(c); err != nil {
-	// 	context[IsAuthenticated] = false
-	// 	context[User] = nil
-	// } else {
-	// 	context[IsAuthenticated] = true
-	// 	context[User] = claims
-	// }
+	if claims, err := auth.GetClaims(c); err != nil {
+		context[IsAuthenticated] = false
+		context[User] = nil
+	} else {
+		context[IsAuthenticated] = true
+		context[User] = claims
+	}
 
 	return context
 }
@@ -91,23 +92,23 @@ func (s Scene) IsAuthenticated() bool {
 	return false
 }
 
-// func (s Scene) GetUser() *auth.Claims {
-// 	if s.IsAuthenticated() {
-// 		if claims, ok := s[User]; ok {
-// 			if user, ok := claims.(*auth.Claims); ok {
-// 				return user
-// 			}
-// 		}
-// 	}
-// 	return nil
-// }
+func (s Scene) GetUser() *auth.Claims {
+	if s.IsAuthenticated() {
+		if claims, ok := s[User]; ok {
+			if user, ok := claims.(*auth.Claims); ok {
+				return user
+			}
+		}
+	}
+	return nil
+}
 
-// func (s Scene) HasRole(role string) bool {
-// 	if user := s.GetUser(); user != nil {
-// 		return user.Role == role
-// 	}
-// 	return false
-// }
+func (s Scene) HasPermission(permission string) bool {
+	if claims := s.GetUser(); claims != nil {
+		return claims.HasPermission(permission)
+	}
+	return false
+}
 
 //===========================================================================
 // Scene API Data Related Helpers

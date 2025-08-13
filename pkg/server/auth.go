@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+	gimlet "go.rtnl.ai/gimlet/auth"
 
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
 	"go.rtnl.ai/quarterdeck/pkg/auth"
@@ -47,7 +48,6 @@ func (s *Server) PrepareLogin(c *gin.Context) {
 // specified by the audience and the claims can dictate to those systems what operations
 // the user is allowed to perform. The refresh token can be used to reauthenticate the
 // user without resubmitting the password, but it is only valid for a limited time.
-// TODO: add rate limiting on a per-user basis to prevent brute force attacks.
 func (s *Server) Login(c *gin.Context) {
 	var (
 		err  error
@@ -119,7 +119,7 @@ func (s *Server) Login(c *gin.Context) {
 	}
 
 	// Create the access and refresh tokens for the user.
-	var claims *auth.Claims
+	var claims *gimlet.Claims
 	if claims, err = user.Claims(); err != nil {
 		c.Error(err)
 		c.JSON(http.StatusInternalServerError, api.Error(errors.ErrInternal))

@@ -29,7 +29,9 @@
         </a>
 
         <a class="nav-link dropdown-toggle d-none d-sm-inline-block" href="#" data-bs-toggle="dropdown">
-          <img src="/static/img/otter.png" class="img-fluid rounded-circle me-1 mt-n2 mb-n2" alt="" width="40" height="40"/>
+          {{ with .GetUser }}
+          <img src="{{ .Gravatar }}" class="img-fluid rounded-circle me-1 mt-n2 mb-n2" alt="" width="40" height="40"/>
+          {{ end }}
         </a>
         <div class="dropdown-menu dropdown-menu-end">
           <a class="dropdown-item" href="#"><i class="align-middle me-1" data-lucide="user"></i> Profile</a>

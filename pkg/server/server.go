@@ -15,10 +15,10 @@ import (
 	"github.com/rs/zerolog/log"
 	"go.rtnl.ai/gimlet/csrf"
 	"go.rtnl.ai/gimlet/logger"
+	"go.rtnl.ai/gimlet/o11y"
 	"go.rtnl.ai/quarterdeck/pkg/auth"
 	"go.rtnl.ai/quarterdeck/pkg/config"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
-	"go.rtnl.ai/quarterdeck/pkg/metrics"
 	"go.rtnl.ai/quarterdeck/pkg/store"
 )
 
@@ -50,7 +50,7 @@ type Server struct {
 	store   store.Store
 	srv     *http.Server
 	router  *gin.Engine
-	issuer  *auth.ClaimsIssuer
+	issuer  *auth.Issuer
 	csrf    csrf.TokenHandler
 	url     *url.URL
 	started time.Time
@@ -141,7 +141,7 @@ func (s *Server) Serve() (err error) {
 	// If we're not in maintenance mode; connect to database and prepare the service.
 	if !s.conf.Maintenance {
 		// Register prometheus metrics (ok to call multiple times)
-		if err = metrics.Setup(); err != nil {
+		if err = o11y.Setup(); err != nil {
 			return err
 		}
 	}
