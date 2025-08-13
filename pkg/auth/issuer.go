@@ -12,6 +12,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/rs/zerolog/log"
 	"go.rtnl.ai/gimlet/auth"
+	"go.rtnl.ai/quarterdeck/pkg/auth/login"
 	"go.rtnl.ai/quarterdeck/pkg/config"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/ulid"
@@ -37,6 +38,7 @@ type Issuer struct {
 	key             crypto.PrivateKey
 	publicKeys      *JWKS
 	refreshAudience string
+	loginURL        *login.URL
 }
 
 func NewIssuer(conf config.AuthConfig) (_ *Issuer, err error) {
@@ -48,6 +50,7 @@ func NewIssuer(conf config.AuthConfig) (_ *Issuer, err error) {
 	issuer := &Issuer{
 		conf:       conf,
 		publicKeys: &JWKS{JSONWebKeySet: jose.JSONWebKeySet{Keys: make([]jose.JSONWebKey, 0, len(conf.Keys))}},
+		loginURL:   login.New(conf.Issuer + "/login"),
 	}
 
 	// Load the specified keys from the filesystem.

@@ -90,7 +90,7 @@ func (s *Server) setupRoutes() (err error) {
 	}
 
 	// Web UI Routes (Authenticated)
-	uia := s.router.Group("")
+	uia := s.router.Group("", authenticate)
 	{
 		uia.GET("/", s.Home)
 	}

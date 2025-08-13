@@ -52,6 +52,7 @@ var (
 	ErrNoAuthorization      = errors.New("no authorization header or cookies in request")
 	ErrNoRefreshToken       = errors.New("cannot reauthenticate: no refresh token in request")
 	ErrNoSigningKeys        = errors.New("claims issuer has no signing keys configured")
+	ErrNoLoginURL           = errors.New("no login URL configured to redirect the user to")
 )
 
 // Reduce namespacing conflicts by adding error functions from the errors package.

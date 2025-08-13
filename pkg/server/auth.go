@@ -6,10 +6,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+	gimlet "go.rtnl.ai/gimlet/auth"
 
-	"go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
-	. "go.rtnl.ai/quarterdeck/pkg/auth"
+	"go.rtnl.ai/quarterdeck/pkg/auth"
 	"go.rtnl.ai/quarterdeck/pkg/auth/passwords"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
@@ -119,7 +119,7 @@ func (s *Server) Login(c *gin.Context) {
 	}
 
 	// Create the access and refresh tokens for the user.
-	var claims *auth.Claims
+	var claims *gimlet.Claims
 	if claims, err = user.Claims(); err != nil {
 		c.Error(err)
 		c.JSON(http.StatusInternalServerError, api.Error(errors.ErrInternal))
@@ -152,7 +152,7 @@ func (s *Server) Login(c *gin.Context) {
 
 func (s *Server) Logout(c *gin.Context) {
 	// Clear the authentication cookies to log out the user.
-	ClearAuthCookies(c, []string{s.conf.Auth.Audience})
+	auth.ClearAuthCookies(c, []string{s.conf.Auth.Audience})
 
 	// Redirect to the login page after logging out.
 	// TODO: prepare entire Quarterdeck logout URL.

@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/rs/zerolog/log"
 	"go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 )
@@ -51,6 +52,7 @@ func SetAuthCookies(c *gin.Context, accessToken, refreshToken string) (err error
 	// The access token cannot be accessed by javascript so it is set as an http only cookie.
 	accessMaxAge := int(time.Until(claims.ExpiresAt.Time.Add(CookieMaxAgeBuffer)).Seconds())
 	for _, domain := range cookieDomains {
+		log.Warn().Str("domain", domain).Msg("setting access token cookie")
 		SetSecureCookie(c, AccessTokenCookie, accessToken, accessMaxAge, domain, true)
 	}
 
@@ -63,6 +65,7 @@ func SetAuthCookies(c *gin.Context, accessToken, refreshToken string) (err error
 	// Set the refresh token cookie; httpOnly is false it can be accessed by javascript.
 	refreshMaxAge := int(time.Until(refreshExpires.Add(CookieMaxAgeBuffer)).Seconds())
 	for _, domain := range cookieDomains {
+		log.Warn().Str("domain", domain).Msg("setting refresh token cookie")
 		SetSecureCookie(c, RefreshTokenCookie, refreshToken, refreshMaxAge, domain, false)
 	}
 

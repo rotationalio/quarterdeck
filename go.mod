@@ -13,9 +13,9 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.10.0
 	github.com/urfave/cli/v2 v2.27.7
-	go.rtnl.ai/gimlet v1.2.0
+	go.rtnl.ai/gimlet v1.2.1
 	go.rtnl.ai/ulid v1.1.1
-	go.rtnl.ai/x v1.6.0
+	go.rtnl.ai/x v1.6.1
 	golang.org/x/crypto v0.41.0
 	golang.org/x/term v0.34.0
 	golang.org/x/text v0.28.0
