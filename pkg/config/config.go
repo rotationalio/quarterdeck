@@ -38,8 +38,11 @@ type DatabaseConfig struct {
 
 type AuthConfig struct {
 	Keys            map[string]string `required:"false" desc:"a map of keyID to key path for JWT signing and verification; if omitted keys will be generated"`
-	Audience        string            `default:"http://localhost:8000" desc:"the audience claim for JWT tokens; used to verify the token is intended for this service"`
+	Audience        []string          `default:"http://localhost:8000" desc:"the audience claim for JWT tokens; used to verify the token is intended for this service"`
 	Issuer          string            `default:"http://localhost:8888" desc:"the issuer claim for JWT tokens; used to verify the token is issued by this service"`
+	LoginURL        string            `split_words:"true" default:"" desc:"specify an alternate login URL, by default it is the issuer + /login"`
+	LogoutURL       string            `split_words:"true" default:"" desc:"specify an alternate logout URL, by default it is the issuer + /logout"`
+	LoginRedirect   string            `split_words:"true" default:"/" desc:"specify a location to redirect the user to after successful login"`
 	AccessTokenTTL  time.Duration     `split_words:"true" default:"1h" desc:"the duration for which access tokens are valid"`
 	RefreshTokenTTL time.Duration     `split_words:"true" default:"2h" desc:"the duration for which refresh tokens are valid"`
 	TokenOverlap    time.Duration     `split_words:"true" default:"-15m" desc:"the duration before an access token expires that the refresh token is valid"`
@@ -88,21 +91,15 @@ func (c Config) GetLogLevel() zerolog.Level {
 	return zerolog.Level(c.LogLevel)
 }
 
-// Returns true if the allow origins slice contains one entry that is a "*"
-func (c Config) AllowAllOrigins() bool {
-	if len(c.AllowOrigins) == 1 && c.AllowOrigins[0] == "*" {
-		return true
-	}
-	return false
-}
-
-func (c AuthConfig) Validate() (err error) {
-	if c.Audience == "" {
+func (c *AuthConfig) Validate() (err error) {
+	if len(c.Audience) == 0 {
 		err = errors.ConfigError(err, errors.RequiredConfig("auth", "audience"))
 	}
 
-	if _, perr := url.Parse(c.Audience); perr != nil {
-		err = errors.ConfigError(err, errors.ConfigParseError("auth", "audience", perr))
+	for _, aud := range c.Audience {
+		if _, perr := url.Parse(aud); perr != nil {
+			err = errors.ConfigError(err, errors.ConfigParseError("auth", "audience", perr))
+		}
 	}
 
 	if c.Issuer == "" {
@@ -147,7 +144,7 @@ func (c CSRFConfig) GetSecret() []byte {
 	if c.Secret != "" {
 		secret, _ = hex.DecodeString(c.Secret)
 	} else {
-		secret = make([]byte, 0, 65)
+		secret = make([]byte, 65)
 		rand.Read(secret)
 	}
 	return secret

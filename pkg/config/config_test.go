@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"bytes"
 	"os"
 	"testing"
 	"time"
@@ -19,7 +20,7 @@ var testEnv = map[string]string{
 	"QD_MODE":                   gin.TestMode,
 	"QD_LOG_LEVEL":              "error",
 	"QD_CONSOLE_LOG":            "true",
-	"QD_ALLOW_ORIGINS":          "http://localhost:8888,http://localhost:8080",
+	"QD_ALLOW_ORIGINS":          "https://example.com,https://auth.example.com,https://db.example.com",
 	"QD_RATE_LIMIT_TYPE":        "ipaddr",
 	"QD_RATE_LIMIT_PER_SECOND":  "20",
 	"QD_RATE_LIMIT_BURST":       "100",
@@ -27,8 +28,11 @@ var testEnv = map[string]string{
 	"QD_DATABASE_URL":           "sqlite3:///test.db",
 	"QD_DATABASE_READ_ONLY":     "true",
 	"QD_AUTH_KEYS":              "01GECSDK5WJ7XWASQ0PMH6K41K:testdata/01GECSDK5WJ7XWASQ0PMH6K41K.pem,01GECSJGDCDN368D0EENX23C7R:testdata/01GECSJGDCDN368D0EENX23C7R.pem",
-	"QD_AUTH_AUDIENCE":          "http://localhost:8888",
-	"QD_AUTH_ISSUER":            "http://localhost:1025",
+	"QD_AUTH_AUDIENCE":          "https://example.com,https://db.example.com",
+	"QD_AUTH_ISSUER":            "https://auth.example.com",
+	"QD_AUTH_LOGIN_URL":         "https://example.com/signin",
+	"QD_AUTH_LOGOUT_URL":        "https://example.com/signout",
+	"QD_AUTH_LOGIN_REDIRECT":    "https://example.com/dashboard",
 	"QD_AUTH_ACCESS_TOKEN_TTL":  "5m",
 	"QD_AUTH_REFRESH_TOKEN_TTL": "10m",
 	"QD_AUTH_TOKEN_OVERLAP":     "-2m",
@@ -62,12 +66,15 @@ func TestConfig(t *testing.T) {
 	require.Equal(t, testEnv["QD_MODE"], conf.Mode)
 	require.Equal(t, zerolog.ErrorLevel, conf.GetLogLevel())
 	require.True(t, conf.ConsoleLog)
-	require.Len(t, conf.AllowOrigins, 2)
+	require.Equal(t, []string{"https://example.com", "https://auth.example.com", "https://db.example.com"}, conf.AllowOrigins)
 	require.Equal(t, testEnv["QD_DATABASE_URL"], conf.Database.URL)
 	require.True(t, conf.Database.ReadOnly)
 	require.Len(t, conf.Auth.Keys, 2)
-	require.Equal(t, testEnv["QD_AUTH_AUDIENCE"], conf.Auth.Audience)
+	require.Equal(t, []string{"https://example.com", "https://db.example.com"}, conf.Auth.Audience)
 	require.Equal(t, testEnv["QD_AUTH_ISSUER"], conf.Auth.Issuer)
+	require.Equal(t, testEnv["QD_AUTH_LOGIN_URL"], conf.Auth.LoginURL)
+	require.Equal(t, testEnv["QD_AUTH_LOGOUT_URL"], conf.Auth.LogoutURL)
+	require.Equal(t, testEnv["QD_AUTH_LOGIN_REDIRECT"], conf.Auth.LoginRedirect)
 	require.Equal(t, 5*time.Minute, conf.Auth.AccessTokenTTL)
 	require.Equal(t, 10*time.Minute, conf.Auth.RefreshTokenTTL)
 	require.Equal(t, -2*time.Minute, conf.Auth.TokenOverlap)
@@ -200,27 +207,11 @@ func TestIsZero(t *testing.T) {
 	})
 }
 
-func TestAllowAllOrigins(t *testing.T) {
-	conf, err := config.New()
-	require.NoError(t, err, "could not create default configuration")
-	require.Equal(t, []string{"http://localhost:8000"}, conf.AllowOrigins, "allow origins should be localhost by default")
-	require.False(t, conf.AllowAllOrigins(), "expected allow all origins to be false by default")
-
-	conf.AllowOrigins = []string{"https://auth.rotational.dev", "https://endeavor.io"}
-	require.False(t, conf.AllowAllOrigins(), "expected allow all origins to be false when allow origins is set")
-
-	conf.AllowOrigins = []string{}
-	require.False(t, conf.AllowAllOrigins(), "expected allow all origins to be false when allow origins is empty")
-
-	conf.AllowOrigins = []string{"*"}
-	require.True(t, conf.AllowAllOrigins(), "expect allow all origins to be true when * is set")
-}
-
 func TestAuthConfigValidate(t *testing.T) {
 	t.Run("Valid", func(t *testing.T) {
 		tests := []config.AuthConfig{
 			{
-				Audience:        "https://example.com",
+				Audience:        []string{"https://example.com"},
 				Issuer:          "https://auth.example.com",
 				AccessTokenTTL:  5 * time.Minute,
 				RefreshTokenTTL: 10 * time.Minute,
@@ -228,7 +219,7 @@ func TestAuthConfigValidate(t *testing.T) {
 			},
 			{
 				Keys:            map[string]string{},
-				Audience:        "https://example.com",
+				Audience:        []string{"https://example.com"},
 				Issuer:          "https://example.com",
 				AccessTokenTTL:  24 * time.Hour,
 				RefreshTokenTTL: 48 * time.Hour,
@@ -248,7 +239,7 @@ func TestAuthConfigValidate(t *testing.T) {
 		}{
 			{
 				conf: config.AuthConfig{
-					Audience:        "",
+					Audience:        nil,
 					Issuer:          "https://auth.example.com",
 					AccessTokenTTL:  5 * time.Minute,
 					RefreshTokenTTL: 10 * time.Minute,
@@ -258,7 +249,7 @@ func TestAuthConfigValidate(t *testing.T) {
 			},
 			{
 				conf: config.AuthConfig{
-					Audience:        "\x00",
+					Audience:        []string{"\x00"},
 					Issuer:          "https://auth.example.com",
 					AccessTokenTTL:  5 * time.Minute,
 					RefreshTokenTTL: 10 * time.Minute,
@@ -268,7 +259,7 @@ func TestAuthConfigValidate(t *testing.T) {
 			},
 			{
 				conf: config.AuthConfig{
-					Audience:        "https://example.com",
+					Audience:        []string{"https://example.com"},
 					Issuer:          "",
 					AccessTokenTTL:  5 * time.Minute,
 					RefreshTokenTTL: 10 * time.Minute,
@@ -278,7 +269,7 @@ func TestAuthConfigValidate(t *testing.T) {
 			},
 			{
 				conf: config.AuthConfig{
-					Audience:        "https://example.com",
+					Audience:        []string{"https://example.com"},
 					Issuer:          "\x00",
 					AccessTokenTTL:  5 * time.Minute,
 					RefreshTokenTTL: 10 * time.Minute,
@@ -288,7 +279,7 @@ func TestAuthConfigValidate(t *testing.T) {
 			},
 			{
 				conf: config.AuthConfig{
-					Audience:        "https://example.com",
+					Audience:        []string{"https://example.com"},
 					Issuer:          "https://auth.example.com",
 					AccessTokenTTL:  0 * time.Minute,
 					RefreshTokenTTL: 10 * time.Minute,
@@ -298,7 +289,7 @@ func TestAuthConfigValidate(t *testing.T) {
 			},
 			{
 				conf: config.AuthConfig{
-					Audience:        "https://example.com",
+					Audience:        []string{"https://example.com"},
 					Issuer:          "https://auth.example.com",
 					AccessTokenTTL:  20 * time.Minute,
 					RefreshTokenTTL: -10 * time.Minute,
@@ -308,7 +299,7 @@ func TestAuthConfigValidate(t *testing.T) {
 			},
 			{
 				conf: config.AuthConfig{
-					Audience:        "https://example.com",
+					Audience:        []string{"https://example.com"},
 					Issuer:          "https://auth.example.com",
 					AccessTokenTTL:  20 * time.Minute,
 					RefreshTokenTTL: 10 * time.Minute,
@@ -318,7 +309,7 @@ func TestAuthConfigValidate(t *testing.T) {
 			},
 			{
 				conf: config.AuthConfig{
-					Audience:        "https://example.com",
+					Audience:        []string{"https://example.com"},
 					Issuer:          "https://auth.example.com",
 					AccessTokenTTL:  20 * time.Minute,
 					RefreshTokenTTL: 10 * time.Minute,
@@ -378,6 +369,33 @@ func TestCSRFConfigValidate(t *testing.T) {
 			err := test.conf.Validate()
 			require.EqualError(t, err, test.errs, "expected csrf config validation error on test case %d", i)
 		}
+	})
+}
+
+func TestCSRFGetSecret(t *testing.T) {
+	t.Run("WithSecret", func(t *testing.T) {
+		conf := config.CSRFConfig{
+			CookieTTL: 20 * time.Minute,
+			Secret:    "000102030405060708090a0b0c0d0e0f",
+		}
+		require.NoError(t, conf.Validate(), "should be able to validate the csrf config with a secret")
+		require.Equal(t, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}, conf.GetSecret())
+	})
+
+	t.Run("WithoutSecret", func(t *testing.T) {
+		conf := config.CSRFConfig{
+			CookieTTL: 20 * time.Minute,
+			Secret:    "",
+		}
+		require.NoError(t, conf.Validate(), "should be able to validate the csrf config without a secret")
+
+		// Require secret is 65 characters that aren't all zeros
+		secret := conf.GetSecret()
+		require.Len(t, secret, 65)
+		require.NotEqual(t, bytes.Repeat([]byte{0}, 65), secret)
+
+		// Require generating a new secret doesn't return the original
+		require.NotEqual(t, secret, conf.GetSecret())
 	})
 }
 

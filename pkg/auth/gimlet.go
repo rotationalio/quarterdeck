@@ -25,7 +25,7 @@ var _ auth.Authenticator = (*Issuer)(nil)
 func (tm *Issuer) Verify(tks string) (claims *auth.Claims, err error) {
 	opts := []jwt.ParserOption{
 		jwt.WithValidMethods([]string{signingMethod.Alg()}),
-		jwt.WithAudience(tm.conf.Audience),
+		jwt.WithAudience(tm.conf.Audience...),
 		jwt.WithIssuer(tm.conf.Issuer),
 	}
 

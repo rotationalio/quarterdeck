@@ -116,7 +116,7 @@ func (tm *Issuer) CreateAccessToken(claims *auth.Claims) (_ *jwt.Token, err erro
 	claims.RegisteredClaims = jwt.RegisteredClaims{
 		ID:        secureULID().String(),
 		Subject:   sub,
-		Audience:  jwt.ClaimStrings{tm.conf.Audience},
+		Audience:  jwt.ClaimStrings(tm.conf.Audience),
 		Issuer:    tm.conf.Issuer,
 		IssuedAt:  jwt.NewNumericDate(now),
 		NotBefore: jwt.NewNumericDate(now),
