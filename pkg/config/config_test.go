@@ -225,6 +225,41 @@ func TestAuthConfigValidate(t *testing.T) {
 				RefreshTokenTTL: 48 * time.Hour,
 				TokenOverlap:    -12 * time.Hour,
 			},
+			{
+				Keys:            map[string]string{},
+				Audience:        []string{"https://example.com", "https://sub.example.com"},
+				Issuer:          "https://example.com",
+				AccessTokenTTL:  24 * time.Hour,
+				RefreshTokenTTL: 48 * time.Hour,
+				TokenOverlap:    -12 * time.Hour,
+			},
+			{
+				Keys:            map[string]string{},
+				Audience:        []string{"https://example.com", "https://sub.example.com"},
+				Issuer:          "https://example.com",
+				LoginURL:        "https://sub.example.com/login",
+				AccessTokenTTL:  24 * time.Hour,
+				RefreshTokenTTL: 48 * time.Hour,
+				TokenOverlap:    -12 * time.Hour,
+			},
+			{
+				Keys:            map[string]string{},
+				Audience:        []string{"https://example.com", "https://sub.example.com"},
+				Issuer:          "https://example.com",
+				LogoutURL:       "https://sub.example.com/logout",
+				AccessTokenTTL:  24 * time.Hour,
+				RefreshTokenTTL: 48 * time.Hour,
+				TokenOverlap:    -12 * time.Hour,
+			},
+			{
+				Keys:            map[string]string{},
+				Audience:        []string{"https://example.com", "https://sub.example.com"},
+				Issuer:          "https://example.com",
+				LoginRedirect:   "https://sub.example.com/logout",
+				AccessTokenTTL:  24 * time.Hour,
+				RefreshTokenTTL: 48 * time.Hour,
+				TokenOverlap:    -12 * time.Hour,
+			},
 		}
 
 		for i, conf := range tests {
@@ -280,6 +315,39 @@ func TestAuthConfigValidate(t *testing.T) {
 			{
 				conf: config.AuthConfig{
 					Audience:        []string{"https://example.com"},
+					Issuer:          "https://example.com",
+					LoginURL:        "\x00",
+					AccessTokenTTL:  5 * time.Minute,
+					RefreshTokenTTL: 10 * time.Minute,
+					TokenOverlap:    -2 * time.Minute,
+				},
+				errs: "invalid configuration: auth.loginURL could not parse loginURL: parse \"\\x00\": net/url: invalid control character in URL",
+			},
+			{
+				conf: config.AuthConfig{
+					Audience:        []string{"https://example.com"},
+					Issuer:          "https://example.com",
+					LogoutURL:       "\x00",
+					AccessTokenTTL:  5 * time.Minute,
+					RefreshTokenTTL: 10 * time.Minute,
+					TokenOverlap:    -2 * time.Minute,
+				},
+				errs: "invalid configuration: auth.logoutURL could not parse logoutURL: parse \"\\x00\": net/url: invalid control character in URL",
+			},
+			{
+				conf: config.AuthConfig{
+					Audience:        []string{"https://example.com"},
+					Issuer:          "https://example.com",
+					LoginRedirect:   "\x00",
+					AccessTokenTTL:  5 * time.Minute,
+					RefreshTokenTTL: 10 * time.Minute,
+					TokenOverlap:    -2 * time.Minute,
+				},
+				errs: "invalid configuration: auth.loginRedirect could not parse loginRedirect: parse \"\\x00\": net/url: invalid control character in URL",
+			},
+			{
+				conf: config.AuthConfig{
+					Audience:        []string{"https://example.com"},
 					Issuer:          "https://auth.example.com",
 					AccessTokenTTL:  0 * time.Minute,
 					RefreshTokenTTL: 10 * time.Minute,
@@ -323,6 +391,146 @@ func TestAuthConfigValidate(t *testing.T) {
 			err := test.conf.Validate()
 			require.EqualError(t, err, test.errs, "expected auth config validation error on test case %d", i)
 		}
+	})
+}
+
+func TestAuthConfigDefaults(t *testing.T) {
+	config := config.AuthConfig{
+		Audience:        []string{"https://example.com"},
+		Issuer:          "https://example.com",
+		AccessTokenTTL:  5 * time.Minute,
+		RefreshTokenTTL: 10 * time.Minute,
+		TokenOverlap:    -2 * time.Minute,
+	}
+
+	resetConfig := func() {
+		config.Issuer = "https://example.com"
+		config.LoginURL = ""
+		config.LogoutURL = ""
+		config.LoginRedirect = ""
+	}
+
+	t.Run("Defaults", func(t *testing.T) {
+		t.Run("WithoutTrailingSlash", func(t *testing.T) {
+			defer resetConfig()
+
+			config.Issuer = "https://example.com"
+			require.Empty(t, config.LoginURL, "expected login URL to be empty before validation")
+			require.Empty(t, config.LogoutURL, "expected logout URL to be empty before validation")
+			require.Empty(t, config.LoginRedirect, "expected login redirect to be empty before validation")
+
+			// Validation sets the defaults
+			require.NoError(t, config.Validate(), "expected auth config validation to pass with default values")
+
+			require.Equal(t, "https://example.com", config.Issuer, "expected issuer to be set without trailing slash")
+			require.Equal(t, "https://example.com/login", config.LoginURL)
+			require.Equal(t, "https://example.com/logout", config.LogoutURL)
+			require.Equal(t, "https://example.com/", config.LoginRedirect)
+		})
+
+		t.Run("WithTrailingSlash", func(t *testing.T) {
+			defer resetConfig()
+
+			config.Issuer = "https://example.com/"
+			require.Empty(t, config.LoginURL, "expected login URL to be empty before validation")
+			require.Empty(t, config.LogoutURL, "expected logout URL to be empty before validation")
+			require.Empty(t, config.LoginRedirect, "expected login redirect to be empty before validation")
+
+			// Validation sets the defaults
+			require.NoError(t, config.Validate(), "expected auth config validation to pass with default values")
+
+			require.Equal(t, "https://example.com", config.Issuer, "expected issuer to be set without trailing slash")
+			require.Equal(t, "https://example.com/login", config.LoginURL)
+			require.Equal(t, "https://example.com/logout", config.LogoutURL)
+			require.Equal(t, "https://example.com/", config.LoginRedirect)
+		})
+	})
+
+	t.Run("Override", func(t *testing.T) {
+		t.Run("All", func(t *testing.T) {
+			defer resetConfig()
+
+			config.LoginURL = "https://testing.com/login"
+			config.LogoutURL = "https://testing.com/logout"
+			config.LoginRedirect = "https://testing.com/"
+
+			require.NoError(t, config.Validate(), "expected auth config validation to pass with overridden values")
+
+			require.Equal(t, "https://example.com", config.Issuer, "expected issuer to be set without trailing slash")
+			require.Equal(t, "https://testing.com/login", config.LoginURL)
+			require.Equal(t, "https://testing.com/logout", config.LogoutURL)
+			require.Equal(t, "https://testing.com/", config.LoginRedirect)
+		})
+
+		t.Run("LoginURL", func(t *testing.T) {
+			defer resetConfig()
+
+			config.LoginURL = "https://testing.com/login"
+			require.NoError(t, config.Validate(), "expected auth config validation to pass with overridden login URL")
+
+			require.Equal(t, "https://example.com", config.Issuer, "expected issuer to be set without trailing slash")
+			require.Equal(t, "https://testing.com/login", config.LoginURL)
+			require.Equal(t, "https://example.com/logout", config.LogoutURL)
+			require.Equal(t, "https://example.com/", config.LoginRedirect)
+		})
+
+		t.Run("LogoutURL", func(t *testing.T) {
+			defer resetConfig()
+
+			config.LogoutURL = "https://testing.com/logout"
+			require.NoError(t, config.Validate(), "expected auth config validation to pass with overridden logout URL")
+
+			require.Equal(t, "https://example.com", config.Issuer, "expected issuer to be set without trailing slash")
+			require.Equal(t, "https://example.com/login", config.LoginURL)
+			require.Equal(t, "https://testing.com/logout", config.LogoutURL)
+			require.Equal(t, "https://example.com/", config.LoginRedirect)
+		})
+
+		t.Run("LoginRedirect", func(t *testing.T) {
+			defer resetConfig()
+
+			config.LoginRedirect = "https://testing.com/"
+			require.NoError(t, config.Validate(), "expected auth config validation to pass with overridden login redirect")
+
+			require.Equal(t, "https://example.com", config.Issuer, "expected issuer to be set without trailing slash")
+			require.Equal(t, "https://example.com/login", config.LoginURL)
+			require.Equal(t, "https://example.com/logout", config.LogoutURL)
+			require.Equal(t, "https://testing.com/", config.LoginRedirect)
+		})
+
+		t.Run("Some", func(t *testing.T) {
+			defer resetConfig()
+
+			config.LoginURL = "https://testing.com/login"
+			config.LoginRedirect = "https://testing.com/"
+			require.NoError(t, config.Validate(), "expected auth config validation to pass with overridden login redirect")
+
+			require.Equal(t, "https://example.com", config.Issuer, "expected issuer to be set without trailing slash")
+			require.Equal(t, "https://testing.com/login", config.LoginURL)
+			require.Equal(t, "https://example.com/logout", config.LogoutURL)
+			require.Equal(t, "https://testing.com/", config.LoginRedirect)
+		})
+	})
+
+	t.Run("AudienceStripSlashes", func(t *testing.T) {
+		defer resetConfig()
+		config.Audience = []string{
+			"https://example.com/",
+			"https://sub.example.com",
+			"https://another.example.com/",
+			"https://specific.example.com/endpoint",
+			"https://specific.example.com/endpoint/slash/",
+		}
+
+		require.NoError(t, config.Validate(), "expected auth config validation to pass with overridden login redirect")
+		require.Equal(t, []string{
+			"https://example.com",
+			"https://sub.example.com",
+			"https://another.example.com",
+			"https://specific.example.com/endpoint",
+			"https://specific.example.com/endpoint/slash/",
+		}, config.Audience)
+
 	})
 }
 

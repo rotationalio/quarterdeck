@@ -14,7 +14,12 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 )
 
-const Prefix = "QD"
+const (
+	Prefix            = "QD"
+	LoginPath         = "/login"
+	LogoutPath        = "/logout"
+	LoginRedirectPath = "/"
+)
 
 type Config struct {
 	Maintenance  bool                `default:"false" desc:"if true, quarterdeck will start in maintenance mode"`
@@ -96,9 +101,14 @@ func (c *AuthConfig) Validate() (err error) {
 		err = errors.ConfigError(err, errors.RequiredConfig("auth", "audience"))
 	}
 
-	for _, aud := range c.Audience {
-		if _, perr := url.Parse(aud); perr != nil {
+	for i, aud := range c.Audience {
+		if audURL, perr := url.Parse(aud); perr != nil {
 			err = errors.ConfigError(err, errors.ConfigParseError("auth", "audience", perr))
+		} else {
+			if audURL.Path == "/" {
+				audURL.Path = ""
+				c.Audience[i] = audURL.String()
+			}
 		}
 	}
 
@@ -106,8 +116,39 @@ func (c *AuthConfig) Validate() (err error) {
 		err = errors.ConfigError(err, errors.RequiredConfig("auth", "issuer"))
 	}
 
-	if _, perr := url.Parse(c.Issuer); perr != nil {
+	if issuerURL, perr := url.Parse(c.Issuer); perr != nil {
 		err = errors.ConfigError(err, errors.ConfigParseError("auth", "issuer", perr))
+	} else {
+		// Remove trailing slash from issuer
+		if issuerURL.Path == "/" {
+			issuerURL.Path = ""
+			c.Issuer = issuerURL.String()
+		}
+
+		// The LoginURL, LogoutURL, and LoginRedirect are derived from the issuer if not set.
+		if c.LoginURL == "" {
+			c.LoginURL = issuerURL.ResolveReference(&url.URL{Path: LoginPath}).String()
+		}
+
+		if _, perr := url.Parse(c.LoginURL); perr != nil {
+			err = errors.ConfigError(err, errors.ConfigParseError("auth", "loginURL", perr))
+		}
+
+		if c.LogoutURL == "" {
+			c.LogoutURL = issuerURL.ResolveReference(&url.URL{Path: LogoutPath}).String()
+		}
+
+		if _, perr := url.Parse(c.LogoutURL); perr != nil {
+			err = errors.ConfigError(err, errors.ConfigParseError("auth", "logoutURL", perr))
+		}
+
+		if c.LoginRedirect == "" {
+			c.LoginRedirect = issuerURL.ResolveReference(&url.URL{Path: LoginRedirectPath}).String()
+		}
+
+		if _, perr := url.Parse(c.LoginRedirect); perr != nil {
+			err = errors.ConfigError(err, errors.ConfigParseError("auth", "loginRedirect", perr))
+		}
 	}
 
 	if c.AccessTokenTTL <= 0 {
