@@ -16,6 +16,7 @@ import (
 	"go.rtnl.ai/gimlet/csrf"
 	"go.rtnl.ai/gimlet/logger"
 	"go.rtnl.ai/gimlet/o11y"
+	"go.rtnl.ai/quarterdeck/pkg"
 	"go.rtnl.ai/quarterdeck/pkg/auth"
 	"go.rtnl.ai/quarterdeck/pkg/config"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
@@ -93,7 +94,7 @@ func New(conf config.Config) (s *Server, err error) {
 	}
 
 	// Initialize the CSRF token handler if enabled.
-	if s.csrf, err = csrf.NewTokenHandler(s.conf.CSRF.CookieTTL, "/", s.conf.AllowOrigins, s.conf.CSRF.GetSecret()); err != nil {
+	if s.csrf, err = csrf.NewTokenHandler(s.conf.CSRF.CookieTTL, "/", s.conf.CookieDomains(), s.conf.CSRF.GetSecret()); err != nil {
 		return nil, err
 	}
 
@@ -171,6 +172,9 @@ func (s *Server) Serve() (err error) {
 	log.Info().
 		Str("url", s.URL()).
 		Bool("maintenance", s.conf.Maintenance).
+		Str("version", pkg.Version(false)).
+		Str("issuer", s.conf.Auth.Issuer).
+		Strs("audience", s.conf.Auth.Audience).
 		Msg("quarterdeck server started")
 	return <-s.errc
 }

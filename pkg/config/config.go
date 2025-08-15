@@ -96,6 +96,23 @@ func (c Config) GetLogLevel() zerolog.Level {
 	return zerolog.Level(c.LogLevel)
 }
 
+func (c Config) CookieDomains() []string {
+	// Strip scheme and port from domains and de-duplicate (in the case of multiple ports)
+	domains := map[string]struct{}{}
+	for _, origin := range c.AllowOrigins {
+		if u, err := url.Parse(origin); err == nil {
+			domains[u.Hostname()] = struct{}{}
+		}
+	}
+
+	// Return just the cookie domains
+	out := make([]string, 0, len(domains))
+	for domain := range domains {
+		out = append(out, domain)
+	}
+	return out
+}
+
 func (c *AuthConfig) Validate() (err error) {
 	if len(c.Audience) == 0 {
 		err = errors.ConfigError(err, errors.RequiredConfig("auth", "audience"))
