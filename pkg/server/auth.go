@@ -144,7 +144,11 @@ func (s *Server) Login(c *gin.Context) {
 	case binding.MIMEJSON:
 		c.JSON(http.StatusOK, out)
 	case binding.MIMEHTML:
-		htmx.Redirect(c, http.StatusSeeOther, in.Redirect())
+		location := in.Next
+		if location == "" {
+			location = s.conf.Auth.LoginRedirect
+		}
+		htmx.Redirect(c, http.StatusSeeOther, location)
 	default:
 		c.AbortWithError(http.StatusNotAcceptable, errors.ErrNotAccepted)
 	}
@@ -152,9 +156,8 @@ func (s *Server) Login(c *gin.Context) {
 
 func (s *Server) Logout(c *gin.Context) {
 	// Clear the authentication cookies to log out the user.
-	auth.ClearAuthCookies(c, []string{s.conf.Auth.Audience})
+	auth.ClearAuthCookies(c, s.conf.Auth.Audience)
 
 	// Redirect to the login page after logging out.
-	// TODO: prepare entire Quarterdeck logout URL.
-	htmx.Redirect(c, http.StatusSeeOther, "/login")
+	htmx.Redirect(c, http.StatusSeeOther, s.conf.Auth.LogoutRedirect)
 }

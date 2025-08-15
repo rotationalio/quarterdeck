@@ -30,16 +30,3 @@ func (r *LoginRequest) Validate() (err error) {
 
 	return err
 }
-
-// Redirect returns the next URL to redirect to after a successful login.
-// If no next URL is provided, it defaults to the root path ("/").
-// TODO: should we allow this to be configurable?
-func (r *LoginRequest) Redirect() string {
-	// Check if we have a next URL to redirect to with the request.
-	if r.Next != "" {
-		return r.Next
-	}
-
-	// If all else fails, redirect to the root path.
-	return "/"
-}

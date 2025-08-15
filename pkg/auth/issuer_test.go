@@ -32,7 +32,7 @@ func (s *TokenTestSuite) AuthConfig() config.AuthConfig {
 	// Helper function to return a default auth config for the tests.
 	return config.AuthConfig{
 		Keys:            s.testdata,
-		Audience:        "http://localhost:3000",
+		Audience:        []string{"http://localhost:3000"},
 		Issuer:          "http://localhost:3001",
 		AccessTokenTTL:  1 * time.Hour,
 		RefreshTokenTTL: 2 * time.Hour,
@@ -182,7 +182,7 @@ func (s *TokenTestSuite) TestInvalidTokens() {
 				ID:        "01JYKWYN0AFYNEPG01VQZYZ8MA",
 				Subject:   "u01JYKX4BFXQCSDDFSW7D47491B",
 				Issuer:    conf.Issuer,
-				Audience:  jwt.ClaimStrings{conf.Audience},
+				Audience:  jwt.ClaimStrings(conf.Audience),
 				IssuedAt:  jwt.NewNumericDate(now.Add(-1 * time.Hour)),
 				NotBefore: jwt.NewNumericDate(now.Add(-1 * time.Hour)),
 				ExpiresAt: jwt.NewNumericDate(now.Add(30 * time.Minute)),
@@ -378,7 +378,7 @@ func (s *TokenTestSuite) TestParseExpiredToken() {
 	require := s.Require()
 	conf := config.AuthConfig{
 		Keys:            s.testdata,
-		Audience:        "http://localhost:3000",
+		Audience:        []string{"http://localhost:3000"},
 		Issuer:          "http://localhost:3001",
 		AccessTokenTTL:  1 * time.Hour,
 		RefreshTokenTTL: 2 * time.Hour,

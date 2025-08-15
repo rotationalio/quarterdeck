@@ -17,12 +17,16 @@ var (
 	// Compute the version of the package at runtime so it is static for all contexts.
 	version      = pkg.Version(false)
 	shortVersion = pkg.Version(true)
+	revision     = pkg.GitVersion
+	buildDate    = pkg.BuildDate
 )
 
 // Keys for default Scene context items
 const (
 	Version         = "Version"
 	ShortVersion    = "ShortVersion"
+	Revision        = "Revision"
+	BuildDate       = "BuildDate"
 	Page            = "Page"
 	IsAuthenticated = "IsAuthenticated"
 	User            = "User"
@@ -37,6 +41,8 @@ func New(c *gin.Context) Scene {
 		return Scene{
 			Version:      version,
 			ShortVersion: shortVersion,
+			Revision:     revision,
+			BuildDate:    buildDate,
 		}
 	}
 
@@ -44,6 +50,8 @@ func New(c *gin.Context) Scene {
 	context := Scene{
 		Version:      version,
 		ShortVersion: shortVersion,
+		Revision:     revision,
+		BuildDate:    buildDate,
 		Page:         c.Request.URL.Path,
 	}
 

@@ -9,7 +9,7 @@ import (
 func (c Config) CORS() cors.Config {
 	// Create a CORS config with the configured allowed origins.
 	return cors.Config{
-		AllowAllOrigins:        c.AllowAllOrigins(),
+		AllowAllOrigins:        false,
 		AllowOrigins:           c.AllowOrigins,
 		AllowMethods:           []string{"GET", "HEAD", "POST", "OPTIONS"},
 		AllowHeaders:           []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-CSRF-TOKEN"},

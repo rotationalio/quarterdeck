@@ -12,9 +12,14 @@ import (
 	"go.rtnl.ai/gimlet/logger"
 	"go.rtnl.ai/gimlet/ratelimit"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/quarterdeck/pkg/redirect"
 )
 
-const Prefix = "QD"
+const (
+	Prefix            = "QD"
+	LoginPath         = "/login"
+	LoginRedirectPath = "/"
+)
 
 type Config struct {
 	Maintenance  bool                `default:"false" desc:"if true, quarterdeck will start in maintenance mode"`
@@ -38,8 +43,11 @@ type DatabaseConfig struct {
 
 type AuthConfig struct {
 	Keys            map[string]string `required:"false" desc:"a map of keyID to key path for JWT signing and verification; if omitted keys will be generated"`
-	Audience        string            `default:"http://localhost:8000" desc:"the audience claim for JWT tokens; used to verify the token is intended for this service"`
+	Audience        []string          `default:"http://localhost:8000" desc:"the audience claim for JWT tokens; used to verify the token is intended for this service"`
 	Issuer          string            `default:"http://localhost:8888" desc:"the issuer claim for JWT tokens; used to verify the token is issued by this service"`
+	LoginURL        string            `split_words:"true" default:"" desc:"specify an alternate login URL, by default it is the issuer + /login"`
+	LogoutRedirect  string            `split_words:"true" default:"" desc:"specify an alternate URL to redirect the user to after logout, by default it is the login url"`
+	LoginRedirect   string            `split_words:"true" default:"/" desc:"specify a location to redirect the user to after successful login"`
 	AccessTokenTTL  time.Duration     `split_words:"true" default:"1h" desc:"the duration for which access tokens are valid"`
 	RefreshTokenTTL time.Duration     `split_words:"true" default:"2h" desc:"the duration for which refresh tokens are valid"`
 	TokenOverlap    time.Duration     `split_words:"true" default:"-15m" desc:"the duration before an access token expires that the refresh token is valid"`
@@ -88,29 +96,65 @@ func (c Config) GetLogLevel() zerolog.Level {
 	return zerolog.Level(c.LogLevel)
 }
 
-// Returns true if the allow origins slice contains one entry that is a "*"
-func (c Config) AllowAllOrigins() bool {
-	if len(c.AllowOrigins) == 1 && c.AllowOrigins[0] == "*" {
-		return true
-	}
-	return false
-}
-
-func (c AuthConfig) Validate() (err error) {
-	if c.Audience == "" {
+func (c *AuthConfig) Validate() (err error) {
+	if len(c.Audience) == 0 {
 		err = errors.ConfigError(err, errors.RequiredConfig("auth", "audience"))
 	}
 
-	if _, perr := url.Parse(c.Audience); perr != nil {
-		err = errors.ConfigError(err, errors.ConfigParseError("auth", "audience", perr))
+	for i, aud := range c.Audience {
+		if audURL, perr := url.Parse(aud); perr != nil {
+			err = errors.ConfigError(err, errors.ConfigParseError("auth", "audience", perr))
+		} else {
+			if audURL.Path == "/" {
+				audURL.Path = ""
+				c.Audience[i] = audURL.String()
+			}
+		}
 	}
 
-	if c.Issuer == "" {
-		err = errors.ConfigError(err, errors.RequiredConfig("auth", "issuer"))
-	}
+	if perr := c.validateIssuer(); perr != nil {
+		err = errors.ConfigError(err, perr)
+	} else {
+		// We know the issuer URL is valid so create the URL to resolve references
+		issuerURL, _ := url.Parse(c.Issuer)
+		origin := redirect.MustNew(c.Issuer)
 
-	if _, perr := url.Parse(c.Issuer); perr != nil {
-		err = errors.ConfigError(err, errors.ConfigParseError("auth", "issuer", perr))
+		// Remove trailing spaces from issuer
+		if issuerURL.Path == "/" {
+			issuerURL.Path = ""
+			c.Issuer = issuerURL.String()
+		}
+
+		// LoginURL must be an absolute URL with the scheme and host, even if it matches
+		// the issuer URL scheme and host. If empty, it is derived from the issuer URL.
+		if c.LoginURL == "" {
+			c.LoginURL = issuerURL.ResolveReference(&url.URL{Path: LoginPath}).String()
+		}
+
+		// Ensure the login URL can be used for login redirects.
+		if _, perr := redirect.Login(c.LoginURL); perr != nil {
+			err = errors.ConfigError(err, errors.ConfigParseError("auth", "loginURL", perr))
+		}
+
+		// If the LogoutRedirect is not set, use the LoginURL.
+		if c.LogoutRedirect == "" {
+			c.LogoutRedirect = c.LoginURL
+		}
+
+		// Normalize the LogoutRedirect with respect to the origin
+		if _, perr := origin.Location(c.LogoutRedirect); perr != nil {
+			err = errors.ConfigError(err, errors.ConfigParseError("auth", "logoutRedirect", perr))
+		}
+
+		// If LoginRedirect is not set, use the default login redirect path
+		if c.LoginRedirect == "" {
+			c.LoginRedirect = issuerURL.ResolveReference(&url.URL{Path: LoginRedirectPath}).String()
+		}
+
+		// Normalize the LoginRedirect with respect to the origin
+		if _, perr := origin.Location(c.LoginRedirect); perr != nil {
+			err = errors.ConfigError(err, errors.ConfigParseError("auth", "loginRedirect", perr))
+		}
 	}
 
 	if c.AccessTokenTTL <= 0 {
@@ -126,6 +170,18 @@ func (c AuthConfig) Validate() (err error) {
 	}
 
 	return err
+}
+
+func (c AuthConfig) validateIssuer() *errors.InvalidConfiguration {
+	if c.Issuer == "" {
+		return errors.RequiredConfig("auth", "issuer")
+	}
+
+	if _, err := redirect.Login(c.Issuer); err != nil {
+		return errors.InvalidConfig("auth", "issuer", "cannot be used as a login url: %s", err)
+	}
+
+	return nil
 }
 
 func (c CSRFConfig) Validate() (err error) {
@@ -147,7 +203,7 @@ func (c CSRFConfig) GetSecret() []byte {
 	if c.Secret != "" {
 		secret, _ = hex.DecodeString(c.Secret)
 	} else {
-		secret = make([]byte, 0, 65)
+		secret = make([]byte, 65)
 		rand.Read(secret)
 	}
 	return secret
