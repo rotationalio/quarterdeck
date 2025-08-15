@@ -7,7 +7,61 @@
     </a>
 
     <ul class="sidebar-nav">
+      <li class="sidebar-header">Access Control</li>
+      <li class="sidebar-item">
+        <a class="sidebar-link">
+          <i class="align-middle fas fa-fw fa-users-cog"></i>
+          <span class="align-middle">User Management</span>
+        </a>
+      </li>
+      <li class="sidebar-item">
+        <a class="sidebar-link">
+          <i class="align-middle fas fa-fw fa-key"></i>
+          <span class="align-middle">API Keys</span>
+        </a>
+      </li>
+
+      <li class="sidebar-header">Administration</li>
+      <li class="sidebar-item">
+        <a href="#" class="sidebar-link">
+          <i class="align-middle fas fa-fw fa-cog"></i>
+          <span class="align-middle">Workspace Settings</span>
+        </a>
+      </li>
+      <li class="sidebar-item">
+        <a href="#" class="sidebar-link">
+          <i class="align-middle fas fa-fw fa-gavel"></i>
+          <span class="align-middle">Governance</span>
+        </a>
+      </li>
+      <li class="sidebar-item">
+        <a href="#" class="sidebar-link">
+          <i class="align-middle fas fa-fw fa-business-time"></i>
+          <span class="align-middle">Activity</span>
+        </a>
+      </li>
+
+      <li class="sidebar-header">Documentation</li>
+      <li class="sidebar-item">
+        <a class="sidebar-link collapsed" data-bs-target="#help-center" data-bs-toggle="collapse" aria-expanded="false">
+          <i class="align-middle fas fa-fw fa-book-open"></i>
+          <span class="align-middle">Help Center</span>
+        </a>
+        <ul id="help-center" class="sidebar-dropdown list-unstyled collapse" data-bs-parent="#sidebar">
+          <li class="sidebar-item"><a class="sidebar-link" href="#">Documentation</a></li>
+          <li class="sidebar-item"><a class="sidebar-link" href="#">API Reference</a></li>
+          <li class="sidebar-item"><a class="sidebar-link" href="mailto:support@rotational.io">Support</a></li>
+        </ul>
+      </li>
     </ul>
+
+    <div class="sidebar-cta align-self-end">
+      <div class="sidebar-cta-content">
+        <strong class="d-inline-block">Quarterdeck v{{ .ShortVersion }}</strong>
+        <div><small>Revision</small> <code>{{ .Revision }}</code></div>
+      </div>
+    </div>
+
   </div>
 </nav>
 {{ end }}
