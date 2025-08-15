@@ -146,6 +146,7 @@ func (s *Server) Login(c *gin.Context) {
 	case binding.MIMEHTML:
 		location := in.Next
 		if location == "" {
+			// TODO: normalize the login redirect with redirect.Origin
 			location = s.conf.Auth.LoginRedirect
 		}
 		htmx.Redirect(c, http.StatusSeeOther, location)
@@ -159,5 +160,6 @@ func (s *Server) Logout(c *gin.Context) {
 	auth.ClearAuthCookies(c, s.conf.Auth.Audience)
 
 	// Redirect to the login page after logging out.
+	// TODO: normalize the logout redirect with redirect.Origin
 	htmx.Redirect(c, http.StatusSeeOther, s.conf.Auth.LoginURL)
 }

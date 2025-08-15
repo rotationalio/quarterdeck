@@ -276,6 +276,7 @@ func TestAuthConfigValidate(t *testing.T) {
 				conf: config.AuthConfig{
 					Audience:        nil,
 					Issuer:          "https://auth.example.com",
+					LoginURL:        "https://auth.example.com/login",
 					AccessTokenTTL:  5 * time.Minute,
 					RefreshTokenTTL: 10 * time.Minute,
 					TokenOverlap:    -2 * time.Minute,
@@ -286,6 +287,7 @@ func TestAuthConfigValidate(t *testing.T) {
 				conf: config.AuthConfig{
 					Audience:        []string{"\x00"},
 					Issuer:          "https://auth.example.com",
+					LoginURL:        "https://auth.example.com/login",
 					AccessTokenTTL:  5 * time.Minute,
 					RefreshTokenTTL: 10 * time.Minute,
 					TokenOverlap:    -2 * time.Minute,
@@ -296,6 +298,7 @@ func TestAuthConfigValidate(t *testing.T) {
 				conf: config.AuthConfig{
 					Audience:        []string{"https://example.com"},
 					Issuer:          "",
+					LoginURL:        "https://auth.example.com/login",
 					AccessTokenTTL:  5 * time.Minute,
 					RefreshTokenTTL: 10 * time.Minute,
 					TokenOverlap:    -2 * time.Minute,
@@ -306,11 +309,34 @@ func TestAuthConfigValidate(t *testing.T) {
 				conf: config.AuthConfig{
 					Audience:        []string{"https://example.com"},
 					Issuer:          "\x00",
+					LoginURL:        "https://auth.example.com/login",
 					AccessTokenTTL:  5 * time.Minute,
 					RefreshTokenTTL: 10 * time.Minute,
 					TokenOverlap:    -2 * time.Minute,
 				},
 				errs: "invalid configuration: auth.issuer could not parse issuer: parse \"\\x00\": net/url: invalid control character in URL",
+			},
+			{
+				conf: config.AuthConfig{
+					Audience:        []string{"https://example.com"},
+					Issuer:          "//auth.example.com",
+					LoginURL:        "https://auth.example.com/login",
+					AccessTokenTTL:  5 * time.Minute,
+					RefreshTokenTTL: 10 * time.Minute,
+					TokenOverlap:    -2 * time.Minute,
+				},
+				errs: "invalid configuration: auth.issuer must be an absolute URL",
+			},
+			{
+				conf: config.AuthConfig{
+					Audience:        []string{"https://example.com"},
+					Issuer:          "https://",
+					LoginURL:        "https://auth.example.com/login",
+					AccessTokenTTL:  5 * time.Minute,
+					RefreshTokenTTL: 10 * time.Minute,
+					TokenOverlap:    -2 * time.Minute,
+				},
+				errs: "invalid configuration: auth.issuer must be an absolute URL",
 			},
 			{
 				conf: config.AuthConfig{
@@ -322,6 +348,17 @@ func TestAuthConfigValidate(t *testing.T) {
 					TokenOverlap:    -2 * time.Minute,
 				},
 				errs: "invalid configuration: auth.loginURL could not parse loginURL: parse \"\\x00\": net/url: invalid control character in URL",
+			},
+			{
+				conf: config.AuthConfig{
+					Audience:        []string{"https://example.com"},
+					Issuer:          "https://example.com",
+					LoginURL:        "/login",
+					AccessTokenTTL:  5 * time.Minute,
+					RefreshTokenTTL: 10 * time.Minute,
+					TokenOverlap:    -2 * time.Minute,
+				},
+				errs: "invalid configuration: auth.loginURL could not parse loginURL: invalid login url: \"/login\"",
 			},
 			{
 				conf: config.AuthConfig{

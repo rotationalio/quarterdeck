@@ -48,9 +48,9 @@ func (tm *Issuer) Verify(tks string) (claims *auth.Claims, err error) {
 // Make sure that Issuer implements the Unauthenticated interface
 var _ auth.Unauthenticator = (*Issuer)(nil)
 
-func (tm *Issuer) NotAuthorized(c *gin.Context) error {
+func (tm *Issuer) NotAuthorized(c *gin.Context) (err error) {
 	var loginURL string
-	if loginURL = tm.loginURL.Location(c); loginURL == "" {
+	if loginURL, err = tm.loginURL.Location(c); err != nil {
 		return errors.ErrNoLoginURL
 	}
 

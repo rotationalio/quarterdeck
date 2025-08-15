@@ -80,3 +80,8 @@ func (o *Origin) MustLocation(next any) string {
 	}
 	return loc
 }
+
+// String returns the origin url
+func (o *Origin) String() string {
+	return o.uri.String()
+}

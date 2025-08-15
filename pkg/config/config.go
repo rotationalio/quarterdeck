@@ -12,12 +12,13 @@ import (
 	"go.rtnl.ai/gimlet/logger"
 	"go.rtnl.ai/gimlet/ratelimit"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/quarterdeck/pkg/redirect"
 )
 
 const (
 	Prefix            = "QD"
 	LoginPath         = "/login"
-	LogoutPath        = "/logout"
+	LogoutPath        = "/logout" // TODO: make this logoutRedirectPath
 	LoginRedirectPath = "/"
 )
 
@@ -119,10 +120,18 @@ func (c *AuthConfig) Validate() (err error) {
 	if issuerURL, perr := url.Parse(c.Issuer); perr != nil {
 		err = errors.ConfigError(err, errors.ConfigParseError("auth", "issuer", perr))
 	} else {
-		// Remove trailing slash from issuer
-		if issuerURL.Path == "/" {
-			issuerURL.Path = ""
-			c.Issuer = issuerURL.String()
+		// Empty string URL will still parse correctly.
+		if c.Issuer != "" {
+			// Ensure the issuer has a scheme and a host
+			if issuerURL.Scheme == "" || issuerURL.Host == "" {
+				err = errors.ConfigError(err, errors.InvalidConfig("auth", "issuer", "must be an absolute URL"))
+			}
+
+			// Remove trailing slash from issuer
+			if issuerURL.Path == "/" {
+				issuerURL.Path = ""
+				c.Issuer = issuerURL.String()
+			}
 		}
 
 		// The LoginURL, LogoutURL, and LoginRedirect are derived from the issuer if not set.
@@ -130,7 +139,7 @@ func (c *AuthConfig) Validate() (err error) {
 			c.LoginURL = issuerURL.ResolveReference(&url.URL{Path: LoginPath}).String()
 		}
 
-		if _, perr := url.Parse(c.LoginURL); perr != nil {
+		if _, perr := redirect.Login(c.LoginURL); perr != nil {
 			err = errors.ConfigError(err, errors.ConfigParseError("auth", "loginURL", perr))
 		}
 
