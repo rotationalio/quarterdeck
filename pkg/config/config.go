@@ -18,7 +18,6 @@ import (
 const (
 	Prefix            = "QD"
 	LoginPath         = "/login"
-	LogoutPath        = "/logout" // TODO: make this logoutRedirectPath
 	LoginRedirectPath = "/"
 )
 
@@ -47,7 +46,7 @@ type AuthConfig struct {
 	Audience        []string          `default:"http://localhost:8000" desc:"the audience claim for JWT tokens; used to verify the token is intended for this service"`
 	Issuer          string            `default:"http://localhost:8888" desc:"the issuer claim for JWT tokens; used to verify the token is issued by this service"`
 	LoginURL        string            `split_words:"true" default:"" desc:"specify an alternate login URL, by default it is the issuer + /login"`
-	LogoutURL       string            `split_words:"true" default:"" desc:"specify an alternate logout URL, by default it is the issuer + /logout"`
+	LogoutRedirect  string            `split_words:"true" default:"" desc:"specify an alternate URL to redirect the user to after logout, by default it is the login url"`
 	LoginRedirect   string            `split_words:"true" default:"/" desc:"specify a location to redirect the user to after successful login"`
 	AccessTokenTTL  time.Duration     `split_words:"true" default:"1h" desc:"the duration for which access tokens are valid"`
 	RefreshTokenTTL time.Duration     `split_words:"true" default:"2h" desc:"the duration for which refresh tokens are valid"`
@@ -113,49 +112,47 @@ func (c *AuthConfig) Validate() (err error) {
 		}
 	}
 
-	if c.Issuer == "" {
-		err = errors.ConfigError(err, errors.RequiredConfig("auth", "issuer"))
-	}
-
-	if issuerURL, perr := url.Parse(c.Issuer); perr != nil {
-		err = errors.ConfigError(err, errors.ConfigParseError("auth", "issuer", perr))
+	if perr := c.validateIssuer(); perr != nil {
+		err = errors.ConfigError(err, perr)
 	} else {
-		// Empty string URL will still parse correctly.
-		if c.Issuer != "" {
-			// Ensure the issuer has a scheme and a host
-			if issuerURL.Scheme == "" || issuerURL.Host == "" {
-				err = errors.ConfigError(err, errors.InvalidConfig("auth", "issuer", "must be an absolute URL"))
-			}
+		// We know the issuer URL is valid so create the URL to resolve references
+		issuerURL, _ := url.Parse(c.Issuer)
+		origin := redirect.MustNew(c.Issuer)
 
-			// Remove trailing slash from issuer
-			if issuerURL.Path == "/" {
-				issuerURL.Path = ""
-				c.Issuer = issuerURL.String()
-			}
+		// Remove trailing spaces from issuer
+		if issuerURL.Path == "/" {
+			issuerURL.Path = ""
+			c.Issuer = issuerURL.String()
 		}
 
-		// The LoginURL, LogoutURL, and LoginRedirect are derived from the issuer if not set.
+		// LoginURL must be an absolute URL with the scheme and host, even if it matches
+		// the issuer URL scheme and host. If empty, it is derived from the issuer URL.
 		if c.LoginURL == "" {
 			c.LoginURL = issuerURL.ResolveReference(&url.URL{Path: LoginPath}).String()
 		}
 
+		// Ensure the login URL can be used for login redirects.
 		if _, perr := redirect.Login(c.LoginURL); perr != nil {
 			err = errors.ConfigError(err, errors.ConfigParseError("auth", "loginURL", perr))
 		}
 
-		if c.LogoutURL == "" {
-			c.LogoutURL = issuerURL.ResolveReference(&url.URL{Path: LogoutPath}).String()
+		// If the LogoutRedirect is not set, use the LoginURL.
+		if c.LogoutRedirect == "" {
+			c.LogoutRedirect = c.LoginURL
 		}
 
-		if _, perr := url.Parse(c.LogoutURL); perr != nil {
-			err = errors.ConfigError(err, errors.ConfigParseError("auth", "logoutURL", perr))
+		// Normalize the LogoutRedirect with respect to the origin
+		if _, perr := origin.Location(c.LogoutRedirect); perr != nil {
+			err = errors.ConfigError(err, errors.ConfigParseError("auth", "logoutRedirect", perr))
 		}
 
+		// If LoginRedirect is not set, use the default login redirect path
 		if c.LoginRedirect == "" {
 			c.LoginRedirect = issuerURL.ResolveReference(&url.URL{Path: LoginRedirectPath}).String()
 		}
 
-		if _, perr := url.Parse(c.LoginRedirect); perr != nil {
+		// Normalize the LoginRedirect with respect to the origin
+		if _, perr := origin.Location(c.LoginRedirect); perr != nil {
 			err = errors.ConfigError(err, errors.ConfigParseError("auth", "loginRedirect", perr))
 		}
 	}
@@ -173,6 +170,18 @@ func (c *AuthConfig) Validate() (err error) {
 	}
 
 	return err
+}
+
+func (c AuthConfig) validateIssuer() *errors.InvalidConfiguration {
+	if c.Issuer == "" {
+		return errors.RequiredConfig("auth", "issuer")
+	}
+
+	if _, err := redirect.Login(c.Issuer); err != nil {
+		return errors.InvalidConfig("auth", "issuer", "cannot be used as a login url: %s", err)
+	}
+
+	return nil
 }
 
 func (c CSRFConfig) Validate() (err error) {
