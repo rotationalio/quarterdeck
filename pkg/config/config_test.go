@@ -207,6 +207,48 @@ func TestIsZero(t *testing.T) {
 	})
 }
 
+func TestCookieDomains(t *testing.T) {
+	testCases := []struct {
+		conf     config.Config
+		expected []string
+	}{
+		{
+			conf: config.Config{
+				AllowOrigins: []string{"http://localhost:8000"},
+			},
+			expected: []string{"localhost"},
+		},
+		{
+			conf: config.Config{
+				AllowOrigins: []string{"http://example.com:8080"},
+			},
+			expected: []string{"example.com"},
+		},
+		{
+			conf: config.Config{
+				AllowOrigins: []string{"https://example.com"},
+			},
+			expected: []string{"example.com"},
+		},
+		{
+			conf: config.Config{
+				AllowOrigins: []string{"https://example.com", "https://auth.example.com", "https://db.example.com"},
+			},
+			expected: []string{"example.com", "auth.example.com", "db.example.com"},
+		},
+		{
+			conf: config.Config{
+				AllowOrigins: []string{"http://localhost:8000", "http://localhost:8888", "http://localhost:4444"},
+			},
+			expected: []string{"localhost"},
+		},
+	}
+
+	for i, tc := range testCases {
+		require.Equal(t, tc.expected, tc.conf.CookieDomains(), "expected cookie domains to match for test case %d", i)
+	}
+}
+
 func TestAuthConfigValidate(t *testing.T) {
 	t.Run("Valid", func(t *testing.T) {
 		tests := []config.AuthConfig{
