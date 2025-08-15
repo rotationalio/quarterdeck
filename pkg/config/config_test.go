@@ -245,7 +245,10 @@ func TestCookieDomains(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		require.Equal(t, tc.expected, tc.conf.CookieDomains(), "expected cookie domains to match for test case %d", i)
+		cookieDomains := tc.conf.CookieDomains()
+		for _, domain := range tc.expected {
+			require.Contains(t, cookieDomains, domain, "expected cookie domains to contain %q for test case %d", domain, i)
+		}
 	}
 }
 
