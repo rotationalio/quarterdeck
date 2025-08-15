@@ -53,3 +53,41 @@ func TestValidateLoginRequest(t *testing.T) {
 		}
 	})
 }
+
+func TestValidateAuthenticateRequest(t *testing.T) {
+	t.Run("Valid", func(t *testing.T) {
+		req := &AuthenticateRequest{
+			ClientID:     "my-client-id",
+			ClientSecret: "my-client-secret",
+		}
+		require.NoError(t, req.Validate(), "valid authenticate request should not return an error")
+	})
+
+	t.Run("Invalid", func(t *testing.T) {
+		tests := []struct {
+			req *AuthenticateRequest
+			err string
+		}{
+			{
+				req: &AuthenticateRequest{
+					ClientID:     "",
+					ClientSecret: "my-client-secret",
+				},
+				err: "missing client_id: this field is required",
+			},
+			{
+				req: &AuthenticateRequest{
+					ClientID:     "my-client-id",
+					ClientSecret: "",
+				},
+				err: "missing client_secret: this field is required",
+			},
+		}
+
+		for _, tc := range tests {
+			err := tc.req.Validate()
+			assert.Error(t, err, "expected error for invalid authenticate request")
+			assert.EqualError(t, err, tc.err, "expected specific error for invalid authenticate request")
+		}
+	})
+}

@@ -1,12 +1,16 @@
 package server
 
 import (
+	"context"
+	"database/sql"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	gimlet "go.rtnl.ai/gimlet/auth"
+	"go.rtnl.ai/ulid"
 
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
 	"go.rtnl.ai/quarterdeck/pkg/auth"
@@ -157,4 +161,219 @@ func (s *Server) Logout(c *gin.Context) {
 	// Redirect to the login page after logging out.
 	// TODO: prepare entire Quarterdeck logout URL.
 	htmx.Redirect(c, http.StatusSeeOther, "/login")
+}
+
+// Authenticate a user via their API key.
+func (s *Server) Authenticate(c *gin.Context) {
+	var (
+		err    error
+		ctx    context.Context
+		apiKey *models.APIKey
+		in     *api.AuthenticateRequest
+		out    *api.LoginReply
+		claims *gimlet.Claims
+	)
+
+	if err = c.BindJSON(&in); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusBadRequest, api.Error(errors.ErrBindJSON))
+		return
+	}
+
+	// Validate the request
+	if err = in.Validate(); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusBadRequest, api.Error(err))
+		return
+	}
+
+	// Retrieve the API key from the database
+	ctx = c.Request.Context()
+	if apiKey, err = s.store.RetrieveAPIKey(ctx, in.ClientID); err != nil {
+		if errors.Is(err, errors.ErrNotFound) {
+			c.JSON(http.StatusUnauthorized, api.Error(errors.ErrFailedAuthentication))
+			return
+		}
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error(errors.ErrInternal))
+		return
+	}
+
+	// Verify the API key's secret
+	var verified bool
+	if verified, err = passwords.VerifyDerivedKey(apiKey.Secret, in.ClientSecret); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error(errors.ErrInternal))
+		return
+	}
+
+	if !verified {
+		c.JSON(http.StatusUnauthorized, api.Error(errors.ErrFailedAuthentication))
+		return
+	}
+
+	if err = s.store.UpdateLastSeen(ctx, apiKey.ID, time.Now()); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error(errors.ErrInternal))
+		return
+	}
+
+	// Prepare the login reply now that the user has been authenticated
+	out = &api.LoginReply{}
+	if apiKey.LastSeen.Valid {
+		out.LastLogin = apiKey.LastSeen.Time
+	}
+
+	// Create access and refresh tokens for the API key
+	claims = apiKey.Claims()
+	if out.AccessToken, out.RefreshToken, err = s.issuer.CreateTokens(claims); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error(errors.ErrInternal))
+		return
+	}
+
+	// Set cookies for the client
+	if err = auth.SetAuthCookies(c, out.AccessToken, out.RefreshToken); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error(errors.ErrInternal))
+		return
+	}
+
+	// Content negotiation and redirection if required.
+	switch c.NegotiateFormat(binding.MIMEJSON, binding.MIMEHTML) {
+	case binding.MIMEJSON:
+		c.JSON(http.StatusOK, out)
+	case binding.MIMEHTML:
+		htmx.Redirect(c, http.StatusSeeOther, in.Redirect())
+	default:
+		c.AbortWithError(http.StatusNotAcceptable, errors.ErrNotAccepted)
+	}
+}
+
+// Reauthenticate a user via their refresh token.
+func (s *Server) Reauthenticate(c *gin.Context) {
+	var (
+		err    error
+		claims *gimlet.Claims
+		sub    gimlet.SubjectType
+		subID  ulid.ULID
+		in     *api.ReauthenticateRequest
+		out    *api.LoginReply
+	)
+
+	if err = c.BindJSON(&in); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusBadRequest, api.Error(errors.ErrBindJSON))
+		return
+	}
+
+	// Validate the request
+	if err = in.Validate(); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusBadRequest, api.Error(err))
+		return
+	}
+
+	// Verify the refresh token
+	if claims, err = s.issuer.Verify(in.RefreshToken); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusForbidden, api.Error(errors.ErrFailedAuthentication))
+		return
+	}
+
+	// TODO: Verify that this is a refresh token with the correct audience.
+
+	// Parse the subject type and ID from the claims.
+	if sub, subID, err = claims.SubjectID(); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error(errors.ErrInternal))
+		return
+	}
+
+	// Load claims based on the subject type.
+	switch sub {
+	case gimlet.SubjectUser:
+		if claims, err = s.reauthenticateUser(c, subID); err != nil {
+			// Error logging is handled in reauthenticateUser
+			return
+		}
+	case gimlet.SubjectAPIKey:
+		if claims, err = s.reauthenticateAPIKey(c, subID); err != nil {
+			// Error logging is handled in reauthenticateAPIKey
+			return
+		}
+	default:
+		c.Error(fmt.Errorf("unknown subject type: %c", sub))
+		c.JSON(http.StatusForbidden, api.Error(errors.ErrFailedAuthentication))
+		return
+	}
+
+	// Create new access and refresh tokens
+	out = &api.LoginReply{}
+	if out.AccessToken, out.RefreshToken, err = s.issuer.CreateTokens(claims); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error(errors.ErrInternal))
+		return
+	}
+
+	// Set cookies for the client
+	if err = auth.SetAuthCookies(c, out.AccessToken, out.RefreshToken); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error(errors.ErrInternal))
+		return
+	}
+
+	// Content negotiation and redirection if required.
+	switch c.NegotiateFormat(binding.MIMEJSON, binding.MIMEHTML) {
+	case binding.MIMEJSON:
+		c.JSON(http.StatusOK, out)
+	case binding.MIMEHTML:
+		htmx.Redirect(c, http.StatusSeeOther, in.Redirect())
+	default:
+		c.AbortWithError(http.StatusNotAcceptable, errors.ErrNotAccepted)
+	}
+}
+
+func (s *Server) reauthenticateUser(c *gin.Context, userID ulid.ULID) (_ *gimlet.Claims, err error) {
+	var user *models.User
+	if user, err = s.store.RetrieveUser(c.Request.Context(), userID); err != nil {
+		if errors.Is(err, errors.ErrNotFound) {
+			c.JSON(http.StatusForbidden, api.Error(errors.ErrFailedAuthentication))
+			return nil, err
+		}
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error(errors.ErrInternal))
+		return nil, err
+	}
+
+	user.LastLogin = sql.NullTime{Time: time.Now(), Valid: true}
+	if err = s.store.UpdateLastLogin(c.Request.Context(), user.ID, user.LastLogin.Time); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error(errors.ErrInternal))
+		return nil, err
+	}
+
+	return user.Claims()
+}
+
+func (s *Server) reauthenticateAPIKey(c *gin.Context, apiKeyID ulid.ULID) (_ *gimlet.Claims, err error) {
+	var apiKey *models.APIKey
+	if apiKey, err = s.store.RetrieveAPIKey(c.Request.Context(), apiKeyID); err != nil {
+		if errors.Is(err, errors.ErrNotFound) {
+			c.JSON(http.StatusForbidden, api.Error(errors.ErrFailedAuthentication))
+			return nil, err
+		}
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error(errors.ErrInternal))
+		return nil, err
+	}
+
+	apiKey.LastSeen = sql.NullTime{Time: time.Now(), Valid: true}
+	if err = s.store.UpdateLastSeen(c.Request.Context(), apiKey.ID, apiKey.LastSeen.Time); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error(errors.ErrInternal))
+		return nil, err
+	}
+
+	return apiKey.Claims(), nil
 }
