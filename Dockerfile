@@ -53,7 +53,7 @@ FROM --platform=${BUILDPLATFORM} ${FINAL_IMAGE} AS final
 LABEL maintainer="Rotational Labs <support@rotational.io>"
 LABEL description="Quarterdeck authentication and authorization service"
 
-# Ensure ca-certificates are up to date
+# Ensure ca-certificates are up to date and install sqlite3
 RUN set -x && apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates sqlite3 && \
     rm -rf /var/lib/apt/lists/*

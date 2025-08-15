@@ -5,7 +5,7 @@ tmp_dir = "tmp"
 [build]
   args_bin = ["serve"]
   bin = "tmp/bin/quarterdeck"
-  cmd = "go build -o tmp/bin/quarterdeck ./cmd/quarterdeck"
+  cmd = "go build -ldflags=\"-X 'go.rtnl.ai/quarterdeck/pkg.GitVersion=$(git rev-parse --short HEAD)'\" -o tmp/bin/quarterdeck ./cmd/quarterdeck"
   delay = 1000
   exclude_dir = ["assets", "tmp", "vendor", "testdata", "node_modules", ".github", ".git", "theme", "fixtures"]
   exclude_file = []
