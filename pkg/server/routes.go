@@ -116,6 +116,8 @@ func (s *Server) setupRoutes() (err error) {
 		// Authentication endpoints
 		v1.GET("/login", s.PrepareLogin)
 		v1.POST("/login", csrf, s.Login)
+		v1.POST("/authenticate", csrf, s.Authenticate)
+		v1.POST("/reauthenticate", csrf, s.Reauthenticate)
 	}
 
 	return nil

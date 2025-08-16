@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"time"
 
+	"go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/quarterdeck/pkg/enum"
 	"go.rtnl.ai/ulid"
 )
@@ -111,4 +112,22 @@ func (k *APIKey) Status() enum.APIKeyStatus {
 	}
 
 	return enum.APIKeyStatusActive
+}
+
+//===========================================================================
+// Helper Methods
+//===========================================================================
+
+func (k APIKey) Claims() *auth.Claims {
+	claims := &auth.Claims{
+		ClientID:    k.ClientID,
+		Permissions: k.Permissions(),
+	}
+
+	if len(k.permissions) > 0 {
+		claims.Permissions = k.permissions
+	}
+
+	claims.SetSubjectID(auth.SubjectAPIKey, k.ID)
+	return claims
 }
