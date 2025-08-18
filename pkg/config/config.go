@@ -42,15 +42,17 @@ type DatabaseConfig struct {
 }
 
 type AuthConfig struct {
-	Keys            map[string]string `required:"false" desc:"a map of keyID to key path for JWT signing and verification; if omitted keys will be generated"`
-	Audience        []string          `default:"http://localhost:8000" desc:"the audience claim for JWT tokens; used to verify the token is intended for this service"`
-	Issuer          string            `default:"http://localhost:8888" desc:"the issuer claim for JWT tokens; used to verify the token is issued by this service"`
-	LoginURL        string            `split_words:"true" default:"" desc:"specify an alternate login URL, by default it is the issuer + /login"`
-	LogoutRedirect  string            `split_words:"true" default:"" desc:"specify an alternate URL to redirect the user to after logout, by default it is the login url"`
-	LoginRedirect   string            `split_words:"true" default:"/" desc:"specify a location to redirect the user to after successful login"`
-	AccessTokenTTL  time.Duration     `split_words:"true" default:"1h" desc:"the duration for which access tokens are valid"`
-	RefreshTokenTTL time.Duration     `split_words:"true" default:"2h" desc:"the duration for which refresh tokens are valid"`
-	TokenOverlap    time.Duration     `split_words:"true" default:"-15m" desc:"the duration before an access token expires that the refresh token is valid"`
+	Keys                   map[string]string `required:"false" desc:"a map of keyID to key path for JWT signing and verification; if omitted keys will be generated"`
+	Audience               []string          `default:"http://localhost:8000" desc:"the audience claim for JWT tokens; used to verify the token is intended for this service"`
+	Issuer                 string            `default:"http://localhost:8888" desc:"the issuer claim for JWT tokens; used to verify the token is issued by this service"`
+	LoginURL               string            `split_words:"true" default:"" desc:"specify an alternate login URL, by default it is the issuer + /login"`
+	LogoutRedirect         string            `split_words:"true" default:"" desc:"specify an alternate URL to redirect the user to after logout, by default it is the login url"`
+	AuthenticateRedirect   string            `split_words:"true" default:"/" desc:"specify a location to redirect the user to after successful authentication"`
+	ReauthenticateRedirect string            `split_words:"true" default:"/" desc:"specify a location to redirect the user to after successful re-authentication"`
+	LoginRedirect          string            `split_words:"true" default:"/" desc:"specify a location to redirect the user to after successful login"`
+	AccessTokenTTL         time.Duration     `split_words:"true" default:"1h" desc:"the duration for which access tokens are valid"`
+	RefreshTokenTTL        time.Duration     `split_words:"true" default:"2h" desc:"the duration for which refresh tokens are valid"`
+	TokenOverlap           time.Duration     `split_words:"true" default:"-15m" desc:"the duration before an access token expires that the refresh token is valid"`
 }
 
 type CSRFConfig struct {
@@ -171,6 +173,26 @@ func (c *AuthConfig) Validate() (err error) {
 		// Normalize the LoginRedirect with respect to the origin
 		if _, perr := origin.Location(c.LoginRedirect); perr != nil {
 			err = errors.ConfigError(err, errors.ConfigParseError("auth", "loginRedirect", perr))
+		}
+
+		// If AuthenticateRedirect is not set, use the default login redirect path
+		if c.AuthenticateRedirect == "" {
+			c.AuthenticateRedirect = issuerURL.ResolveReference(&url.URL{Path: LoginRedirectPath}).String()
+		}
+
+		// Normalize the AuthenticateRedirect with respect to the origin
+		if _, perr := origin.Location(c.AuthenticateRedirect); perr != nil {
+			err = errors.ConfigError(err, errors.ConfigParseError("auth", "authenticateRedirect", perr))
+		}
+
+		// If ReauthenticateRedirect is not set, use the default login redirect path
+		if c.ReauthenticateRedirect == "" {
+			c.ReauthenticateRedirect = issuerURL.ResolveReference(&url.URL{Path: LoginRedirectPath}).String()
+		}
+
+		// Normalize the ReauthenticateRedirect with respect to the origin
+		if _, perr := origin.Location(c.ReauthenticateRedirect); perr != nil {
+			err = errors.ConfigError(err, errors.ConfigParseError("auth", "reauthenticateRedirect", perr))
 		}
 	}
 

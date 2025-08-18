@@ -15,30 +15,32 @@ import (
 
 // The test environment for all config tests, manipulated using curEnv and setEnv
 var testEnv = map[string]string{
-	"QD_MAINTENANCE":            "false",
-	"QD_BIND_ADDR":              ":3636",
-	"QD_MODE":                   gin.TestMode,
-	"QD_LOG_LEVEL":              "error",
-	"QD_CONSOLE_LOG":            "true",
-	"QD_ALLOW_ORIGINS":          "https://example.com,https://auth.example.com,https://db.example.com",
-	"QD_RATE_LIMIT_TYPE":        "ipaddr",
-	"QD_RATE_LIMIT_PER_SECOND":  "20",
-	"QD_RATE_LIMIT_BURST":       "100",
-	"QD_RATE_LIMIT_CACHE_TTL":   "1h",
-	"QD_DATABASE_URL":           "sqlite3:///test.db",
-	"QD_DATABASE_READ_ONLY":     "true",
-	"QD_AUTH_KEYS":              "01GECSDK5WJ7XWASQ0PMH6K41K:testdata/01GECSDK5WJ7XWASQ0PMH6K41K.pem,01GECSJGDCDN368D0EENX23C7R:testdata/01GECSJGDCDN368D0EENX23C7R.pem",
-	"QD_AUTH_AUDIENCE":          "https://example.com,https://db.example.com",
-	"QD_AUTH_ISSUER":            "https://auth.example.com",
-	"QD_AUTH_LOGIN_URL":         "https://example.com/signin",
-	"QD_AUTH_LOGOUT_REDIRECT":   "https://example.com/signout",
-	"QD_AUTH_LOGIN_REDIRECT":    "https://example.com/dashboard",
-	"QD_AUTH_ACCESS_TOKEN_TTL":  "5m",
-	"QD_AUTH_REFRESH_TOKEN_TTL": "10m",
-	"QD_AUTH_TOKEN_OVERLAP":     "-2m",
-	"QD_CSRF_COOKIE_TTL":        "20m",
-	"QD_CSRF_SECRET":            "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
-	"QD_SECURITY_TXT_PATH":      "./security.txt",
+	"QD_MAINTENANCE":                  "false",
+	"QD_BIND_ADDR":                    ":3636",
+	"QD_MODE":                         gin.TestMode,
+	"QD_LOG_LEVEL":                    "error",
+	"QD_CONSOLE_LOG":                  "true",
+	"QD_ALLOW_ORIGINS":                "https://example.com,https://auth.example.com,https://db.example.com",
+	"QD_RATE_LIMIT_TYPE":              "ipaddr",
+	"QD_RATE_LIMIT_PER_SECOND":        "20",
+	"QD_RATE_LIMIT_BURST":             "100",
+	"QD_RATE_LIMIT_CACHE_TTL":         "1h",
+	"QD_DATABASE_URL":                 "sqlite3:///test.db",
+	"QD_DATABASE_READ_ONLY":           "true",
+	"QD_AUTH_KEYS":                    "01GECSDK5WJ7XWASQ0PMH6K41K:testdata/01GECSDK5WJ7XWASQ0PMH6K41K.pem,01GECSJGDCDN368D0EENX23C7R:testdata/01GECSJGDCDN368D0EENX23C7R.pem",
+	"QD_AUTH_AUDIENCE":                "https://example.com,https://db.example.com",
+	"QD_AUTH_ISSUER":                  "https://auth.example.com",
+	"QD_AUTH_LOGIN_URL":               "https://example.com/signin",
+	"QD_AUTH_LOGOUT_REDIRECT":         "https://example.com/signout",
+	"QD_AUTH_LOGIN_REDIRECT":          "https://example.com/dashboard",
+	"QD_AUTH_AUTHENTICATE_REDIRECT":   "https://example.com/dashboard/authenticated",
+	"QD_AUTH_REAUTHENTICATE_REDIRECT": "https://example.com/dashboard/reauthenticated",
+	"QD_AUTH_ACCESS_TOKEN_TTL":        "5m",
+	"QD_AUTH_REFRESH_TOKEN_TTL":       "10m",
+	"QD_AUTH_TOKEN_OVERLAP":           "-2m",
+	"QD_CSRF_COOKIE_TTL":              "20m",
+	"QD_CSRF_SECRET":                  "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+	"QD_SECURITY_TXT_PATH":            "./security.txt",
 }
 
 func TestConfig(t *testing.T) {
@@ -75,6 +77,8 @@ func TestConfig(t *testing.T) {
 	require.Equal(t, testEnv["QD_AUTH_LOGIN_URL"], conf.Auth.LoginURL)
 	require.Equal(t, testEnv["QD_AUTH_LOGOUT_REDIRECT"], conf.Auth.LogoutRedirect)
 	require.Equal(t, testEnv["QD_AUTH_LOGIN_REDIRECT"], conf.Auth.LoginRedirect)
+	require.Equal(t, testEnv["QD_AUTH_AUTHENTICATE_REDIRECT"], conf.Auth.AuthenticateRedirect)
+	require.Equal(t, testEnv["QD_AUTH_REAUTHENTICATE_REDIRECT"], conf.Auth.ReauthenticateRedirect)
 	require.Equal(t, 5*time.Minute, conf.Auth.AccessTokenTTL)
 	require.Equal(t, 10*time.Minute, conf.Auth.RefreshTokenTTL)
 	require.Equal(t, -2*time.Minute, conf.Auth.TokenOverlap)
@@ -297,13 +301,15 @@ func TestAuthConfigValidate(t *testing.T) {
 				TokenOverlap:    -12 * time.Hour,
 			},
 			{
-				Keys:            map[string]string{},
-				Audience:        []string{"https://example.com", "https://sub.example.com"},
-				Issuer:          "https://example.com",
-				LoginRedirect:   "https://sub.example.com/logout",
-				AccessTokenTTL:  24 * time.Hour,
-				RefreshTokenTTL: 48 * time.Hour,
-				TokenOverlap:    -12 * time.Hour,
+				Keys:                   map[string]string{},
+				Audience:               []string{"https://example.com", "https://sub.example.com"},
+				Issuer:                 "https://example.com",
+				LoginRedirect:          "https://sub.example.com/login",
+				AuthenticateRedirect:   "https://sub.example.com/authenticate",
+				ReauthenticateRedirect: "https://sub.example.com/reauthenticate",
+				AccessTokenTTL:         24 * time.Hour,
+				RefreshTokenTTL:        48 * time.Hour,
+				TokenOverlap:           -12 * time.Hour,
 			},
 		}
 
@@ -430,6 +436,28 @@ func TestAuthConfigValidate(t *testing.T) {
 			},
 			{
 				conf: config.AuthConfig{
+					Audience:             []string{"https://example.com"},
+					Issuer:               "https://example.com",
+					AuthenticateRedirect: "\x00",
+					AccessTokenTTL:       5 * time.Minute,
+					RefreshTokenTTL:      10 * time.Minute,
+					TokenOverlap:         -2 * time.Minute,
+				},
+				errs: "invalid configuration: auth.authenticateRedirect could not parse authenticateRedirect: parse \"\\x00\": net/url: invalid control character in URL",
+			},
+			{
+				conf: config.AuthConfig{
+					Audience:               []string{"https://example.com"},
+					Issuer:                 "https://example.com",
+					ReauthenticateRedirect: "\x00",
+					AccessTokenTTL:         5 * time.Minute,
+					RefreshTokenTTL:        10 * time.Minute,
+					TokenOverlap:           -2 * time.Minute,
+				},
+				errs: "invalid configuration: auth.reauthenticateRedirect could not parse reauthenticateRedirect: parse \"\\x00\": net/url: invalid control character in URL",
+			},
+			{
+				conf: config.AuthConfig{
 					Audience:        []string{"https://example.com"},
 					Issuer:          "https://auth.example.com",
 					AccessTokenTTL:  0 * time.Minute,
@@ -491,6 +519,8 @@ func TestAuthConfigDefaults(t *testing.T) {
 		config.LoginURL = ""
 		config.LogoutRedirect = ""
 		config.LoginRedirect = ""
+		config.AuthenticateRedirect = ""
+		config.ReauthenticateRedirect = ""
 	}
 
 	t.Run("Defaults", func(t *testing.T) {
@@ -501,6 +531,8 @@ func TestAuthConfigDefaults(t *testing.T) {
 			require.Empty(t, config.LoginURL, "expected login URL to be empty before validation")
 			require.Empty(t, config.LogoutRedirect, "expected logout URL to be empty before validation")
 			require.Empty(t, config.LoginRedirect, "expected login redirect to be empty before validation")
+			require.Empty(t, config.AuthenticateRedirect, "expected authenticate redirect to be empty before validation")
+			require.Empty(t, config.ReauthenticateRedirect, "expected reauthenticate redirect to be empty before validation")
 
 			// Validation sets the defaults
 			require.NoError(t, config.Validate(), "expected auth config validation to pass with default values")
@@ -509,6 +541,8 @@ func TestAuthConfigDefaults(t *testing.T) {
 			require.Equal(t, "https://example.com/login", config.LoginURL)
 			require.Equal(t, "https://example.com/login", config.LogoutRedirect)
 			require.Equal(t, "https://example.com/", config.LoginRedirect)
+			require.Equal(t, "https://example.com/", config.AuthenticateRedirect)
+			require.Equal(t, "https://example.com/", config.ReauthenticateRedirect)
 		})
 
 		t.Run("WithTrailingSlash", func(t *testing.T) {
@@ -526,6 +560,8 @@ func TestAuthConfigDefaults(t *testing.T) {
 			require.Equal(t, "https://example.com/login", config.LoginURL)
 			require.Equal(t, "https://example.com/login", config.LogoutRedirect)
 			require.Equal(t, "https://example.com/", config.LoginRedirect)
+			require.Equal(t, "https://example.com/", config.AuthenticateRedirect)
+			require.Equal(t, "https://example.com/", config.ReauthenticateRedirect)
 		})
 	})
 
@@ -536,6 +572,8 @@ func TestAuthConfigDefaults(t *testing.T) {
 			config.LoginURL = "https://testing.com/login"
 			config.LogoutRedirect = "https://testing.com/logout"
 			config.LoginRedirect = "https://testing.com/"
+			config.AuthenticateRedirect = "https://testing.com/authenticate"
+			config.ReauthenticateRedirect = "https://testing.com/reauthenticate"
 
 			require.NoError(t, config.Validate(), "expected auth config validation to pass with overridden values")
 
@@ -543,6 +581,8 @@ func TestAuthConfigDefaults(t *testing.T) {
 			require.Equal(t, "https://testing.com/login", config.LoginURL)
 			require.Equal(t, "https://testing.com/logout", config.LogoutRedirect)
 			require.Equal(t, "https://testing.com/", config.LoginRedirect)
+			require.Equal(t, "https://testing.com/authenticate", config.AuthenticateRedirect)
+			require.Equal(t, "https://testing.com/reauthenticate", config.ReauthenticateRedirect)
 		})
 
 		t.Run("LoginURL", func(t *testing.T) {
@@ -555,6 +595,8 @@ func TestAuthConfigDefaults(t *testing.T) {
 			require.Equal(t, "https://testing.com/login", config.LoginURL)
 			require.Equal(t, "https://testing.com/login", config.LogoutRedirect)
 			require.Equal(t, "https://example.com/", config.LoginRedirect)
+			require.Equal(t, "https://example.com/", config.AuthenticateRedirect)
+			require.Equal(t, "https://example.com/", config.ReauthenticateRedirect)
 		})
 
 		t.Run("LogoutURL", func(t *testing.T) {
@@ -567,6 +609,8 @@ func TestAuthConfigDefaults(t *testing.T) {
 			require.Equal(t, "https://example.com/login", config.LoginURL)
 			require.Equal(t, "https://testing.com/logout", config.LogoutRedirect)
 			require.Equal(t, "https://example.com/", config.LoginRedirect)
+			require.Equal(t, "https://example.com/", config.AuthenticateRedirect)
+			require.Equal(t, "https://example.com/", config.ReauthenticateRedirect)
 		})
 
 		t.Run("LoginRedirect", func(t *testing.T) {
@@ -579,6 +623,8 @@ func TestAuthConfigDefaults(t *testing.T) {
 			require.Equal(t, "https://example.com/login", config.LoginURL)
 			require.Equal(t, "https://example.com/login", config.LogoutRedirect)
 			require.Equal(t, "https://testing.com/", config.LoginRedirect)
+			require.Equal(t, "https://example.com/", config.AuthenticateRedirect)
+			require.Equal(t, "https://example.com/", config.ReauthenticateRedirect)
 		})
 
 		t.Run("Some", func(t *testing.T) {
@@ -592,6 +638,8 @@ func TestAuthConfigDefaults(t *testing.T) {
 			require.Equal(t, "https://testing.com/login", config.LoginURL)
 			require.Equal(t, "https://testing.com/login", config.LogoutRedirect)
 			require.Equal(t, "https://testing.com/", config.LoginRedirect)
+			require.Equal(t, "https://example.com/", config.AuthenticateRedirect)
+			require.Equal(t, "https://example.com/", config.ReauthenticateRedirect)
 		})
 	})
 

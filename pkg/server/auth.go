@@ -247,7 +247,11 @@ func (s *Server) Authenticate(c *gin.Context) {
 	case binding.MIMEJSON:
 		c.JSON(http.StatusOK, out)
 	case binding.MIMEHTML:
-		htmx.Redirect(c, http.StatusSeeOther, in.Redirect())
+		location := in.Next
+		if location == "" {
+			location = s.conf.Auth.AuthenticateRedirect
+		}
+		htmx.Redirect(c, http.StatusSeeOther, location)
 	default:
 		c.AbortWithError(http.StatusNotAcceptable, errors.ErrNotAccepted)
 	}
@@ -331,7 +335,11 @@ func (s *Server) Reauthenticate(c *gin.Context) {
 	case binding.MIMEJSON:
 		c.JSON(http.StatusOK, out)
 	case binding.MIMEHTML:
-		htmx.Redirect(c, http.StatusSeeOther, in.Redirect())
+		location := in.Next
+		if location == "" {
+			location = s.conf.Auth.ReauthenticateRedirect
+		}
+		htmx.Redirect(c, http.StatusSeeOther, location)
 	default:
 		c.AbortWithError(http.StatusNotAcceptable, errors.ErrNotAccepted)
 	}

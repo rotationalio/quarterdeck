@@ -69,30 +69,10 @@ func (r *AuthenticateRequest) Validate() (err error) {
 	return err
 }
 
-func (r *AuthenticateRequest) Redirect() string {
-	// Check if we have a next URL to redirect to with the request.
-	if r.Next != "" {
-		return r.Next
-	}
-
-	// If all else fails, redirect to the root path.
-	return "/"
-}
-
 func (r *ReauthenticateRequest) Validate() (err error) {
 	r.RefreshToken = strings.TrimSpace(r.RefreshToken)
 	if r.RefreshToken == "" {
 		err = ValidationError(err, MissingField("refresh_token"))
 	}
 	return err
-}
-
-func (r *ReauthenticateRequest) Redirect() string {
-	// Check if we have a next URL to redirect to with the request.
-	if r.Next != "" {
-		return r.Next
-	}
-
-	// If all else fails, redirect to the root path.
-	return "/"
 }
