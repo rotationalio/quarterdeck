@@ -54,7 +54,7 @@ func (s *Server) OpenIDConfiguration(c *gin.Context) {
 	}
 
 	openid := &api.OpenIDConfiguration{
-		Issuer:                        base.ResolveReference(&url.URL{Path: "/"}).String(),
+		Issuer:                        base.String(),
 		JWKSURI:                       base.ResolveReference(&url.URL{Path: "/.well-known/jwks.json"}).String(),
 		ScopesSupported:               []string{"openid", "profile", "email"},
 		ResponseTypesSupported:        []string{"token", "id_token"},
