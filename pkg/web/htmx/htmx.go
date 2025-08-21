@@ -14,14 +14,14 @@ const (
 	HXHistoryRestoreRequest = "HX-History-Restore-Request" // “true” if the request is for history restoration after a miss in the local history cache
 	HXPrompt                = "HX-Prompt"                  // the user response to an hx-prompt
 	HXRequest               = "HX-Request"                 // always “true”
-	HXtarget                = "HX-Target"                  // the id of the target element if it exists
+	HXTarget                = "HX-Target"                  // the id of the target element if it exists
 	HXTriggerName           = "HX-Trigger-Name"            // the name of the triggered element if it exists
 )
 
 // HTMX Response Headers
 const (
 	HXLocation           = "HX-Location"             // allows you to do a client-side redirect that does not do a full page reload
-	HxPushURL            = "HX-Push-Url"             // pushes a new url into the history stack
+	HXPushURL            = "HX-Push-Url"             // pushes a new url into the history stack
 	HXRedirect           = "HX-Redirect"             // can be used to do a client-side redirect to a new location
 	HXRefresh            = "HX-Refresh"              // if set to “true” the client-side will do a full refresh of the page
 	HXReplaceURL         = "HX-Replace-Url"          // replaces the current URL in the location bar

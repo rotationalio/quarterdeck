@@ -13,8 +13,8 @@ func (s Scene) Login(c *gin.Context) *LoginScene {
 	// Return the login scene with the default URLs set.
 	return &LoginScene{
 		Scene:             s,
-		LoginURL:          "/v1/login",
-		ForgotPasswordURL: "/forgot-password",
+		LoginURL:          loginURL,
+		ForgotPasswordURL: forgotPasswordURL,
 		Next:              c.Query("next"),
 	}
 }

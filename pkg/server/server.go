@@ -21,6 +21,7 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/config"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store"
+	"go.rtnl.ai/quarterdeck/pkg/web/scene"
 )
 
 func init() {
@@ -76,6 +77,9 @@ func New(conf config.Config) (s *Server, err error) {
 		console := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 		log.Logger = zerolog.New(console).With().Timestamp().Logger()
 	}
+
+	// Configure the scene for handling templates
+	scene.WithConf(conf)
 
 	// Create a new server instance and prepare to serve.
 	s = &Server{
