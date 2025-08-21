@@ -9,6 +9,12 @@ document.body.addEventListener('htmx:configRequest', (e) => {
   }
 });
 
+// Initialize and set Notyf config to display toast notifications.
+const notyf = new Notyf({
+  duration: 5000,
+  ripple: false,
+});
+
 // Ensure that all 500 errors redirect to the error page.
 document.body.addEventListener('htmx:responseError', (e) => {
   switch (e.detail.xhr.status) {
@@ -18,6 +24,9 @@ document.body.addEventListener('htmx:responseError', (e) => {
     case 501:
       window.location.href = '/not-allowed';
       break;
+    default:
+      const error = JSON.parse(e.detail.xhr.responseText);
+      notyf.error("Error: " + error?.error || 'An unknown error occurred');
   }
 });
 
