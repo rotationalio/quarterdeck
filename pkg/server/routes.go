@@ -9,6 +9,7 @@ import (
 	"go.rtnl.ai/gimlet/logger"
 	"go.rtnl.ai/gimlet/o11y"
 	"go.rtnl.ai/gimlet/ratelimit"
+	"go.rtnl.ai/gimlet/secure"
 	"go.rtnl.ai/quarterdeck/pkg"
 	"go.rtnl.ai/quarterdeck/pkg/auth/permissions"
 	"go.rtnl.ai/quarterdeck/pkg/web"
@@ -35,6 +36,9 @@ func (s *Server) setupRoutes() (err error) {
 
 		// Panic recovery middleware
 		gin.Recovery(),
+
+		// Security middleware sets security policy headers
+		secure.Secure(&s.conf.Secure),
 
 		// Maintenance mode middleware to make system unavailable while running
 		s.Maintenance(),
