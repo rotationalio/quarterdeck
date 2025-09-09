@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog"
 	"go.rtnl.ai/gimlet/logger"
 	"go.rtnl.ai/gimlet/ratelimit"
+	"go.rtnl.ai/gimlet/secure"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/redirect"
 )
@@ -32,6 +33,7 @@ type Config struct {
 	Database     DatabaseConfig
 	Auth         AuthConfig
 	CSRF         CSRFConfig
+	Secure       secure.Config
 	Security     SecurityConfig
 	processed    bool
 }

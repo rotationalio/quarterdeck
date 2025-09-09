@@ -15,32 +15,42 @@ import (
 
 // The test environment for all config tests, manipulated using curEnv and setEnv
 var testEnv = map[string]string{
-	"QD_MAINTENANCE":                  "false",
-	"QD_BIND_ADDR":                    ":3636",
-	"QD_MODE":                         gin.TestMode,
-	"QD_LOG_LEVEL":                    "error",
-	"QD_CONSOLE_LOG":                  "true",
-	"QD_ALLOW_ORIGINS":                "https://example.com,https://auth.example.com,https://db.example.com",
-	"QD_RATE_LIMIT_TYPE":              "ipaddr",
-	"QD_RATE_LIMIT_PER_SECOND":        "20",
-	"QD_RATE_LIMIT_BURST":             "100",
-	"QD_RATE_LIMIT_CACHE_TTL":         "1h",
-	"QD_DATABASE_URL":                 "sqlite3:///test.db",
-	"QD_DATABASE_READ_ONLY":           "true",
-	"QD_AUTH_KEYS":                    "01GECSDK5WJ7XWASQ0PMH6K41K:testdata/01GECSDK5WJ7XWASQ0PMH6K41K.pem,01GECSJGDCDN368D0EENX23C7R:testdata/01GECSJGDCDN368D0EENX23C7R.pem",
-	"QD_AUTH_AUDIENCE":                "https://example.com,https://db.example.com",
-	"QD_AUTH_ISSUER":                  "https://auth.example.com",
-	"QD_AUTH_LOGIN_URL":               "https://example.com/signin",
-	"QD_AUTH_LOGOUT_REDIRECT":         "https://example.com/signout",
-	"QD_AUTH_LOGIN_REDIRECT":          "https://example.com/dashboard",
-	"QD_AUTH_AUTHENTICATE_REDIRECT":   "https://example.com/dashboard/authenticated",
-	"QD_AUTH_REAUTHENTICATE_REDIRECT": "https://example.com/dashboard/reauthenticated",
-	"QD_AUTH_ACCESS_TOKEN_TTL":        "5m",
-	"QD_AUTH_REFRESH_TOKEN_TTL":       "10m",
-	"QD_AUTH_TOKEN_OVERLAP":           "-2m",
-	"QD_CSRF_COOKIE_TTL":              "20m",
-	"QD_CSRF_SECRET":                  "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
-	"QD_SECURITY_TXT_PATH":            "./security.txt",
+	"QD_MAINTENANCE":                                "false",
+	"QD_BIND_ADDR":                                  ":3636",
+	"QD_MODE":                                       gin.TestMode,
+	"QD_LOG_LEVEL":                                  "error",
+	"QD_CONSOLE_LOG":                                "true",
+	"QD_ALLOW_ORIGINS":                              "https://example.com,https://auth.example.com,https://db.example.com",
+	"QD_RATE_LIMIT_TYPE":                            "ipaddr",
+	"QD_RATE_LIMIT_PER_SECOND":                      "20",
+	"QD_RATE_LIMIT_BURST":                           "100",
+	"QD_RATE_LIMIT_CACHE_TTL":                       "1h",
+	"QD_DATABASE_URL":                               "sqlite3:///test.db",
+	"QD_DATABASE_READ_ONLY":                         "true",
+	"QD_AUTH_KEYS":                                  "01GECSDK5WJ7XWASQ0PMH6K41K:testdata/01GECSDK5WJ7XWASQ0PMH6K41K.pem,01GECSJGDCDN368D0EENX23C7R:testdata/01GECSJGDCDN368D0EENX23C7R.pem",
+	"QD_AUTH_AUDIENCE":                              "https://example.com,https://db.example.com",
+	"QD_AUTH_ISSUER":                                "https://auth.example.com",
+	"QD_AUTH_LOGIN_URL":                             "https://example.com/signin",
+	"QD_AUTH_LOGOUT_REDIRECT":                       "https://example.com/signout",
+	"QD_AUTH_LOGIN_REDIRECT":                        "https://example.com/dashboard",
+	"QD_AUTH_AUTHENTICATE_REDIRECT":                 "https://example.com/dashboard/authenticated",
+	"QD_AUTH_REAUTHENTICATE_REDIRECT":               "https://example.com/dashboard/reauthenticated",
+	"QD_AUTH_ACCESS_TOKEN_TTL":                      "5m",
+	"QD_AUTH_REFRESH_TOKEN_TTL":                     "10m",
+	"QD_AUTH_TOKEN_OVERLAP":                         "-2m",
+	"QD_CSRF_COOKIE_TTL":                            "20m",
+	"QD_CSRF_SECRET":                                "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+	"QD_SECURE_CONTENT_TYPE_NOSNIFF":                "false",
+	"QD_SECURE_CROSS_ORIGIN_OPENER_POLICY":          "noopener-allow-popups",
+	"QD_SECURE_REFERRER_POLICY":                     "same-origin",
+	"QD_SECURE_CONTENT_SECURITY_POLICY_DEFAULT_SRC": "https:",
+	"QD_SECURE_CONTENT_SECURITY_POLICY_REPORT_ONLY_SCRIPT_SRC": "'self',*.cloudflare.com",
+	"QD_SECURE_CONTENT_SECURITY_POLICY_REPORT_ONLY_REPORT_TO":  "csp-endpoint",
+	"QD_SECURE_REPORTING_ENDPOINTS":                            `csp-endpoint://example.com/csp-reports`,
+	"QD_SECURE_HSTS_SECONDS":                                   "63244800",
+	"QD_SECURE_HSTS_INCLUDE_SUBDOMAINS":                        "true",
+	"QD_SECURE_HSTS_PRELOAD":                                   "true",
+	"QD_SECURITY_TXT_PATH":                                     "./security.txt",
 }
 
 func TestConfig(t *testing.T) {
@@ -88,6 +98,15 @@ func TestConfig(t *testing.T) {
 	require.Equal(t, 60*time.Minute, conf.RateLimit.CacheTTL)
 	require.Equal(t, 20*time.Minute, conf.CSRF.CookieTTL)
 	require.Equal(t, testEnv["QD_CSRF_SECRET"], conf.CSRF.Secret)
+	require.False(t, conf.Secure.ContentTypeNosniff)
+	require.Equal(t, testEnv["QD_SECURE_CROSS_ORIGIN_OPENER_POLICY"], conf.Secure.CrossOriginOpenerPolicy)
+	require.Equal(t, testEnv["QD_SECURE_REFERRER_POLICY"], conf.Secure.ReferrerPolicy)
+	require.Equal(t, "default-src https:", conf.Secure.ContentSecurityPolicy.Directive())
+	require.Equal(t, "script-src 'self' *.cloudflare.com; report-to csp-endpoint", conf.Secure.ContentSecurityPolicyReportOnly.Directive())
+	require.Equal(t, map[string]string{"csp-endpoint": "//example.com/csp-reports"}, conf.Secure.ReportingEndpoints)
+	require.Equal(t, 63244800, conf.Secure.HSTS.Seconds)
+	require.True(t, conf.Secure.HSTS.IncludeSubdomains)
+	require.True(t, conf.Secure.HSTS.Preload)
 	require.Equal(t, testEnv["QD_SECURITY_TXT_PATH"], conf.Security.TxtPath)
 }
 
