@@ -55,10 +55,18 @@ func (s *Server) ProfilePage(c *gin.Context) {
 	c.HTML(http.StatusOK, "pages/profile/index.html", scene.New(c))
 }
 
-func (s *Server) AccountPage(c *gin.Context) {
+func (s *Server) ProfileSettingsPage(c *gin.Context) {
 	c.HTML(http.StatusOK, "pages/profile/account.html", scene.New(c))
 }
 
-func (s *Server) DeleteAccount(c *gin.Context) {
+func (s *Server) ProfileDeletePage(c *gin.Context) {
 	c.HTML(http.StatusOK, "pages/profile/delete.html", scene.New(c))
+}
+
+//===========================================================================
+// Access Management Pages
+//===========================================================================
+
+func (s *Server) APIKeyListPage(c *gin.Context) {
+	c.HTML(http.StatusOK, "pages/apikeys/list.html", scene.New(c).ForPage("apikeys"))
 }

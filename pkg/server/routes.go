@@ -93,6 +93,14 @@ func (s *Server) setupRoutes() (err error) {
 	{
 		uio.GET("/login", s.LoginPage)
 		uio.GET("/logout", s.Logout)
+
+		// The "well known" routes expose client security information and credentials.
+		wk := uio.Group("/.well-known")
+		{
+			wk.GET("/jwks.json", cache.Control(s.issuer), s.JWKS)
+			wk.GET("/security.txt", s.SecurityTxt)
+			wk.GET("/openid-configuration", s.OpenIDConfiguration)
+		}
 	}
 
 	// Web UI Routes (Authenticated)
@@ -103,43 +111,61 @@ func (s *Server) setupRoutes() (err error) {
 		uia.GET("/governance", s.GovernancePage)
 		uia.GET("/activity", s.ActivityPage)
 
+		uia.GET("/apikeys", s.APIKeyListPage)
+
 		profile := uia.Group("/profile")
 		{
 			profile.GET("", s.ProfilePage)
-			profile.GET("/account", s.AccountPage)
-			profile.GET("/delete", s.DeleteAccount)
+			profile.GET("/account", s.ProfileSettingsPage)
+			profile.GET("/delete", s.ProfileDeletePage)
 		}
 
 		// Add documentation routes
 		docs.Routes(uia.Group("/docs"))
 	}
 
-	// The "well known" routes expose client security information and credentials.
-	wk := s.router.Group("/.well-known")
-	{
-		wk.GET("/jwks.json", cache.Control(s.issuer), s.JWKS)
-		wk.GET("/security.txt", s.SecurityTxt)
-		wk.GET("/openid-configuration", s.OpenIDConfiguration)
-	}
-
-	// API Routes (Including Content Negotiated Partials)
-	v1 := s.router.Group("/v1")
+	// Unauthenticated API Routes (Including Content Negotiated Partials)
+	v1o := s.router.Group("/v1")
 	{
 		// Status/Heartbeat endpoint
-		v1.GET("/status", s.Status)
+		v1o.GET("/status", s.Status)
 
 		// Documentation routes
-		v1.GET("/docs/openapi.:ext", s.OpenAPI())
-		v1.GET("/docs", s.APIDocs)
-
-		// Database Statistics
-		v1.GET("/dbinfo", authenticate, auth.Authorize(permissions.ConfigView), s.DBInfo)
+		v1o.GET("/docs/openapi.:ext", s.OpenAPI())
+		v1o.GET("/docs", s.APIDocs)
 
 		// Authentication endpoints
-		v1.GET("/login", s.PrepareLogin)
-		v1.POST("/login", csrf, s.Login)
-		v1.POST("/authenticate", csrf, s.Authenticate)
-		v1.POST("/reauthenticate", csrf, s.Reauthenticate)
+		v1o.GET("/login", s.PrepareLogin)
+		v1o.POST("/login", csrf, s.Login)
+		v1o.POST("/authenticate", csrf, s.Authenticate)
+		v1o.POST("/reauthenticate", csrf, s.Reauthenticate)
+	}
+
+	// Authenticated API Routes (Including Content Negotiated Partials)
+	v1a := s.router.Group("/v1", authenticate)
+	{
+		// Database Statistics
+		v1a.GET("/dbinfo", auth.Authorize(permissions.ConfigView), s.DBInfo)
+
+		// Account Management
+		accounts := v1a.Group("/accounts")
+		{
+			accounts.GET("", s.ListAccounts)
+			accounts.POST("", csrf, s.CreateAccount)
+			accounts.GET("/:accountID", s.AccountDetail)
+			accounts.PUT("/:accountID", csrf, s.UpdateAccount)
+			accounts.DELETE("/:accountID", csrf, s.DeleteAccount)
+		}
+
+		// API Key Management
+		apikeys := v1a.Group("/apikeys")
+		{
+			apikeys.GET("", s.ListAPIKeys)
+			apikeys.POST("", csrf, s.CreateAPIKey)
+			apikeys.GET("/:keyID", s.APIKeyDetail)
+			apikeys.PUT("/:keyID", csrf, s.UpdateAPIKey)
+			apikeys.DELETE("/:keyID", csrf, s.DeleteAPIKey)
+		}
 	}
 
 	return nil
