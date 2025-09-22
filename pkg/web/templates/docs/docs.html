@@ -1,0 +1,21 @@
+{{ template "base" . }}
+{{ define "container" }}
+<div class="wrapper">
+  {{ template "sidebar" . }}
+  <div class="main">
+    {{ template "topnav" . }}
+    <main class="content documentation">
+      <div id="content-block" class="container-fluid p-0">
+        <div class="row">
+          <div class="mx-auto col-lg-10 col-xl-8">
+            <h1>{{ .Page.Title }}</h1>
+            <hr class="my-4">
+            {{ block "content" . }}{{ end }}
+          </div>
+        </div>
+      </div>
+    </main>
+    {{ template "footer" . }}
+  </div>
+</div>
+{{ end }}

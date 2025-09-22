@@ -12,6 +12,7 @@ import (
 	"go.rtnl.ai/gimlet/secure"
 	"go.rtnl.ai/quarterdeck/pkg"
 	"go.rtnl.ai/quarterdeck/pkg/auth/permissions"
+	"go.rtnl.ai/quarterdeck/pkg/docs"
 	"go.rtnl.ai/quarterdeck/pkg/web"
 )
 
@@ -97,7 +98,20 @@ func (s *Server) setupRoutes() (err error) {
 	// Web UI Routes (Authenticated)
 	uia := s.router.Group("", authenticate)
 	{
-		uia.GET("/", s.Home)
+		uia.GET("/", s.Dashboard)
+		uia.GET("/settings", s.WorkspaceSettingsPage)
+		uia.GET("/governance", s.GovernancePage)
+		uia.GET("/activity", s.ActivityPage)
+
+		profile := uia.Group("/profile")
+		{
+			profile.GET("", s.ProfilePage)
+			profile.GET("/account", s.AccountPage)
+			profile.GET("/delete", s.DeleteAccount)
+		}
+
+		// Add documentation routes
+		docs.Routes(uia.Group("/docs"))
 	}
 
 	// The "well known" routes expose client security information and credentials.
@@ -113,6 +127,10 @@ func (s *Server) setupRoutes() (err error) {
 	{
 		// Status/Heartbeat endpoint
 		v1.GET("/status", s.Status)
+
+		// Documentation routes
+		v1.GET("/docs/openapi.:ext", s.OpenAPI())
+		v1.GET("/docs", s.APIDocs)
 
 		// Database Statistics
 		v1.GET("/dbinfo", authenticate, auth.Authorize(permissions.ConfigView), s.DBInfo)

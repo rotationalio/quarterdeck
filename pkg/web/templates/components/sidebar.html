@@ -8,13 +8,19 @@
 
     <ul class="sidebar-nav">
       <li class="sidebar-header">Access Control</li>
-      <li class="sidebar-item">
+      <li class="sidebar-item{{ if eq .Page "dashboard"}} active{{ end }}">
+        <a class="sidebar-link" href="/">
+          <i class="align-middle fas fa-fw fa-sliders"></i>
+          <span class="align-middle">Dashboard</span>
+        </a>
+      </li>
+      <li class="sidebar-item{{ if eq .Page "users"}} active{{ end }}">
         <a class="sidebar-link">
           <i class="align-middle fas fa-fw fa-users-cog"></i>
           <span class="align-middle">User Management</span>
         </a>
       </li>
-      <li class="sidebar-item">
+      <li class="sidebar-item{{ if eq .Page "apikeys"}} active{{ end }}">
         <a class="sidebar-link">
           <i class="align-middle fas fa-fw fa-key"></i>
           <span class="align-middle">API Keys</span>
@@ -22,20 +28,20 @@
       </li>
 
       <li class="sidebar-header">Administration</li>
-      <li class="sidebar-item">
-        <a href="#" class="sidebar-link">
+      <li class="sidebar-item{{ if eq .Page "settings"}} active{{ end }}">
+        <a href="/settings" class="sidebar-link">
           <i class="align-middle fas fa-fw fa-cog"></i>
           <span class="align-middle">Workspace Settings</span>
         </a>
       </li>
-      <li class="sidebar-item">
-        <a href="#" class="sidebar-link">
+      <li class="sidebar-item{{ if eq .Page "governance"}} active{{ end }}">
+        <a href="/governance" class="sidebar-link">
           <i class="align-middle fas fa-fw fa-gavel"></i>
           <span class="align-middle">Governance</span>
         </a>
       </li>
-      <li class="sidebar-item">
-        <a href="#" class="sidebar-link">
+      <li class="sidebar-item{{ if eq .Page "activity"}} active{{ end }}">
+        <a href="/activity" class="sidebar-link">
           <i class="align-middle fas fa-fw fa-business-time"></i>
           <span class="align-middle">Activity</span>
         </a>
@@ -48,9 +54,9 @@
           <span class="align-middle">Help Center</span>
         </a>
         <ul id="help-center" class="sidebar-dropdown list-unstyled collapse" data-bs-parent="#sidebar">
-          <li class="sidebar-item"><a class="sidebar-link" href="#">Documentation</a></li>
-          <li class="sidebar-item"><a class="sidebar-link" href="#">API Reference</a></li>
-          <li class="sidebar-item"><a class="sidebar-link" href="mailto:support@rotational.io">Support</a></li>
+          <li class="sidebar-item"><a class="sidebar-link" href="/docs">Documentation</a></li>
+          <li class="sidebar-item"><a class="sidebar-link" href="/v1/docs">API Reference</a></li>
+          <li class="sidebar-item"><a class="sidebar-link" href="mailto:support@rotational.io" target="_blank">Support</a></li>
         </ul>
       </li>
     </ul>

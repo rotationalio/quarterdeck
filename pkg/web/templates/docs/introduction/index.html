@@ -1,0 +1,26 @@
+{{ template "docs.html" . }}
+{{ define "content" }}
+<section class="mb-5">
+  <h2>Welcome to Quarterdeck!</h2>
+  <p>We will add Quarterdeck introduction content here</p>
+</section>
+<section class="mb-3" id="table-of-contents">
+  <h2>Table of Contents</h2>
+  <ul>
+    {{ range .Docs }}
+      <li class="mb-2"><a href="{{ .Href }}">{{ .Title }}</a></li>
+      {{ if .Pages }}
+        <ul class="mb-1">
+          {{ range .Pages }}
+            <li class="mb-1"><a href="{{ .Href }}">{{ .Title }}</a></li>
+          {{ end }}
+        </ul>
+      {{ end }}
+    {{ end }}
+  </ul>
+</section>
+<section class="mb-5" id="additional-support">
+  <h2>Additional Support</h2>
+  <p class="text-lg">We will add Quarterdeck additional support content here</p>
+</section>
+{{ end }}

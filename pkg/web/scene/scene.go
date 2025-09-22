@@ -96,6 +96,11 @@ func (s Scene) With(key string, val interface{}) Scene {
 	return s
 }
 
+func (s Scene) ForPage(page string) Scene {
+	s[Page] = page
+	return s
+}
+
 //===========================================================================
 // Scene User Related Helpers
 //===========================================================================

@@ -1,0 +1,105 @@
+{{ template "page.html" . }}
+{{ define "content" }}
+<h1 class="h3 mb-3">Account Management</h1>
+<div class="row">
+  {{ template "profilenav" "profile" }}
+
+  {{ with .User }}
+  <div class="col-md-9 col-xl-10">
+    <!-- TODO: remove this alert when fully implemented -->
+    <div class="alert alert-danger alert-outline alert-dismissible" role="alert">
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      <div class="alert-icon">
+        <i class="far fa-fw fa-grin-tongue-squint"></i>
+      </div>
+      <div class="alert-message">
+        <strong>Under Construction!</strong> This page may not be fully functional yet, proceed with care.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <div class="row align-items-center">
+          <div class="col">
+            <div class="d-flex flex-row align-items-center">
+              <img src="{{ .Gravatar }}" alt="Profile Avatar" class="rounded-circle img-responsive" width="64" height="64">
+              <div class="ms-3">
+                <h3 class="mb-0">Profile Avatar</h3>
+                <p class="text-lg text-muted mb-0">Your avatar image is managed by <a href="https://gravatar.com" target="_blank">Gravatar.</a></p>
+              </div>
+            </div>
+          </div>
+          <div class="col-auto">
+            <a class="btn btn-primary btn-lg my-auto" href="https://gravatar.com/profile" target="_blank">Change</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h5 class="card-title mb-0">User info</h5>
+      </div>
+
+      <div class="card-body">
+        <form>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="userID" class="form-label">User ID</label>
+                <input type="text" class="form-control" id="userID" name="userID" value="{{ .Subject }}" readonly>
+                <small class="form-text text-body-secondary mt-1">
+                  Your Quarterdeck user ID (not editable).
+                </small>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="role" class="form-label">Role</label>
+                <input type="text" class="form-control" id="role" name="role" value="Admin" readonly>
+                <small class="form-text text-body-secondary mt-1">
+                  Your Quarterdeck role (change on user management page).
+                </small>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="name" class="form-label">Name</label>
+                <input type="text" class="form-control" id="name" name="name" placeholder="Enter your Full Name" value="{{ .Name }}">
+                <small class="form-text text-body-secondary mt-1">
+                  Your name is used for display and addressing.
+                </small>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="email" class="form-label">Email Address</label>
+                <input type="text" class="form-control" id="email" name="email" placeholder="Enter your Email Address" value="{{ .Email }}">
+                <small class="form-text text-body-secondary mt-1">
+                  Your email address is used for login and notifications.
+                </small>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-lg mt-2" disabled>Save changes</button>
+        </form>
+      </div>
+    </div>
+
+    <hr class="my-3">
+
+    <dl class="row">
+      <dt class="col-sm-3">Account Created On</dt>
+      <dd class="col-sm-9">&mdash;</dd>
+      <dt class="col-sm-3">Last Modified On</dt>
+      <dd class="col-sm-9">&mdash;</dd>
+    </dl>
+
+  </div><!-- right column ends -->
+  {{ end }}
+
+</div><!-- profile row ends -->
+{{ end }}

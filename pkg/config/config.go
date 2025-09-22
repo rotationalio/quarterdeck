@@ -30,6 +30,7 @@ type Config struct {
 	ConsoleLog   bool                `split_words:"true" default:"false" desc:"if true logs colorized human readable output instead of json"`
 	AllowOrigins []string            `split_words:"true" default:"http://localhost:8000" desc:"a list of allowed origins (domains including port) for CORS requests"`
 	RateLimit    ratelimit.Config    `split_words:"true"`
+	DocsName     string              `split_words:"true" default:"quarterdeck" desc:"the display name for the API docs server in the Swagger app"`
 	Database     DatabaseConfig
 	Auth         AuthConfig
 	CSRF         CSRFConfig
