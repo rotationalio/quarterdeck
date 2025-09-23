@@ -84,6 +84,10 @@ func HTMLRender(fsys fs.FS) (render *Render, err error) {
 			patternInclude = append(patternInclude, components)
 		}
 
+		if components := fmt.Sprintf("%s/components/**/*.html", name); globExists(fsys, components) {
+			patternInclude = append(patternInclude, components)
+		}
+
 		// Ensure the current layout template is last in the list of templates.
 		patternInclude = append(patternInclude, fmt.Sprintf("%s/*.html", name))
 

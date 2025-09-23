@@ -110,7 +110,7 @@ func (s *Server) CreateAPIKey(c *gin.Context) {
 
 	// Create a transaction to handle the API key creation
 	if tx, err = s.store.Begin(c.Request.Context(), nil); err != nil {
-		c.Error(err)
+		c.Error(errors.Fmt("could not start write transaction for apikey: %w", err))
 		c.JSON(http.StatusInternalServerError, api.Error("could not process create apikey request"))
 		return
 	}
@@ -124,7 +124,7 @@ func (s *Server) CreateAPIKey(c *gin.Context) {
 		// the owner of that key (e.g. the user that created that key).
 		var parent *models.APIKey
 		if parent, err = tx.RetrieveAPIKey(subjectID); err != nil {
-			c.Error(err)
+			c.Error(errors.Fmt("could not lookup parent API key: %w", err))
 			c.JSON(http.StatusInternalServerError, api.Error("could not process create apikey request"))
 			return
 		}
@@ -135,13 +135,13 @@ func (s *Server) CreateAPIKey(c *gin.Context) {
 	}
 
 	if err = tx.CreateAPIKey(key); err != nil {
-		c.Error(err)
+		c.Error(errors.Fmt("could not create api key: %w", err))
 		c.JSON(http.StatusInternalServerError, api.Error("could not process create apikey request"))
 		return
 	}
 
 	if err = tx.Commit(); err != nil {
-		c.Error(err)
+		c.Error(errors.Fmt("could not commit create api key transaction: %w", err))
 		c.JSON(http.StatusInternalServerError, api.Error("could not process create apikey request"))
 		return
 	}

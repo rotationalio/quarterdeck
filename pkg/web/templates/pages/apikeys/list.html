@@ -12,7 +12,7 @@
         </h1>
       </div>
       <div class="col-auto">
-        <button class="btn btn-primary ms-1">
+        <button class="btn btn-primary ms-1" data-bs-toggle="modal" data-bs-target="#createAPIKeyModal">
           <i class="fas fa-plus me-1"></i> Create API Key
         </button>
       </div>
@@ -34,6 +34,7 @@
               <th>Client ID</th>
               <th>Date Created</th>
               <th>Last Used</th>
+              <th></th>
             </tr>
           </thead>
         </table>
@@ -43,21 +44,20 @@
 </div>
 {{ end }}
 
+{{ define "modals" }}
+  {{ template "createAPIKeyModal" . }}
+  {{ template "deleteAPIKeyModal" . }}
+
+  <!-- htmx populates this modal with the API key client id and secret after creation -->
+  <!-- When the modal is closed it erases its internal contents -->
+  <div id="apiKeyCreatedModal" class="modal" tabindex="-1"></div>
+
+  <!-- htmx modal targets for API key edit and detail -->
+  <div id="apiKeyEditModal" class="modal" tabindex="-1"></div>
+  <div id="apiKeyDetailModal" class="modal" tabindex="-1"></div>
+{{ end }}
+
 {{ define "appcode" }}
 <script src="/static/js/vendor/datatables.min.js"></script>
-<script>
-$(document).ready(function() {
-  $("#apikeys-table").DataTable({
-    destroy: true,
-    ajax: {
-      url: "/v1/apikeys",
-      error: function (xhr, error, thrown) {
-        const message = xhr.responseJSON?.error;
-        notyf.error("Error: " + message  || 'An unknown error occurred');
-        console.error(xhr.responseJSON);
-      },
-    },
-  });
-});
-</script>
+<script type="module" src="/static/js/apikeys/list.js"></script>
 {{ end }}

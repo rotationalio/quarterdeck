@@ -68,5 +68,10 @@ func (s *Server) ProfileDeletePage(c *gin.Context) {
 //===========================================================================
 
 func (s *Server) APIKeyListPage(c *gin.Context) {
+	// Set CSRF cookies for the api key management forms.
+	if err := s.csrf.SetDoubleCookieToken(c); err != nil {
+		s.Error(c, err)
+		return
+	}
 	c.HTML(http.StatusOK, "pages/apikeys/list.html", scene.New(c).ForPage("apikeys"))
 }
