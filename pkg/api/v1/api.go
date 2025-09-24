@@ -24,6 +24,18 @@ type Reply struct {
 	ErrorDetail ErrorDetail `json:"errors,omitempty"`
 }
 
+// PageQuery is used for paginated queries.
+type PageQuery struct {
+	PageSize      int    `json:"page_size,omitempty" url:"page_size,omitempty" form:"page_size"`
+	NextPageToken string `json:"next_page_token,omitempty" url:"next_page_token,omitempty" form:"next_page_token"`
+}
+
+type Page struct {
+	PrevPageToken string `json:"prev_page_token,omitempty"`
+	NextPageToken string `json:"next_page_token,omitempty"`
+	PageSize      int    `json:"page_size,omitempty"`
+}
+
 // Returned on status requests.
 type StatusReply struct {
 	Status  string `json:"status"`

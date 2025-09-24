@@ -1,0 +1,40 @@
+{{ template "page.html" . }}
+{{ define "content" }}
+<h1 class="h3 mb-3">Account Management</h1>
+<div class="row">
+  {{ template "profilenav" "delete" }}
+  <div class="col-md-9 col-xl-10">
+    <!-- TODO: remove this alert when fully implemented -->
+    <div class="alert alert-danger alert-outline alert-dismissible" role="alert">
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      <div class="alert-icon">
+        <i class="far fa-fw fa-grin-tongue-squint"></i>
+      </div>
+      <div class="alert-message">
+        <strong>Under Construction!</strong> This page may not be fully functional yet, proceed with care.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h5 class="card-title mb-0">Delete Account</h5>
+      </div>
+      <div class="card-body">
+        <div class="row align-items-center mb-3">
+          <div class="col">
+            <p class="text-lg mb-0" style="max-width:600px">
+              Deleting your account will prevent you from logging in and will delete all
+              user-specific information and settings. It will not affect any agent or
+              task data that you have created, and any audit or activity logs associated
+              with your email address will remain.
+            </p>
+          </div>
+          <div class="col-auto">
+            <button type="button" class="btn btn-lg btn-danger">Delete Account</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{{ end }}

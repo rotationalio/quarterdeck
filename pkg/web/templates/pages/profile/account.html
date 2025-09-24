@@ -1,0 +1,73 @@
+{{ template "page.html" . }}
+{{ define "content" }}
+<h1 class="h3 mb-3">Account Management</h1>
+<div class="row">
+  {{ template "profilenav" "account" }}
+  <div class="col-md-9 col-xl-10">
+    <!-- TODO: remove this alert when fully implemented -->
+    <div class="alert alert-danger alert-outline alert-dismissible" role="alert">
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      <div class="alert-icon">
+        <i class="far fa-fw fa-grin-tongue-squint"></i>
+      </div>
+      <div class="alert-message">
+        <strong>Under Construction!</strong> This page may not be fully functional yet, proceed with care.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h4 class="card-title mb-0">Change your password</h4>
+        <p class="text-muted text-lg mb-5">
+          Once your password has been successfully changed, you will have to log in
+          again. Expect to be redirected to the login page.
+        </p>
+
+        <div class="row">
+          <div class="col-md-6 col-xl-7 mb-4">
+            <form>
+              <div class="mb-3">
+                <label for="inputPasswordCurrent" class="form-label">Current password</label>
+                <input type="password" class="form-control" id="inputPasswordCurrent">
+              </div>
+              <div class="mb-3">
+                <label for="inputPasswordNew" class="form-label">New password</label>
+                <input type="password" class="form-control" id="inputPasswordNew">
+              </div>
+              <div class="mb-3">
+                <label for="inputPasswordNew2" class="form-label">Verify password</label>
+                <input type="password" class="form-control" id="inputPasswordNew2">
+              </div>
+              <button type="submit" class="btn btn-primary">Update Password</button>
+            </form>
+          </div>
+          <div class="col-md-6 col-xl-5 mb-4">
+            <div class="flex-fill">
+              <div class="card bg-light border ms-md-4">
+                <div class="card-body">
+                  <p class="mb-2">
+                    Password requirements
+                  </p>
+                  <p class="small text-body-secondary mb-2">
+                    To create a new password, you have to meet all of the following requirements:
+                  </p>
+                  <ul class="small text-body-secondary ps-4 mb-0">
+                    <li>Minimum 8 characters</li>
+                    <li>Both upper and lower case letters</li>
+                    <li>At least one number</li>
+                    <li>Can’t be the same as previous password</li>
+                    <li>Special characters recommended</li>
+                  </ul>
+                </div>
+              </div>
+              <button type="button" class="btn btn-light ms-md-4 mt-1">Forgot Password?</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+{{ end }}

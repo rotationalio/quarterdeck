@@ -1,0 +1,68 @@
+{{ define "sidebar" }}
+<nav id="sidebar" class="sidebar">
+  <div class="sidebar-content js-simplebar simplebar-scrollable-y" data-simplebar="init">
+    <a class="sidebar-brand" href="/">
+      <img src="/static/img/white-logo.png" alt="Logo" width="24" height="24" />
+      <span class="align-middle me-5">Quarterdeck</span>
+    </a>
+
+    <ul class="sidebar-nav">
+      <li class="sidebar-header">Help Center</li>
+      <li class="sidebar-item">
+        <a href="/" class="sidebar-link">
+          <i class="align-middle fas fa-fw fa-long-arrow-alt-left"></i>
+          <span class="align-middle">Back to Dashboard</span>
+        </a>
+      </li>
+      <li class="sidebar-item">
+        <a class="sidebar-link" href="/v1/docs">
+          <i class="align-middle fas fa-fw fa-cubes"></i>
+          <span class="align-middle">API Reference</span>
+        </a>
+      </li>
+      <li class="sidebar-item">
+        <a class="sidebar-link" href="mailto:support@rotational.io">
+          <i class="align-middle fas fa-fw fa-life-ring"></i>
+          <span class="align-middle">Support</span>
+        </a>
+      </li>
+
+      <li class="sidebar-header">Documentation</li>
+      {{ range .Docs }}
+      {{ $active := .Active $.Page }}
+      {{ if and $active .Pages }}
+      <li class="sidebar-item active">
+        <a class="sidebar-link" href="{{ .Href }}">
+          <i class="align-middle fas fa-fw fa-{{ .Icon }}"></i>
+          <span class="align-middle">{{ .Title }}</span>
+        </a>
+        <ul class="sidebar-dropdown list-unstyled">
+          {{ range .Pages }}
+          {{ $subActive := eq .Href $.Page.Href }}
+          <li class="sidebar-item{{ if $subActive}} active{{ end }}">
+            <a class="sidebar-link" href="{{ .Href }}">{{ .Title }}</a>
+          </li>
+          {{ end }}
+        </ul>
+      </li>
+      {{ else }}
+      <li class="sidebar-item{{ if $active}} active{{ end }}">
+        <a class="sidebar-link" href="{{ .Href }}">
+          <i class="align-middle fas fa-fw fa-{{ .Icon }}"></i>
+          <span class="align-middle">{{ .Title }}</span>
+        </a>
+      </li>
+      {{ end }}
+      {{ end }}
+    </ul>
+
+    <div class="sidebar-cta mt-auto">
+      <div class="sidebar-cta-content">
+        <strong class="d-inline-block">Quarterdeck v{{ .ShortVersion }}</strong>
+        <div><small>Revision</small> <code>{{ .Revision }}</code></div>
+      </div>
+    </div>
+
+  </div><!-- end sidebar-content js-simplebar -->
+</nav><!-- end sidebar -->
+{{ end }}

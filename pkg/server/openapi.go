@@ -1,0 +1,90 @@
+package server
+
+import (
+	"io/fs"
+	"net/http"
+	"net/url"
+	"strings"
+	"sync"
+	"text/template"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/rs/zerolog/log"
+	"go.rtnl.ai/quarterdeck/pkg"
+	"go.rtnl.ai/quarterdeck/pkg/api/v1"
+	"go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/quarterdeck/pkg/web"
+)
+
+const (
+	keyVersion     = "Version"
+	keyOrigin      = "Origin"
+	keyDescription = "Description"
+)
+
+// If this is an HTML request it renders the OpenAPI documentation page; otherwise if
+// this is an API request, then it returns a list of the available endpoints in JSON.
+func (s *Server) APIDocs(c *gin.Context) {
+	switch c.NegotiateFormat(binding.MIMEHTML, binding.MIMEJSON) {
+	case binding.MIMEHTML:
+		c.HTML(http.StatusOK, "docs/openapi/openapi.html", gin.H{})
+	case binding.MIMEJSON:
+		data := make(gin.H, 2)
+		data["openapi.json"] = c.Request.URL.ResolveReference(&url.URL{Path: "/v1/docs/openapi.json"}).String()
+		data["openapi.yaml"] = c.Request.URL.ResolveReference(&url.URL{Path: "/v1/docs/openapi.yaml"}).String()
+		c.JSON(http.StatusOK, data)
+	default:
+		c.AbortWithError(http.StatusNotAcceptable, errors.ErrNotAccepted)
+	}
+}
+
+// Prepares and returns the OpenAPI spec in the requested format (JSON or YAML).
+func (s *Server) OpenAPI() gin.HandlerFunc {
+	var (
+		err        error
+		data       gin.H
+		templates  *template.Template
+		initialize sync.Once
+	)
+
+	// While we're not worried about concurrency issues here, we still use a sync.Once
+	// to ensure that if there are any errors in the data and template initialization
+	// processing stops and the error causes an abort handler to be returned.
+	initialize.Do(func() {
+		data = gin.H{
+			keyVersion:     pkg.Version(false),
+			keyOrigin:      s.conf.Auth.Issuer,
+			keyDescription: s.conf.DocsName,
+		}
+
+		var files fs.FS
+		if files, err = fs.Sub(web.Templates(), "docs/openapi"); err != nil {
+			log.Error().Err(err).Msg("could not load openapi templates")
+			return
+		}
+
+		if templates, err = template.ParseFS(files, "*.json", "*.yaml"); err != nil {
+			log.Error().Err(err).Msg("could not parse openapi templates from fs")
+			return
+		}
+	})
+
+	if err != nil {
+		// If we could not process the template files, then we return an error handler.
+		return func(c *gin.Context) {
+			c.AbortWithError(http.StatusServiceUnavailable, err)
+		}
+	}
+
+	return func(c *gin.Context) {
+		switch strings.ToLower(c.Param("ext")) {
+		case "json":
+			templates.ExecuteTemplate(c.Writer, "openapi.json", data)
+		case "yaml":
+			templates.ExecuteTemplate(c.Writer, "openapi.yaml", data)
+		default:
+			c.JSON(http.StatusNotFound, api.Error("no openapi resource with the specified extension exists"))
+		}
+	}
+}

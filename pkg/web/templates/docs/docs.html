@@ -4,15 +4,18 @@
   {{ template "sidebar" . }}
   <div class="main">
     {{ template "topnav" . }}
-    <main class="content">
+    <main class="content documentation">
       <div id="content-block" class="container-fluid p-0">
-        {{ block "content" . }}{{ end }}
+        <div class="row">
+          <div class="mx-auto col-lg-10 col-xl-8">
+            <h1>{{ .Page.Title }}</h1>
+            <hr class="my-4">
+            {{ block "content" . }}{{ end }}
+          </div>
+        </div>
       </div>
     </main>
     {{ template "footer" . }}
   </div>
 </div>
-
-<!-- Add modals at the bottom of the DOM outside the wrapper -->
-{{ block "modals" . }}{{ end }}
 {{ end }}

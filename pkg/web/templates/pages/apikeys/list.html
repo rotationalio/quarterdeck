@@ -1,0 +1,63 @@
+{{ template "page.html" . }}
+{{ define "content" }}
+<div class="header">
+  <div class="header-body">
+    <div class="row align-items-center">
+      <div class="col">
+        <h6 class="header-pretitle">
+          Access Management
+        </h6>
+        <h1 class="header-title text-truncate">
+          Manage your API keys
+        </h1>
+      </div>
+      <div class="col-auto">
+        <button class="btn btn-primary ms-1" data-bs-toggle="modal" data-bs-target="#createAPIKeyModal">
+          <i class="fas fa-plus me-1"></i> Create API Key
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row mt-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="card-title">Allocated API Keys</h5>
+      </div>
+      <div class="card-body mt-0 pt-0">
+        <table id="apikeys-table" class="table table-striped table-hover w-100">
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th>Client ID</th>
+              <th>Date Created</th>
+              <th>Last Used</th>
+              <th></th>
+            </tr>
+          </thead>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{{ end }}
+
+{{ define "modals" }}
+  {{ template "createAPIKeyModal" . }}
+  {{ template "deleteAPIKeyModal" . }}
+
+  <!-- htmx populates this modal with the API key client id and secret after creation -->
+  <!-- When the modal is closed it erases its internal contents -->
+  <div id="apiKeyCreatedModal" class="modal" tabindex="-1"></div>
+
+  <!-- htmx modal targets for API key edit and detail -->
+  <div id="apiKeyEditModal" class="modal" tabindex="-1"></div>
+  <div id="apiKeyDetailModal" class="modal" tabindex="-1"></div>
+{{ end }}
+
+{{ define "appcode" }}
+<script src="/static/js/vendor/datatables.min.js"></script>
+<script type="module" src="/static/js/apikeys/list.js"></script>
+{{ end }}

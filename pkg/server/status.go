@@ -22,6 +22,8 @@ func (s *Server) Status(c *gin.Context) {
 	var state string
 	s.RLock()
 	switch {
+	case s.conf.Maintenance:
+		state = serverStatusMaintenance
 	case s.healthy && s.ready:
 		state = serverStatusOK
 	case s.healthy && !s.ready:
