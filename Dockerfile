@@ -1,6 +1,6 @@
 # Dynamic Builds
 ARG XX_IMAGE=tonistiigi/xx
-ARG BUILDER_IMAGE=golang:1.24-bookworm
+ARG BUILDER_IMAGE=golang:1.25-bookworm
 ARG FINAL_IMAGE=debian:bookworm-slim
 
 # Build stage
