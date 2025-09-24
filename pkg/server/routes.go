@@ -137,8 +137,8 @@ func (s *Server) setupRoutes() (err error) {
 		// Authentication endpoints
 		v1o.GET("/login", s.PrepareLogin)
 		v1o.POST("/login", csrf, s.Login)
-		v1o.POST("/authenticate", csrf, s.Authenticate)
-		v1o.POST("/reauthenticate", csrf, s.Reauthenticate)
+		v1o.POST("/authenticate", s.Authenticate)
+		v1o.POST("/reauthenticate", s.Reauthenticate)
 	}
 
 	// Authenticated API Routes (Including Content Negotiated Partials)

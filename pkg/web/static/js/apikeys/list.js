@@ -18,7 +18,12 @@ $(document).ready(function() {
       },
       {
         data: "last_seen",
-        render: moment.fromNow,
+        render: function(data, type, row, meta) {
+          if (data) {
+            return moment(data).fromNow();
+          }
+          return `<span class="text-warning"><i class="fas fa-fw fa-exclamation-triangle"></i> Unused</span>`;
+        },
         defaultContent: `<span class="text-warning"><i class="fas fa-fw fa-exclamation-triangle"></i> Unused</span>`,
         searchable: false,
       },
@@ -73,12 +78,12 @@ document.body.addEventListener("htmx:afterSettle", function(e) {
     const createAPIKeyForm = document.getElementById("createAPIKeyForm");
     createAPIKeyForm.reset();
 
-    const createAPIKeyModal = Modal.getInstance(document.getElementById("createAPIKeyModal"));
+    const createAPIKeyModal = bootstrap.Modal.getInstance(document.getElementById("createAPIKeyModal"));
     createAPIKeyModal.hide();
 
     activateCopyButtons();
 
-    const apiKeyCreatedModal = new Modal("#apiKeyCreatedModal", {});
+    const apiKeyCreatedModal = new bootstrap.Modal(document.getElementById("apiKeyCreatedModal"), {});
     apiKeyCreatedModal.show();
 
     return;
@@ -86,14 +91,14 @@ document.body.addEventListener("htmx:afterSettle", function(e) {
 
   // After fetching the preview form, display the apikeyEditModal.
   if (isRequestMatch(e, /^\/v1\/apikeys\/[0-7][0-9A-HJKMNP-TV-Z]{25}\/edit$/gm, "get")) {
-    const apiKeyEditModal = new Modal("#apiKeyEditModal", {});
+    const apiKeyEditModal = new bootstrap.Modal("#apiKeyEditModal", {});
     apiKeyEditModal.show();
     return;
   }
 
   // After fetching the apikey detail, display the apiKeyDetailModal.
   if (isRequestMatch(e, /^\/v1\/apikeys\/[0-7][0-9A-HJKMNP-TV-Z]{25}$/gm, "get")) {
-    const apiKeyEditModal = new Modal("#apiKeyDetailModal", {});
+    const apiKeyEditModal = new bootstrap.Modal("#apiKeyDetailModal", {});
     apiKeyEditModal.show();
     return;
   }
@@ -101,13 +106,17 @@ document.body.addEventListener("htmx:afterSettle", function(e) {
 
 /*
 Post-event handling when the apikeys-updated event is fired.
-TODO: reload the AJAX data in the data table.
 */
 document.body.addEventListener("apikeys-updated", function(e) {
+  // Reload the data in the table.
+  const table = $("#apikeys-table").DataTable();
+  table.ajax.reload();
+
+  // If the event was fired by the delete button, close the delete modal.
   const elt = e.detail?.elt;
   if (elt) {
     if (elt.id === 'deleteBtn') {
-      const confirmRevokeModal = Modal.getInstance(document.getElementById("confirmRevokeModal"));
+      const confirmRevokeModal = bootstrap.Modal.getInstance(document.getElementById("deleteAPIKeyModal"));
       confirmRevokeModal.hide();
     }
   }

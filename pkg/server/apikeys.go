@@ -4,12 +4,15 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 	"go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
 	"go.rtnl.ai/quarterdeck/pkg/auth/passwords"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/quarterdeck/pkg/store/txn"
+	"go.rtnl.ai/quarterdeck/pkg/web/htmx"
+	"go.rtnl.ai/quarterdeck/pkg/web/scene"
 	"go.rtnl.ai/ulid"
 )
 
@@ -156,8 +159,16 @@ func (s *Server) CreateAPIKey(c *gin.Context) {
 	// Ensure the created apikey secret is returned to the user
 	out.Secret = secret
 
-	// TODO: add an HTMX trigger to reload the API key list.
-	c.JSON(http.StatusCreated, out)
+	// Add HTMX Trigger to reload the API Key List
+	c.Header(htmx.HXTriggerAfterSwap, htmx.APIKeysUpdated)
+
+	// Content negotiation
+	c.Negotiate(http.StatusCreated, gin.Negotiate{
+		Offered:  []string{binding.MIMEJSON, binding.MIMEHTML},
+		Data:     out,
+		HTMLName: "partials/apikeys/created.html",
+		HTMLData: scene.New(c).WithAPIData(out),
+	})
 }
 
 func (s *Server) APIKeyDetail(c *gin.Context) {
@@ -191,7 +202,57 @@ func (s *Server) APIKeyDetail(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, out)
+	// Content negotiation
+	c.Negotiate(http.StatusOK, gin.Negotiate{
+		Offered:  []string{binding.MIMEJSON, binding.MIMEHTML},
+		Data:     out,
+		HTMLName: "partials/apikeys/detail.html",
+		HTMLData: scene.New(c).WithAPIData(out),
+	})
+}
+
+func (s *Server) UpdateAPIKeyPreview(c *gin.Context) {
+	var (
+		err    error
+		keyID  ulid.ULID
+		apikey *models.APIKey
+		out    *api.APIKey
+	)
+
+	// Preview requests target a UI only audience and therefore only accept text/html
+	// requests (Accept: text/html). JSON requests return a 406 error. The endpoint
+	// still may return JSON errors for AJAX handling on the front-end.
+	if !htmx.IsWebRequest(c) {
+		c.AbortWithStatusJSON(http.StatusNotAcceptable, api.Error("endpoint unavailable for API calls"))
+		return
+	}
+
+	// Parse the keyID from the URL
+	if keyID, err = ulid.Parse(c.Param("id")); err != nil {
+		c.JSON(http.StatusNotFound, api.Error("apikey not found"))
+		return
+	}
+
+	// Fetch the model from the database
+	if apikey, err = s.store.RetrieveAPIKey(c.Request.Context(), keyID); err != nil {
+		if errors.Is(err, errors.ErrNotFound) {
+			c.JSON(http.StatusNotFound, api.Error("apikey not found"))
+			return
+		}
+
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error("unable to process apikey detail request"))
+		return
+	}
+
+	if out, err = api.NewAPIKey(apikey); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error("unable to process apikey detail request"))
+		return
+	}
+
+	// Render the edit form for the API key
+	c.HTML(http.StatusOK, "partials/apikeys/edit.html", scene.New(c).WithAPIData(out))
 }
 
 func (s *Server) UpdateAPIKey(c *gin.Context) {
@@ -253,7 +314,13 @@ func (s *Server) UpdateAPIKey(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, out)
+	// Return successful JSON response or 204 with htmx trigger depending on the content negotiation
+	switch c.NegotiateFormat(binding.MIMEJSON, binding.MIMEHTML) {
+	case binding.MIMEJSON:
+		c.JSON(http.StatusOK, out)
+	case binding.MIMEHTML:
+		htmx.Trigger(c, htmx.APIKeysUpdated)
+	}
 }
 
 func (s *Server) DeleteAPIKey(c *gin.Context) {
@@ -278,6 +345,11 @@ func (s *Server) DeleteAPIKey(c *gin.Context) {
 
 		c.Error(err)
 		c.JSON(http.StatusInternalServerError, api.Error("could not process delete apikey request"))
+		return
+	}
+
+	if htmx.IsHTMXRequest(c) {
+		htmx.Trigger(c, htmx.APIKeysUpdated)
 		return
 	}
 

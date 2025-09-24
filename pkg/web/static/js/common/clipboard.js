@@ -11,18 +11,18 @@ export function activateCopyButtons() {
         .then(() => {
           btn.classList.add('btn-success');
           btn.classList.remove('btn-outline-secondary');
-          btn.innerHTML = '<i class="fe fe-clipboard"></i>';
+          btn.innerHTML = '<i class="fas fa-fw fa-copy"></i>';
         })
         .catch(() => {
           btn.classList.add('btn-danger');
           btn.classList.remove('btn-outline-secondary');
-          btn.innerHTML = '<i class="fe fe-x-octagon"></i>';
+          btn.innerHTML = '<i class="fas fa-fw fa-times"></i>';
         })
         .finally(() => {
           setTimeout(() => {
             btn.classList.remove('btn-success', 'btn-danger');
             btn.classList.add('btn-outline-secondary');
-            btn.innerHTML = '<i class="fe fe-copy"></i>';
+            btn.innerHTML = '<i class="fas fa-fw fa-copy"></i>';
           }, 500);
         });
     });

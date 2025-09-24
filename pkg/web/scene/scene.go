@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/quarterdeck/pkg"
+	"go.rtnl.ai/quarterdeck/pkg/api/v1"
 	"go.rtnl.ai/quarterdeck/pkg/config"
 	"go.rtnl.ai/ulid"
 )
@@ -133,6 +134,24 @@ func (s Scene) HasPermission(permission string) bool {
 //===========================================================================
 // Scene API Data Related Helpers
 //===========================================================================
+
+func (s Scene) APIKeysList() *api.APIKeyList {
+	if data, ok := s[APIData]; ok {
+		if out, ok := data.(*api.APIKeyList); ok {
+			return out
+		}
+	}
+	return nil
+}
+
+func (s Scene) APIKey() *api.APIKey {
+	if data, ok := s[APIData]; ok {
+		if out, ok := data.(*api.APIKey); ok {
+			return out
+		}
+	}
+	return nil
+}
 
 //===========================================================================
 // Set Global Scene for Context
