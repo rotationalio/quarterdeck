@@ -38,6 +38,7 @@ const (
 	Page            = "Page"
 	IsAuthenticated = "IsAuthenticated"
 	User            = "User"
+	UserID          = "UserID"
 	APIData         = "APIData"
 	Parent          = "Parent"
 )
@@ -67,9 +68,13 @@ func New(c *gin.Context) Scene {
 	if claims, err := auth.GetClaims(c); err != nil {
 		context[IsAuthenticated] = false
 		context[User] = nil
+		context[UserID] = nil
 	} else {
 		context[IsAuthenticated] = true
 		context[User] = claims
+		if _, userID, err := claims.SubjectID(); err == nil {
+			context[UserID] = userID.String()
+		}
 	}
 
 	return context
