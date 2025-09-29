@@ -155,6 +155,7 @@ func (s *Server) setupRoutes() (err error) {
 			accounts.GET("/:accountID", s.AccountDetail)
 			accounts.PUT("/:accountID", csrf, s.UpdateAccount)
 			accounts.DELETE("/:accountID", csrf, s.DeleteAccount)
+			accounts.POST("/:accountID/password", csrf, s.ChangePassword)
 		}
 
 		// API Key Management
