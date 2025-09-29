@@ -1,8 +1,6 @@
 package api
 
 import (
-	"strings"
-
 	"go.rtnl.ai/quarterdeck/pkg/auth/passwords"
 )
 
@@ -18,12 +16,10 @@ type ProfilePassword struct {
 // against the user's actual password and must be performed by any handler that has
 // access to the database store.
 func (p *ProfilePassword) Validate() (err error) {
-	p.Current = strings.TrimSpace(p.Current)
 	if p.Current == "" {
 		err = ValidationError(err, MissingField("current"))
 	}
 
-	p.Password = strings.TrimSpace(p.Password)
 	if p.Password == "" {
 		err = ValidationError(err, MissingField("password"))
 	} else if len(p.Password) < 8 {
@@ -35,7 +31,6 @@ func (p *ProfilePassword) Validate() (err error) {
 		}
 	}
 
-	p.Confirm = strings.TrimSpace(p.Confirm)
 	if p.Confirm == "" {
 		err = ValidationError(err, MissingField("confirm"))
 	} else if p.Password != p.Confirm {
