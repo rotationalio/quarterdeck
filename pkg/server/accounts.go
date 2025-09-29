@@ -43,13 +43,6 @@ func (s *Server) ChangePassword(c *gin.Context) {
 		template   = "partials/profile/changePassword.html"
 	)
 
-	// Profile requests are only available for logged in users and therefore are UI
-	// only requests (Accept: text/html). JSON requests return a 406 error.
-	if !htmx.IsWebRequest(c) {
-		c.AbortWithStatusJSON(http.StatusNotAcceptable, api.Error("endpoint unavailable for API calls"))
-		return
-	}
-
 	in = &api.ProfilePassword{}
 	if err = c.BindJSON(in); err != nil {
 		c.HTML(http.StatusBadRequest, template, gin.H{"Error": "could not parse password change request"})
