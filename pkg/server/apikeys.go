@@ -228,7 +228,7 @@ func (s *Server) UpdateAPIKeyPreview(c *gin.Context) {
 	}
 
 	// Parse the keyID from the URL
-	if keyID, err = ulid.Parse(c.Param("id")); err != nil {
+	if keyID, err = ulid.Parse(c.Param("keyID")); err != nil {
 		c.JSON(http.StatusNotFound, api.Error("apikey not found"))
 		return
 	}

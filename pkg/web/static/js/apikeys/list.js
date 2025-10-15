@@ -63,6 +63,11 @@ $(document).ready(function() {
       },
     },
   });
+
+  // Re-process generated dropdown HTMX attributes after DataTables redraws the table
+  $('#apikeys-table').on('draw.dt', function () {
+    htmx.process(this);
+  });
 });
 
 /*
@@ -112,12 +117,19 @@ document.body.addEventListener("apikeys-updated", function(e) {
   const table = $("#apikeys-table").DataTable();
   table.ajax.reload();
 
-  // If the event was fired by the delete button, close the delete modal.
+  // Close modals
   const elt = e.detail?.elt;
   if (elt) {
+    // If the event was fired by the delete button, close the delete modal.
     if (elt.id === 'deleteBtn') {
       const confirmRevokeModal = bootstrap.Modal.getInstance(document.getElementById("deleteAPIKeyModal"));
       confirmRevokeModal.hide();
+    }
+
+    // If the event was fired by the edit form (via submission), close the edit modal.
+    if (elt.id === 'editAPIKeyForm') {
+      const editModal = bootstrap.Modal.getInstance(document.getElementById("apiKeyEditModal"));
+      editModal.hide();
     }
   }
 });

@@ -166,6 +166,7 @@ func (s *Server) setupRoutes() (err error) {
 			apikeys.GET("/:keyID", s.APIKeyDetail)
 			apikeys.PUT("/:keyID", csrf, s.UpdateAPIKey)
 			apikeys.DELETE("/:keyID", csrf, s.DeleteAPIKey)
+			apikeys.GET("/:keyID/edit", s.UpdateAPIKeyPreview)
 		}
 	}
 
