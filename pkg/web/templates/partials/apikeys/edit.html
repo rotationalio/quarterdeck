@@ -11,12 +11,11 @@
         Note that only the API Key description can be updated. If the permissions of
         the key need to be changed; please revoke the key and create a new one.
       </p>
-      <form id="editAPIKeyForm" hx-put="/v1/apikeys/{{ .ID }}" hx-ext="json-enc" hx-indicator="#loader" hx-disabled-elt="next button[type='submit'], next button[type='reset']">
+      <form id="editAPIKeyForm" hx-put="/v1/apikeys/{{ .ID }}" hx-ext="form-json" hx-indicator="#loader" hx-disabled-elt="next button[type='submit'], next button[type='reset']">
         <div class="form-group">
           <label class="form-label" for="description">API Key Description</label>
           <input type="text" class="form-control" id="description" name="description" value="{{ .Description }}" required>
         </div>
-        <input type="hidden" name="id" value="{{ .ID }}">
       </form>
     </div>
     <div class="modal-footer">
