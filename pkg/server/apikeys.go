@@ -120,9 +120,10 @@ func (s *Server) CreateAPIKey(c *gin.Context) {
 	defer tx.Rollback()
 
 	// Set the owner of the API key
-	if subjectType == auth.SubjectUser {
+	switch subjectType {
+	case auth.SubjectUser:
 		key.CreatedBy = subjectID
-	} else if subjectType == auth.SubjectAPIKey {
+	case auth.SubjectAPIKey:
 		// Lookup the key being used in the database and set the created by to
 		// the owner of that key (e.g. the user that created that key).
 		var parent *models.APIKey
@@ -132,7 +133,7 @@ func (s *Server) CreateAPIKey(c *gin.Context) {
 			return
 		}
 		key.CreatedBy = parent.CreatedBy
-	} else {
+	default:
 		c.JSON(http.StatusForbidden, api.Error("only users and api keys can create api keys"))
 		return
 	}
