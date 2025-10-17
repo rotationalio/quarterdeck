@@ -139,6 +139,10 @@ func (s *Server) setupRoutes() (err error) {
 		v1o.POST("/login", csrf, s.Login)
 		v1o.POST("/authenticate", s.Authenticate)
 		v1o.POST("/reauthenticate", s.Reauthenticate)
+
+		// Reset a forgotten password with email verification token
+		v1o.POST("/forgot-password", s.ForgotPassword)
+		v1o.POST("/reset-password", s.ResetPassword)
 	}
 
 	// Authenticated API Routes (Including Content Negotiated Partials)

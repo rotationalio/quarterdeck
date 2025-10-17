@@ -70,10 +70,11 @@ type Store struct {
 	OnDeleteAPIKey               func(context.Context, ulid.ULID) error
 
 	// VeroTokenStore Callbacks
-	OnCreateVeroToken   func(context.Context, *models.VeroToken) error
-	OnRetrieveVeroToken func(context.Context, ulid.ULID) (*models.VeroToken, error)
-	OnUpdateVeroToken   func(context.Context, *models.VeroToken) error
-	OnDeleteVeroToken   func(context.Context, ulid.ULID) error
+	OnCreateVeroToken              func(context.Context, *models.VeroToken) error
+	OnRetrieveVeroToken            func(context.Context, ulid.ULID) (*models.VeroToken, error)
+	OnUpdateVeroToken              func(context.Context, *models.VeroToken) error
+	OnDeleteVeroToken              func(context.Context, ulid.ULID) error
+	OnCreateResetPasswordVeroToken func(context.Context, *models.VeroToken) error
 }
 
 func Open(uri *dsn.DSN) (*Store, error) {
@@ -433,10 +434,11 @@ func (s *Store) DeleteAPIKey(ctx context.Context, id ulid.ULID) error {
 //===========================================================================
 
 const (
-	CreateVeroToken   = "CreateVeroToken"
-	RetrieveVeroToken = "RetrieveVeroToken"
-	UpdateVeroToken   = "UpdateVeroToken"
-	DeleteVeroToken   = "DeleteVeroToken"
+	CreateVeroToken              = "CreateVeroToken"
+	RetrieveVeroToken            = "RetrieveVeroToken"
+	UpdateVeroToken              = "UpdateVeroToken"
+	DeleteVeroToken              = "DeleteVeroToken"
+	CreateResetPasswordVeroToken = "CreateResetPasswordVeroToken"
 )
 
 func (s *Store) CreateVeroToken(ctx context.Context, in *models.VeroToken) error {
@@ -469,4 +471,12 @@ func (s *Store) DeleteVeroToken(ctx context.Context, in ulid.ULID) error {
 		return s.OnDeleteVeroToken(ctx, in)
 	}
 	panic(errors.Fmt("%s callback is not mocked", DeleteVeroToken))
+}
+
+func (s *Store) CreateResetPasswordVeroToken(ctx context.Context, in *models.VeroToken) error {
+	s.calls[CreateResetPasswordVeroToken]++
+	if s.OnCreateResetPasswordVeroToken != nil {
+		return s.OnCreateResetPasswordVeroToken(ctx, in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", CreateVeroToken))
 }

@@ -66,10 +66,11 @@ type Tx struct {
 	OnDeleteAPIKey               func(ulid.ULID) error
 
 	// VeroTokenTxn Callbacks
-	OnCreateVeroToken   func(*models.VeroToken) error
-	OnRetrieveVeroToken func(ulid.ULID) (*models.VeroToken, error)
-	OnUpdateVeroToken   func(*models.VeroToken) error
-	OnDeleteVeroToken   func(ulid.ULID) error
+	OnCreateVeroToken              func(*models.VeroToken) error
+	OnRetrieveVeroToken            func(ulid.ULID) (*models.VeroToken, error)
+	OnUpdateVeroToken              func(*models.VeroToken) error
+	OnDeleteVeroToken              func(ulid.ULID) error
+	OnCreateResetPasswordVeroToken func(*models.VeroToken) error
 }
 
 //===========================================================================
@@ -441,4 +442,12 @@ func (tx *Tx) DeleteVeroToken(in ulid.ULID) error {
 		return tx.OnDeleteVeroToken(in)
 	}
 	panic(errors.Fmt("%s callback is not mocked", DeleteVeroToken))
+}
+
+func (tx *Tx) CreateResetPasswordVeroToken(in *models.VeroToken) error {
+	tx.calls[CreateResetPasswordVeroToken]++
+	if tx.OnCreateResetPasswordVeroToken != nil {
+		return tx.OnCreateResetPasswordVeroToken(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", CreateResetPasswordVeroToken))
 }

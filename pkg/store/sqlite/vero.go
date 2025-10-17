@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"time"
 
+	"go.rtnl.ai/quarterdeck/pkg/enum"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/ulid"
@@ -146,6 +147,79 @@ func (tx *Tx) DeleteVeroToken(id ulid.ULID) (err error) {
 
 	if nRows, _ := result.RowsAffected(); nRows == 0 {
 		return errors.ErrNotFound
+	}
+
+	return nil
+}
+
+const (
+	retrieveResetPasswordTokenSQL = "SELECT * from vero_tokens WHERE resource_id=:resourceID AND token_type=:tokenType"
+)
+
+// Creates a [models.VeroToken] of the type [enum.TokenTypeResetPassword]
+// ensuring that there is at most one unexpired reset password token for a user.
+func (s *Store) CreateResetPasswordVeroToken(ctx context.Context, token *models.VeroToken) (err error) {
+	var tx *Tx
+	if tx, err = s.BeginTx(ctx, nil); err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err = tx.CreateResetPasswordVeroToken(token); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// Creates a [models.VeroToken] of the type [enum.TokenTypeResetPassword]
+// ensuring that there is at most one unexpired reset password token for a user.
+func (tx *Tx) CreateResetPasswordVeroToken(token *models.VeroToken) (err error) {
+	// Check that there is no ID, but we do not need to create the ID or set
+	// the Created/Modified times because those will be done in CreateVeroToken
+	// at the end of this function.
+	if !token.ID.IsZero() {
+		return errors.ErrNoIDOnCreate
+	}
+
+	// Ensure the token type is for reset password
+	if token.TokenType != enum.TokenTypeResetPassword {
+		return errors.ErrTypeMismatch
+	}
+
+	// Ensure the resource ID is set
+	if !token.ResourceID.Valid || (token.ResourceID.ULID == ulid.Zero) {
+		return errors.ErrMissingReference
+	}
+
+	// Get any existing reset password tokens
+	existing := &models.VeroToken{}
+	if err = existing.Scan(tx.QueryRow(
+		retrieveResetPasswordTokenSQL,
+		sql.Named("resourceID", token.ResourceID),
+		sql.Named("tokenType", enum.TokenTypeResetPassword),
+	)); err != nil {
+		if err != sql.ErrNoRows {
+			return dbe(err)
+		}
+	}
+
+	// Ensure any current token is not expired
+	if !existing.Expiration.IsZero() {
+		// If the existing link is not expired, then return ErrTooSoon
+		if !existing.IsExpired() {
+			return errors.ErrTooSoon
+		}
+
+		// Delete the existing token if it is expired
+		if err = tx.DeleteVeroToken(existing.ID); err != nil {
+			return err
+		}
+	}
+
+	// Create the token
+	if err = tx.CreateVeroToken(token); err != nil {
+		return err
 	}
 
 	return nil

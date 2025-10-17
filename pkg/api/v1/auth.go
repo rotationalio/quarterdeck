@@ -29,6 +29,16 @@ type ReauthenticateRequest struct {
 	Next         string `json:"next,omitempty"` // Optional redirect URL after re-authentication
 }
 
+type ResetPasswordRequest struct {
+	Email string `json:"email"`
+}
+
+type ResetPasswordChangeRequest struct {
+	URLVerification
+	Password string `json:"password"`
+	Confirm  string `json:"confirm"`
+}
+
 func (r *LoginRequest) Validate() (err error) {
 	if r.Email == "" {
 		err = ValidationError(err, MissingField("email"))
@@ -75,4 +85,25 @@ func (r *ReauthenticateRequest) Validate() (err error) {
 		err = ValidationError(err, MissingField("refresh_token"))
 	}
 	return err
+}
+
+// Validates a reset password change request, returning an error if the
+// user's token is invalid or if the passwords are insecure or don't match.
+func (r *ResetPasswordChangeRequest) Validate() (err error) {
+	// Validate the verification token
+	if err = r.URLVerification.Validate(); err != nil {
+		return err
+	}
+
+	// Confirm the two entered passwords are valid and match
+	password := ProfilePassword{
+		Current:  "ignored",
+		Password: r.Password,
+		Confirm:  r.Confirm,
+	}
+	if err = password.Validate(); err != nil {
+		return err
+	}
+
+	return nil
 }

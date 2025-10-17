@@ -12,9 +12,10 @@ import (
 )
 
 const (
-	AccessTokenCookie  = "access_token"
-	RefreshTokenCookie = "refresh_token"
-	CookieMaxAgeBuffer = 600 * time.Second
+	AccessTokenCookie        = "access_token"
+	RefreshTokenCookie       = "refresh_token"
+	ResetPasswordTokenCookie = "reset_password_token"
+	CookieMaxAgeBuffer       = 600 * time.Second
 )
 
 const (

@@ -55,3 +55,11 @@ func (v *VeroToken) Params() []any {
 		sql.Named("modified", v.Modified),
 	}
 }
+
+//===========================================================================
+// Helpers
+//===========================================================================
+
+func (v *VeroToken) IsExpired() bool {
+	return v.Expiration.IsZero() || time.Now().After(v.Expiration)
+}
