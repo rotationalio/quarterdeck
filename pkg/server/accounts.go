@@ -254,11 +254,13 @@ func (s *Server) ResetPassword(c *gin.Context) {
 		return
 	}
 
-	// Now that the password has been changed, delete the VeroToken record
+	// Now that the password has been changed, delete the VeroToken record and
+	// clear its cookie
 	if err = tx.DeleteVeroToken(veroToken.ID); err != nil {
 		// Do not return an error if we could not delete the record, just log it.
 		log.Error().Err(err).Str("link_id", veroToken.ID.String()).Msg("could not delete reset password link record")
 	}
+	auth.ClearResetPasswordTokenCookie(c)
 
 	// Signal to HTMX that the password has been changed successfully
 	c.HTML(http.StatusOK, "auth/reset/success.html", scene.New(c))

@@ -11,17 +11,41 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 )
 
+//=============================================================================
+// Constants
+//=============================================================================
+
 const (
 	AccessTokenCookie        = "access_token"
 	RefreshTokenCookie       = "refresh_token"
 	ResetPasswordTokenCookie = "reset_password_token"
-	CookieMaxAgeBuffer       = 600 * time.Second
-)
 
-const (
+	CookieMaxAgeBuffer = 600 * time.Second
+
 	localhost = "localhost"
 	localTLD  = ".local"
 )
+
+//=============================================================================
+// Set/Clear Secure Cookies
+//=============================================================================
+
+func SetSecureCookie(c *gin.Context, name, value string, maxAge int, domain string, httpOnly bool) {
+	secure := !IsLocalhost(domain) // Secure is true unless the domain is localhost or ends in .local
+	c.SetCookie(name, value, maxAge, "/", domain, secure, httpOnly)
+}
+
+func ClearSecureCookie(c *gin.Context, name, domain string, httpOnly bool) {
+	// Secure is true unless the domain is localhost or ends in .local
+	secure := !IsLocalhost(domain)
+
+	// Clear the cookie by setting its expiration to one second ago
+	c.SetCookie(name, "", -1, "/", domain, secure, httpOnly)
+}
+
+//=============================================================================
+// Auth Cookies
+//=============================================================================
 
 // SetAuthCookies is a helper function to set authentication cookies on a gin request.
 // The access token cookie (access_token) is an http only cookie that expires when the
@@ -70,11 +94,6 @@ func SetAuthCookies(c *gin.Context, accessToken, refreshToken string) (err error
 	return nil
 }
 
-func SetSecureCookie(c *gin.Context, name, value string, maxAge int, domain string, httpOnly bool) {
-	secure := !IsLocalhost(domain) // Secure is true unless the domain is localhost or ends in .local
-	c.SetCookie(name, value, maxAge, "/", domain, secure, httpOnly)
-}
-
 // ClearAuthCookies is a helper function to clear authentication cookies on a gin
 // request to effectively log out a user.
 func ClearAuthCookies(c *gin.Context, audience []string) {
@@ -93,13 +112,21 @@ func ClearAuthCookies(c *gin.Context, audience []string) {
 	}
 }
 
-func ClearSecureCookie(c *gin.Context, name, domain string, httpOnly bool) {
-	// Secure is true unless the domain is localhost or ends in .local
-	secure := !IsLocalhost(domain)
+//=============================================================================
+// Reset Password Token Cookies
+//=============================================================================
 
-	// Clear the cookie by setting its expiration to one second ago
-	c.SetCookie(name, "", -1, "/", domain, secure, httpOnly)
+func SetResetPasswordTokenCookie(c *gin.Context, token string) {
+	SetSecureCookie(c, ResetPasswordTokenCookie, token, int(CookieMaxAgeBuffer), c.Request.URL.Hostname(), true)
 }
+
+func ClearResetPasswordTokenCookie(c *gin.Context) {
+	ClearSecureCookie(c, ResetPasswordTokenCookie, c.Request.URL.Hostname(), true)
+}
+
+//=============================================================================
+// Helpers
+//=============================================================================
 
 func IsLocalhost(domain string) bool {
 	return domain == localhost || strings.HasSuffix(domain, localTLD)
