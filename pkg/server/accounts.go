@@ -9,9 +9,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
+	"go.rtnl.ai/commo"
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
 	"go.rtnl.ai/quarterdeck/pkg/auth"
 	"go.rtnl.ai/quarterdeck/pkg/auth/passwords"
+	"go.rtnl.ai/quarterdeck/pkg/emails"
 	"go.rtnl.ai/quarterdeck/pkg/enum"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
@@ -303,12 +305,11 @@ func (s *Server) sendResetPasswordEmail(ctx context.Context, emailOrUserID any) 
 	}
 
 	// Create the ResetPasswordEmailData for the email builder
-	//FIXME: below is copied from Envoy for now
-	// emailData := emails.ResetPasswordEmailData{
-	// 	ContactName:  user.Name.String,
-	// 	BaseURL:      s.conf.Web.ResetPasswordURL(),
-	// 	SupportEmail: s.conf.Email.SupportEmail,
-	// }
+	emailData := emails.ResetPasswordEmailData{
+		ContactName:  user.Name.String,
+		BaseURL:      s.conf.Auth.GetResetPasswordURL(),
+		SupportEmail: s.conf.SupportEmail,
+	}
 
 	// Create the HMAC verification token for the VeroToken
 	var verification *vero.Token
@@ -317,11 +318,9 @@ func (s *Server) sendResetPasswordEmail(ctx context.Context, emailOrUserID any) 
 	}
 
 	// Sign the verification token
-	_ = verification //FIXME: temporary until we can sign it in the email data
-	//FIXME: below is copied from Envoy for now
-	// if emailData.Token, record.Signature, err = verification.Sign(); err != nil {
-	// 	return err
-	// }
+	if emailData.Token, record.Signature, err = verification.Sign(); err != nil {
+		return err
+	}
 
 	// Update the VeroToken record in the database with the token
 	if err = tx.UpdateVeroToken(record); err != nil {
@@ -329,17 +328,15 @@ func (s *Server) sendResetPasswordEmail(ctx context.Context, emailOrUserID any) 
 	}
 
 	// Build the email
-	//FIXME: below is copied from Envoy for now
-	// var email *emails.Email
-	// if email, err = emails.NewResetPasswordEmail(user.Email, emailData); err != nil {
-	// 	return err
-	// }
+	var email *commo.Email
+	if email, err = emails.NewResetPasswordEmail(user.Email, emailData); err != nil {
+		return err
+	}
 
 	// Send the email to the user
-	//FIXME: below is copied from Envoy for now
-	// if err = email.Send(); err != nil {
-	// 	return err
-	// }
+	if err = email.Send(); err != nil {
+		return err
+	}
 
 	// Update the VeroToken record in the database with a SentOn timestamp
 	record.SentOn = sql.NullTime{Valid: true, Time: time.Now()}
