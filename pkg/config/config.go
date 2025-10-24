@@ -77,6 +77,12 @@ func New() (conf Config, err error) {
 		return Config{}, err
 	}
 
+	// If the support email is not set, set it to support@ISSUER.TLD
+	if conf.SupportEmail == "" {
+		issuerURL, _ := url.Parse(conf.Auth.Issuer)
+		conf.SupportEmail = "support@" + issuerURL.Hostname()
+	}
+
 	conf.processed = true
 	return conf, nil
 }
@@ -98,12 +104,6 @@ func (c Config) Mark() (_ Config, err error) {
 func (c Config) Validate() (err error) {
 	if c.Mode != gin.ReleaseMode && c.Mode != gin.DebugMode && c.Mode != gin.TestMode {
 		err = errors.ConfigError(err, errors.InvalidConfig("", "mode", "%q is not a valid gin mode", c.Mode))
-	}
-
-	// If the support email is not set, set it to support@ISSUER.TLD
-	if c.SupportEmail == "" {
-		issuerURL, _ := url.Parse(c.Auth.Issuer)
-		c.SupportEmail = "support@" + issuerURL.Hostname()
 	}
 
 	return err
