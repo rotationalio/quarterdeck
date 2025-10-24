@@ -6,7 +6,7 @@ import "context"
 // Service Interface
 //===========================================================================
 
-// Client defines the service interface for interacting with the TRISA self-hosted node
+// Client defines the service interface for interacting with the Quarterdeck
 // internal API (e.g. the API that users can integrate with).
 type Client interface {
 	Status(context.Context) (*StatusReply, error)
