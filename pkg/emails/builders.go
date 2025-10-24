@@ -3,7 +3,7 @@ package emails
 import (
 	"net/url"
 
-	"go.rtnl.ai/commo/commo"
+	"go.rtnl.ai/commo"
 	"go.rtnl.ai/x/vero"
 )
 

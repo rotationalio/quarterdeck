@@ -127,6 +127,8 @@ github.com/xrash/smetrics v0.0.0-20250705151800-55b8f293f342 h1:FnBeRrxr7OU4VvAz
 github.com/xrash/smetrics v0.0.0-20250705151800-55b8f293f342/go.mod h1:Ohn+xnUBiLI6FVj/9LpzZWtj1/D6lUovWYBkxHVV3aM=
 go.rtnl.ai/commo v0.1.0 h1:222sZlH/uOSDNDQqJ/FJE5DM1Z0Y1Vw+pgb80YxlQgA=
 go.rtnl.ai/commo v0.1.0/go.mod h1:Dv5ygqYp7FeAAea3sJQ0VDZr5Ctbk1wYgF9WAdIJRnA=
+go.rtnl.ai/commo v0.2.0 h1:x8zSs3sSWKVpgg3387kx3kL8Oa2SxfonUFnhWKmD2zM=
+go.rtnl.ai/commo v0.2.0/go.mod h1:Dv5ygqYp7FeAAea3sJQ0VDZr5Ctbk1wYgF9WAdIJRnA=
 go.rtnl.ai/gimlet v1.4.0 h1:lfwdnZsUFnFlUFSQTxEKVWNl0Cjq/yMSPUZEhTOP7ow=
 go.rtnl.ai/gimlet v1.4.0/go.mod h1:FtEt+p2mswf/dXtVABAHfhSZYzSffHsZ7AiJ7r54+NA=
 go.rtnl.ai/ulid v1.2.0 h1:EwIst7WZVdCmbtbDmIrRB15q03Qe9hmHHbxNej0V/wI=

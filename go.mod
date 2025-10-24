@@ -13,7 +13,7 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli/v2 v2.27.7
-	go.rtnl.ai/commo v0.1.0
+	go.rtnl.ai/commo v0.2.0
 	go.rtnl.ai/gimlet v1.4.0
 	go.rtnl.ai/ulid v1.2.0
 	go.rtnl.ai/x v1.9.0

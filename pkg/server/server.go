@@ -13,7 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"go.rtnl.ai/commo/commo"
+	"go.rtnl.ai/commo"
 	"go.rtnl.ai/gimlet/csrf"
 	"go.rtnl.ai/gimlet/logger"
 	"go.rtnl.ai/gimlet/o11y"

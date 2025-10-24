@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rotationalio/confire"
 	"github.com/rs/zerolog"
-	"go.rtnl.ai/commo/commo"
+	"go.rtnl.ai/commo"
 	"go.rtnl.ai/gimlet/logger"
 	"go.rtnl.ai/gimlet/ratelimit"
 	"go.rtnl.ai/gimlet/secure"
