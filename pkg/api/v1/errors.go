@@ -70,7 +70,7 @@ func Error(err interface{}) Reply {
 // Status Errors
 //===========================================================================
 
-// StatusError decodes an error response from the TRISA API.
+// StatusError decodes an error response from the API.
 type StatusError struct {
 	StatusCode int
 	Reply      Reply
