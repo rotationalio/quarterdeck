@@ -3,6 +3,7 @@ package emails
 import (
 	"net/url"
 
+	"go.rtnl.ai/commo/commo"
 	"go.rtnl.ai/x/vero"
 )
 
@@ -15,8 +16,8 @@ const (
 	ResetPasswordTemplate = "reset_password"
 )
 
-func NewResetPasswordEmail(recipient string, data ResetPasswordEmailData) (*Email, error) {
-	return New(recipient, ResetPasswordRE, ResetPasswordTemplate, data)
+func NewResetPasswordEmail(recipient string, data ResetPasswordEmailData) (*commo.Email, error) {
+	return commo.New(recipient, ResetPasswordRE, ResetPasswordTemplate, data)
 }
 
 // ResetPasswordEmailData is used to complete the reset_password template.

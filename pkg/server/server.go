@@ -13,12 +13,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"go.rtnl.ai/commo/commo"
 	"go.rtnl.ai/gimlet/csrf"
 	"go.rtnl.ai/gimlet/logger"
 	"go.rtnl.ai/gimlet/o11y"
 	"go.rtnl.ai/quarterdeck/pkg"
 	"go.rtnl.ai/quarterdeck/pkg/auth"
 	"go.rtnl.ai/quarterdeck/pkg/config"
+	"go.rtnl.ai/quarterdeck/pkg/emails"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store"
 	"go.rtnl.ai/quarterdeck/pkg/web/scene"
@@ -80,6 +82,9 @@ func New(conf config.Config) (s *Server, err error) {
 
 	// Configure the scene for handling templates
 	scene.WithConf(conf)
+
+	// Initialize commo for email sending
+	commo.Initialize(conf.Email, emails.LoadTemplates())
 
 	// Create a new server instance and prepare to serve.
 	s = &Server{

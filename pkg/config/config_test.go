@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"bytes"
+	"net/mail"
 	"os"
 	"testing"
 	"time"
@@ -51,6 +52,12 @@ var testEnv = map[string]string{
 	"QD_SECURE_HSTS_INCLUDE_SUBDOMAINS":                        "true",
 	"QD_SECURE_HSTS_PRELOAD":                                   "true",
 	"QD_SECURITY_TXT_PATH":                                     "./security.txt",
+	"QD_EMAIL_SENDER":                                          "Izuku Midoriya <izuku.midoriya@example.com>",
+	"QD_EMAIL_SENDGRID_API_KEY":                                "sendgrid_api_key",
+	"QD_EMAIL_BACKOFF_TIMEOUT":                                 "1s",
+	"QD_EMAIL_BACKOFF_INITIAL_INTERVAL":                        "1s",
+	"QD_EMAIL_BACKOFF_MAX_INTERVAL":                            "1s",
+	"QD_EMAIL_BACKOFF_MAX_ELAPSED_TIME":                        "1s",
 }
 
 func TestConfig(t *testing.T) {
@@ -108,6 +115,23 @@ func TestConfig(t *testing.T) {
 	require.True(t, conf.Secure.HSTS.IncludeSubdomains)
 	require.True(t, conf.Secure.HSTS.Preload)
 	require.Equal(t, testEnv["QD_SECURITY_TXT_PATH"], conf.Security.TxtPath)
+	require.Equal(t, testEnv["QD_EMAIL_SENDER"], conf.Email.Sender)
+	require.Zero(t, conf.Email.SenderName)
+	addr, err := mail.ParseAddress(conf.Email.Sender)
+	require.NoError(t, err)
+	require.Equal(t, addr.Name, conf.Email.GetSenderName())
+	dur, err := time.ParseDuration(testEnv["QD_EMAIL_BACKOFF_TIMEOUT"])
+	require.NoError(t, err)
+	require.Equal(t, dur, conf.Email.Backoff.Timeout)
+	dur, err = time.ParseDuration(testEnv["QD_EMAIL_BACKOFF_INITIAL_INTERVAL"])
+	require.NoError(t, err)
+	require.Equal(t, dur, conf.Email.Backoff.InitialInterval)
+	dur, err = time.ParseDuration(testEnv["QD_EMAIL_BACKOFF_MAX_INTERVAL"])
+	require.NoError(t, err)
+	require.Equal(t, dur, conf.Email.Backoff.MaxInterval)
+	dur, err = time.ParseDuration(testEnv["QD_EMAIL_BACKOFF_MAX_ELAPSED_TIME"])
+	require.NoError(t, err)
+	require.Equal(t, dur, conf.Email.Backoff.MaxElapsedTime)
 }
 
 func TestValidation(t *testing.T) {
