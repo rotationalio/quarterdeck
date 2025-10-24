@@ -98,7 +98,8 @@ func (s *Server) ProfilePage(c *gin.Context) {
 }
 
 func (s *Server) ProfileSettingsPage(c *gin.Context) {
-	c.HTML(http.StatusOK, "pages/profile/account.html", scene.New(c))
+	// Use a scene that has the "forgot password" page URL
+	c.HTML(http.StatusOK, "pages/profile/account.html", scene.New(c).WithForgotPasswordURL())
 }
 
 func (s *Server) ProfileDeletePage(c *gin.Context) {
