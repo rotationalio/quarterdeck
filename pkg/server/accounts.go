@@ -249,6 +249,7 @@ func (s *Server) ResetPassword(c *gin.Context) {
 		s.Error(c, err)
 		return
 	}
+	defer tx.Rollback()
 
 	// Set the password for the specified user
 	if err = tx.UpdatePassword(veroToken.ResourceID.ULID, derivedKey); err != nil {
@@ -263,6 +264,9 @@ func (s *Server) ResetPassword(c *gin.Context) {
 		log.Error().Err(err).Str("link_id", veroToken.ID.String()).Msg("could not delete reset password link record")
 	}
 	auth.ClearResetPasswordTokenCookie(c, s.conf.Auth.GetResetPasswordURL().Hostname())
+
+	// Complete the transaction
+	tx.Commit()
 
 	// Signal to HTMX that the password has been changed successfully
 	c.HTML(http.StatusOK, "auth/reset/success.html", scene.New(c))
