@@ -20,7 +20,8 @@ const (
 	RefreshTokenCookie       = "refresh_token"
 	ResetPasswordTokenCookie = "reset_password_token"
 
-	CookieMaxAgeBuffer = 600 * time.Second
+	CookieMaxAgeBuffer          = 600 * time.Second
+	ResetPasswordTokenCookieTTL = 900 * time.Second // 15 minutes; same as [server.resetPasswordTokenTTL]
 
 	localhost = "localhost"
 	localTLD  = ".local"
@@ -116,12 +117,12 @@ func ClearAuthCookies(c *gin.Context, audience []string) {
 // Reset Password Token Cookies
 //=============================================================================
 
-func SetResetPasswordTokenCookie(c *gin.Context, token string) {
-	SetSecureCookie(c, ResetPasswordTokenCookie, token, int(CookieMaxAgeBuffer), c.Request.URL.Hostname(), true)
+func SetResetPasswordTokenCookie(c *gin.Context, token, domain string) {
+	SetSecureCookie(c, ResetPasswordTokenCookie, token, int(ResetPasswordTokenCookieTTL), domain, false)
 }
 
-func ClearResetPasswordTokenCookie(c *gin.Context) {
-	ClearSecureCookie(c, ResetPasswordTokenCookie, c.Request.URL.Hostname(), true)
+func ClearResetPasswordTokenCookie(c *gin.Context, domain string) {
+	ClearSecureCookie(c, ResetPasswordTokenCookie, domain, false)
 }
 
 //=============================================================================

@@ -61,7 +61,7 @@ func (s *Server) ResetPasswordPage(c *gin.Context) {
 	// A cookie is more secure than using a hidden form because it cannot be accessed
 	// by XSS attacks (though it could be fetched by the window.location object).
 	// NOTE: no verification is performed here, just on reset-password.
-	auth.SetResetPasswordTokenCookie(c, in.Token)
+	auth.SetResetPasswordTokenCookie(c, in.Token, s.conf.Auth.GetResetPasswordURL().Hostname())
 
 	// Render the verify and change page
 	c.HTML(http.StatusOK, "auth/reset/password.html", scene.New(c))
