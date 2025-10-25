@@ -94,6 +94,11 @@ func (s *Server) setupRoutes() (err error) {
 		uio.GET("/login", s.LoginPage)
 		uio.GET("/logout", s.Logout)
 
+		// UI for forgot/reset password
+		uio.GET("/forgot-password", s.ForgotPasswordPage)
+		uio.GET("/forgot-password/sent", s.ForgotPasswordSentPage)
+		uio.GET("/reset-password", s.ResetPasswordPage)
+
 		// The "well known" routes expose client security information and credentials.
 		wk := uio.Group("/.well-known")
 		{
@@ -139,6 +144,10 @@ func (s *Server) setupRoutes() (err error) {
 		v1o.POST("/login", csrf, s.Login)
 		v1o.POST("/authenticate", s.Authenticate)
 		v1o.POST("/reauthenticate", s.Reauthenticate)
+
+		// API endpoints for forgot/reset password
+		v1o.POST("/forgot-password", s.ForgotPassword)
+		v1o.POST("/reset-password", s.ResetPassword)
 	}
 
 	// Authenticated API Routes (Including Content Negotiated Partials)

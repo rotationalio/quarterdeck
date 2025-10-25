@@ -105,4 +105,5 @@ type VeroTokenStore interface {
 	RetrieveVeroToken(context.Context, ulid.ULID) (*models.VeroToken, error)
 	UpdateVeroToken(context.Context, *models.VeroToken) error
 	DeleteVeroToken(context.Context, ulid.ULID) error
+	CreateResetPasswordVeroToken(context.Context, *models.VeroToken) error
 }

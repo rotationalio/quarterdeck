@@ -25,6 +25,7 @@ var (
 	ErrIDMismatch         = errors.New("resource id does not match target")
 	ErrAmbiguous          = errors.New("ambiguous query: more than one result returned")
 	ErrZeroValuedNotNull  = errors.New("query contains a not null field with a zero valued parameter")
+	ErrTypeMismatch       = errors.New("record type does not match target")
 
 	// Server related errors
 	ErrNotAccepted = errors.New("the accepted formats are not offered by the server")
@@ -53,6 +54,7 @@ var (
 	ErrNoRefreshToken       = errors.New("cannot reauthenticate: no refresh token in request")
 	ErrNoSigningKeys        = errors.New("claims issuer has no signing keys configured")
 	ErrNoLoginURL           = errors.New("no login URL configured to redirect the user to")
+	ErrExpiredToken         = errors.New("verification token is expired")
 )
 
 // Reduce namespacing conflicts by adding error functions from the errors package.

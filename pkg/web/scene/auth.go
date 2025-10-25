@@ -18,3 +18,8 @@ func (s Scene) Login(c *gin.Context) *LoginScene {
 		Next:              c.Query("next"),
 	}
 }
+
+// Adds the URL to the "forgot password" page to the [Scene] and returns it.
+func (s Scene) WithForgotPasswordURL() Scene {
+	return s.With("ForgotPasswordURL", forgotPasswordURL)
+}
