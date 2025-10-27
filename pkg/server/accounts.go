@@ -219,7 +219,7 @@ func (s *Server) ResetPassword(c *gin.Context) {
 	}
 
 	// Verify the VeroToken token
-	if veroToken, err = s.verifyVeroTokenToken(c.Request.Context(), &in.URLVerification); err != nil {
+	if veroToken, err = s.verifyVeroToken(c.Request.Context(), &in.URLVerification); err != nil {
 		switch {
 		case errors.Is(err, errors.ErrNotFound), errors.Is(err, errors.ErrExpiredToken):
 			// If the link is not found or expired, the user needs to try to reset their password again
