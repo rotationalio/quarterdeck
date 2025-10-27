@@ -355,7 +355,7 @@ func (s *Server) sendResetPasswordEmail(ctx context.Context, emailOrUserID any) 
 }
 
 // Verifies a VeroToken token and returns the VeroToken object.
-func (s *Server) verifyVeroTokenToken(ctx context.Context, verification *api.URLVerification) (token *models.VeroToken, err error) {
+func (s *Server) verifyVeroToken(ctx context.Context, verification *api.URLVerification) (token *models.VeroToken, err error) {
 	// Validate the verification token
 	if err = verification.Validate(); err != nil {
 		return nil, err
