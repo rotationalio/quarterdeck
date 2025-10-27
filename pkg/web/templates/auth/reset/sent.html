@@ -2,26 +2,26 @@
 {{ define "title" }}Forgot Password | Rotational Quarterdeck{{ end }}
 
 {{ define "auth" }}
-<div class="auth-form p-0">
-  <!-- Heading -->
-  <h1 class="display-5 text-center mb-3">
+<div class="auth-form p-3">
+  <div class="card p-4">
+      <!-- Heading -->
+  <h1 class="h2 text-center">
     Password reset sent
   </h1>
 
   <!-- Subheading -->
-  <p class="text-body-secondary text-center mb-3">
+  <p class="lead text-center">
     Please check your email for a secure link to reset your password and close this window.
   </p>
 
-  <p class="text-body-secondary text-center mb-3">
+  <p class="lead text-center">
     Note that password reset links expire after 15 minutes and a new link cannot be sent until the previous link
     expires.
   </p>
 
-  <div class="text-center mb-5">
-    <small class="text-body-secondary text-center">
+  <div class="text-center">
       Remembered your password? <a href="/login">Log in</a>.
-    </small>
+  </div>
   </div>
 </div>
 {{ end }}
