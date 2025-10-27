@@ -260,3 +260,111 @@ func (s *storeTestSuite) TestDeleteVeroToken() {
 		require.ErrorIs(err, errors.ErrNotFound, "should return not found error when deleting non-existent VeroToken")
 	})
 }
+
+func (s *storeTestSuite) TestCreateResetPasswordVeroToken() {
+	require := s.Require()
+
+	s.Run("NoIDOnCreate", func() {
+		token := &models.VeroToken{
+			Model: models.Model{
+				ID:       ulid.Make(),
+				Created:  time.Now(),
+				Modified: time.Now(),
+			},
+		}
+
+		err := s.db.CreateResetPasswordVeroToken(s.Context(), token)
+		require.ErrorIs(err, errors.ErrNoIDOnCreate, "should not allow creating a VeroToken with an ID")
+	})
+
+	s.Run("TypeMismatch", func() {
+		token := &models.VeroToken{
+			TokenType:  enum.TokenTypeVerifyEmail,
+			ResourceID: ulid.NullULID{ULID: ulid.MustParse("01JPYRNYMEHNEZCS0JYX1CP57A"), Valid: true},
+			Email:      "gary@example.com",
+			Expiration: time.Now().Add(24 * time.Hour),
+			Signature:  nil,
+			SentOn:     sql.NullTime{Valid: false},
+		}
+
+		err := s.db.CreateResetPasswordVeroToken(s.Context(), token)
+		require.ErrorIs(err, errors.ErrTypeMismatch, "should return type mismatch error when trying to create reset password Vero token with wrong type")
+	})
+
+	s.Run("ErrMissingReference_InvalidResourceID", func() {
+		token := &models.VeroToken{
+			TokenType:  enum.TokenTypeResetPassword,
+			ResourceID: ulid.NullULID{Valid: false},
+			Email:      "gary@example.com",
+			Expiration: time.Now().Add(24 * time.Hour),
+			Signature:  nil,
+			SentOn:     sql.NullTime{Valid: false},
+		}
+
+		err := s.db.CreateResetPasswordVeroToken(s.Context(), token)
+		require.ErrorIs(err, errors.ErrMissingReference, "should return missing reference error when the resource id is invalid")
+	})
+
+	s.Run("ErrMissingReference_ZeroResourceID", func() {
+		token := &models.VeroToken{
+			TokenType:  enum.TokenTypeResetPassword,
+			ResourceID: ulid.NullULID{Valid: true},
+			Email:      "gary@example.com",
+			Expiration: time.Now().Add(24 * time.Hour),
+			Signature:  nil,
+			SentOn:     sql.NullTime{Valid: false},
+		}
+
+		err := s.db.CreateResetPasswordVeroToken(s.Context(), token)
+		require.ErrorIs(err, errors.ErrMissingReference, "should return missing reference error when the resource id is zero")
+	})
+
+	s.Run("TooSoon", func() {
+		if s.ReadOnly() {
+			s.T().Skip("skipping create test in read-only mode")
+		}
+
+		token := &models.VeroToken{
+			TokenType:  enum.TokenTypeResetPassword,
+			ResourceID: ulid.NullULID{Valid: true, ULID: ulid.MakeSecure()},
+			Email:      "gary@example.com",
+			Expiration: time.Now().Add(24 * time.Hour),
+			Signature:  nil,
+			SentOn:     sql.NullTime{Valid: false},
+		}
+
+		// Create the first token
+		err := s.db.CreateResetPasswordVeroToken(s.Context(), token)
+		require.NoError(err, "should not have an error for the first create call")
+
+		// Reset the ID to zero and then try to create another token right away
+		token.ID = ulid.Zero
+		err = s.db.CreateResetPasswordVeroToken(s.Context(), token)
+		require.ErrorIs(err, errors.ErrTooSoon, "should return too soon error when there is already an unexpired token")
+	})
+
+	s.Run("HappyPath", func() {
+		if s.ReadOnly() {
+			s.T().Skip("skipping create test in read-only mode")
+		}
+
+		tokenCount := s.Count("vero_tokens")
+
+		token := &models.VeroToken{
+			TokenType:  enum.TokenTypeResetPassword,
+			ResourceID: ulid.NullULID{ULID: ulid.MustParse("01JPYRNYMEHNEZCS0JYX1CP57A"), Valid: true},
+			Email:      "gary@example.com",
+			Expiration: time.Now().Add(24 * time.Hour),
+			Signature:  nil,
+			SentOn:     sql.NullTime{Valid: false},
+		}
+
+		err := s.db.CreateResetPasswordVeroToken(s.Context(), token)
+		require.NoError(err, "should successfully create a VeroToken")
+		require.NotEqual(ulid.Zero, token.ID, "should assign a new ID to the VeroToken")
+		require.NotZero(token.Created, "should set Created timestamp")
+		require.NotZero(token.Modified, "should set Modified timestamp")
+
+		require.Equal(tokenCount+1, s.Count("vero_tokens"), "should create a new VeroToken")
+	})
+}

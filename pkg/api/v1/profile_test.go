@@ -7,8 +7,6 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
 )
 
-// FIXME: ensure this Envoy code works in Quarterdeck
-
 func TestProfilePasswordValidate(t *testing.T) {
 	t.Run("Valid", func(t *testing.T) {
 		pw := &api.ProfilePassword{

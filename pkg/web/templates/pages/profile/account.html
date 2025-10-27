@@ -1,9 +1,7 @@
 {{ template "page.html" . }}
 
 {{ define "htmxConfig" }}
-<meta
-  name="htmx-config"
-  content='{
+<meta name="htmx-config" content='{
     "responseHandling":[
       {"code":"204", "swap": false},
       {"code":"[23]..", "swap": true},
@@ -12,8 +10,7 @@
       {"code":"[45]..", "swap": false, "error": true},
       {"code":"...", "swap": true}
     ]
-  }'
-/>
+  }' />
 {{ end }}
 
 {{ define "content" }}
@@ -32,7 +29,8 @@
         <div class="row">
           <div class="col-md-6 col-xl-7 mb-4">
             <!-- Note: the 'innerHTML' of this form is duplicated in the partials/profile/changePassword.html template and must be updated if this form is. -->
-            <form hx-post="/v1/accounts/{{ .UserID }}/change-password" hx-ext='form-json' hx-headers='{"Accept": "text/html"}' hx-swap="innerHTML">
+            <form hx-post="/v1/accounts/{{ .UserID }}/password" hx-ext='form-json' hx-headers='{"Accept": "text/html"}'
+              hx-swap="innerHTML">
               <div class="mb-3">
                 <label class="form-label" for="current">Current password</label>
                 <input type="password" class="form-control" id="current" name="current" autocomplete="current-password">
@@ -70,8 +68,9 @@
                   </ul>
                 </div>
               </div>
-              <!--TODO: enable this button when implementing forgot password (sc-35063)-->
-              <button type="button" class="btn btn-light ms-md-4 mt-1" disabled>Forgot Password?</button>
+              <form action="{{ .ForgotPasswordURL }}">
+                <button type="submit" class="btn btn-light ms-md-4 mt-1">Forgot Password?</button>
+              </form>
             </div>
           </div>
         </div>

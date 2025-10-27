@@ -20,6 +20,7 @@ import (
 const (
 	Prefix            = "QD"
 	LoginPath         = "/login"
+	ResetPasswordPath = "/reset-password"
 	LoginRedirectPath = "/"
 )
 
@@ -32,6 +33,7 @@ type Config struct {
 	AllowOrigins []string            `split_words:"true" default:"http://localhost:8000" desc:"a list of allowed origins (domains including port) for CORS requests"`
 	RateLimit    ratelimit.Config    `split_words:"true"`
 	DocsName     string              `split_words:"true" default:"quarterdeck" desc:"the display name for the API docs server in the Swagger app"`
+	SupportEmail string              `split_words:"true" default:"" desc:"an email address that a user may email for technical support, by default support@ISSUER.TLD"`
 	Database     DatabaseConfig
 	Auth         AuthConfig
 	CSRF         CSRFConfig
@@ -51,6 +53,7 @@ type AuthConfig struct {
 	Audience               []string          `default:"http://localhost:8000" desc:"the audience claim for JWT tokens; used to verify the token is intended for this service"`
 	Issuer                 string            `default:"http://localhost:8888" desc:"the issuer claim for JWT tokens; used to verify the token is issued by this service"`
 	LoginURL               string            `split_words:"true" default:"" desc:"specify an alternate login URL, by default it is the issuer + /login"`
+	ResetPasswordURL       string            `split_words:"true" default:"" desc:"specify an alternate reset-pasword URL, by default it is the issuer + /reset-password"`
 	LogoutRedirect         string            `split_words:"true" default:"" desc:"specify an alternate URL to redirect the user to after logout, by default it is the login url"`
 	AuthenticateRedirect   string            `split_words:"true" default:"/" desc:"specify a location to redirect the user to after successful authentication"`
 	ReauthenticateRedirect string            `split_words:"true" default:"/" desc:"specify a location to redirect the user to after successful re-authentication"`
@@ -72,6 +75,12 @@ type SecurityConfig struct {
 func New() (conf Config, err error) {
 	if err = confire.Process(Prefix, &conf); err != nil {
 		return Config{}, err
+	}
+
+	// If the support email is not set, set it to support@ISSUER.TLD
+	if conf.SupportEmail == "" {
+		issuerURL, _ := url.Parse(conf.Auth.Issuer)
+		conf.SupportEmail = "support@" + issuerURL.Hostname()
 	}
 
 	conf.processed = true
@@ -96,6 +105,7 @@ func (c Config) Validate() (err error) {
 	if c.Mode != gin.ReleaseMode && c.Mode != gin.DebugMode && c.Mode != gin.TestMode {
 		err = errors.ConfigError(err, errors.InvalidConfig("", "mode", "%q is not a valid gin mode", c.Mode))
 	}
+
 	return err
 }
 
@@ -158,6 +168,12 @@ func (c *AuthConfig) Validate() (err error) {
 		// Ensure the login URL can be used for login redirects.
 		if _, perr := redirect.Login(c.LoginURL); perr != nil {
 			err = errors.ConfigError(err, errors.ConfigParseError("auth", "loginURL", perr))
+		}
+
+		// ResetPasswordURL must be an absolute URL with the scheme and host, even if it matches
+		// the issuer URL scheme and host. If empty, it is derived from the issuer URL.
+		if c.ResetPasswordURL == "" {
+			c.ResetPasswordURL = issuerURL.ResolveReference(&url.URL{Path: ResetPasswordPath}).String()
 		}
 
 		// If the LogoutRedirect is not set, use the LoginURL.
@@ -226,6 +242,13 @@ func (c AuthConfig) validateIssuer() *errors.InvalidConfiguration {
 	}
 
 	return nil
+}
+
+// Returns the ResetPasswordURL as a [url.URL].
+func (c AuthConfig) GetResetPasswordURL() *url.URL {
+	u, _ := url.Parse(c.Issuer)
+	u.Path = ResetPasswordPath
+	return u
 }
 
 func (c CSRFConfig) Validate() (err error) {
