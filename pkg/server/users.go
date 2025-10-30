@@ -24,23 +24,60 @@ import (
 	"go.rtnl.ai/x/vero"
 )
 
-func (s *Server) ListAccounts(c *gin.Context) {
+func (s *Server) ListUsers(c *gin.Context) {
+	var (
+		err        error
+		in         *api.UserPageQuery
+		page       *models.UserPage
+		userModels *models.UserList
+		out        *api.UserList
+	)
+
+	// Parse the URL parameters from the input request
+	in = &api.UserPageQuery{}
+	if err = c.BindQuery(in); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusBadRequest, api.Error("invalid query parameters"))
+		return
+	}
+
+	// Query page to model page
+	if page, err = in.UserPage().Model(); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusBadRequest, api.Error("invalid query parameters"))
+		return
+	}
+
+	// List users
+	if userModels, err = s.store.ListUsers(c.Request.Context(), page); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error("could not process users list request"))
+		return
+	}
+
+	// Convert the database model to an API output
+	if out, err = api.NewUserList(userModels); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error("could not process users list request"))
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *Server) CreateUser(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, api.Error("this endpoint not implemented yet"))
 }
 
-func (s *Server) CreateAccount(c *gin.Context) {
+func (s *Server) UserDetail(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, api.Error("this endpoint not implemented yet"))
 }
 
-func (s *Server) AccountDetail(c *gin.Context) {
+func (s *Server) UpdateUser(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, api.Error("this endpoint not implemented yet"))
 }
 
-func (s *Server) UpdateAccount(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, api.Error("this endpoint not implemented yet"))
-}
-
-func (s *Server) DeleteAccount(c *gin.Context) {
+func (s *Server) DeleteUser(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, api.Error("this endpoint not implemented yet"))
 }
 
@@ -49,7 +86,7 @@ func (s *Server) ChangePassword(c *gin.Context) {
 	var (
 		err        error
 		in         *api.ProfilePassword
-		accountID  ulid.ULID
+		userID     ulid.ULID
 		user       *models.User
 		derivedKey string
 		template   = "partials/profile/changePassword.html"
@@ -74,13 +111,13 @@ func (s *Server) ChangePassword(c *gin.Context) {
 	}
 
 	// Retrieve the user's ID from the path parameter
-	if accountID, err = ulid.Parse(c.Param("accountID")); err != nil {
+	if userID, err = ulid.Parse(c.Param("userID")); err != nil {
 		c.HTML(http.StatusBadRequest, template, gin.H{"Error": "could not change password"})
 		return
 	}
 
 	// Fetch the model from the database
-	if user, err = s.store.RetrieveUser(c.Request.Context(), accountID); err != nil {
+	if user, err = s.store.RetrieveUser(c.Request.Context(), userID); err != nil {
 		// By default in change password we'll return 400 to display the error alert.
 		// Only if something is really bad we will redirect to error page.
 		switch {

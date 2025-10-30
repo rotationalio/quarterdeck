@@ -156,15 +156,15 @@ func (s *Server) setupRoutes() (err error) {
 		// Database Statistics
 		v1a.GET("/dbinfo", auth.Authorize(permissions.ConfigView), s.DBInfo)
 
-		// Account Management
-		accounts := v1a.Group("/accounts")
+		// User account Management
+		users := v1a.Group("/users")
 		{
-			accounts.GET("", s.ListAccounts)
-			accounts.POST("", csrf, s.CreateAccount)
-			accounts.GET("/:accountID", s.AccountDetail)
-			accounts.PUT("/:accountID", csrf, s.UpdateAccount)
-			accounts.DELETE("/:accountID", csrf, s.DeleteAccount)
-			accounts.POST("/:accountID/password", csrf, s.ChangePassword)
+			users.GET("", s.ListUsers)
+			users.POST("", csrf, s.CreateUser)
+			users.GET("/:userID", s.UserDetail)
+			users.PUT("/:userID", csrf, s.UpdateUser)
+			users.DELETE("/:userID", csrf, s.DeleteUser)
+			users.POST("/:userID/password", csrf, s.ChangePassword)
 		}
 
 		// API Key Management
