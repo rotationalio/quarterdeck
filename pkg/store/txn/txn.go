@@ -30,6 +30,7 @@ type UserTxn interface {
 	UpdateUser(*models.User) error
 	UpdatePassword(ulid.ULID, string) error
 	UpdateLastLogin(ulid.ULID, time.Time) error
+	VerifyEmail(ulid.ULID) error
 	DeleteUser(ulid.ULID) error
 }
 

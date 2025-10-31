@@ -36,6 +36,7 @@ type Tx struct {
 	OnUpdateUser      func(*models.User) error
 	OnUpdatePassword  func(ulid.ULID, string) error
 	OnUpdateLastLogin func(ulid.ULID, time.Time) error
+	OnVerifyEmail     func(ulid.ULID) error
 	OnDeleteUser      func(ulid.ULID) error
 
 	// RoleTxn Callbacks
@@ -218,6 +219,14 @@ func (tx *Tx) UpdateLastLogin(id ulid.ULID, lastLogin time.Time) error {
 		return tx.OnUpdateLastLogin(id, lastLogin)
 	}
 	panic(errors.Fmt("%s callback is not mocked", UpdateLastLogin))
+}
+
+func (tx *Tx) VerifyEmail(id ulid.ULID) error {
+	tx.calls[VerifyEmail]++
+	if tx.OnVerifyEmail != nil {
+		return tx.OnVerifyEmail(id)
+	}
+	panic(errors.Fmt("%s callback is not mocked", VerifyEmail))
 }
 
 func (tx *Tx) DeleteUser(id ulid.ULID) error {

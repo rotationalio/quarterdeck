@@ -40,6 +40,7 @@ type Store struct {
 	OnUpdateUser      func(context.Context, *models.User) error
 	OnUpdatePassword  func(context.Context, ulid.ULID, string) error
 	OnUpdateLastLogin func(context.Context, ulid.ULID, time.Time) error
+	OnVerifyEmail     func(context.Context, ulid.ULID) error
 	OnDeleteUser      func(context.Context, ulid.ULID) error
 
 	// RoleStore Callbacks
@@ -160,6 +161,7 @@ const (
 	UpdateUser      = "UpdateUser"
 	UpdatePassword  = "UpdatePassword"
 	UpdateLastLogin = "UpdateLastLogin"
+	VerifyEmail     = "VerifyEmail"
 	DeleteUser      = "DeleteUser"
 )
 
@@ -209,6 +211,14 @@ func (s *Store) UpdateLastLogin(ctx context.Context, id ulid.ULID, lastLogin tim
 		return s.OnUpdateLastLogin(ctx, id, lastLogin)
 	}
 	panic(errors.Fmt("%s callback is not mocked", UpdateLastLogin))
+}
+
+func (s *Store) VerifyEmail(ctx context.Context, id ulid.ULID) error {
+	s.calls[VerifyEmail]++
+	if s.OnVerifyEmail != nil {
+		return s.OnVerifyEmail(ctx, id)
+	}
+	panic(errors.Fmt("%s callback is not mocked", VerifyEmail))
 }
 
 func (s *Store) DeleteUser(ctx context.Context, id ulid.ULID) error {

@@ -67,6 +67,7 @@ type UserStore interface {
 	UpdateUser(context.Context, *models.User) error
 	UpdatePassword(context.Context, ulid.ULID, string) error
 	UpdateLastLogin(context.Context, ulid.ULID, time.Time) error
+	VerifyEmail(context.Context, ulid.ULID) error
 	DeleteUser(context.Context, ulid.ULID) error
 }
 
