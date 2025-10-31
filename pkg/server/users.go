@@ -24,6 +24,8 @@ import (
 	"go.rtnl.ai/x/vero"
 )
 
+// List all users or the users for a specific role. Returns summary information
+// for the users only.
 func (s *Server) ListUsers(c *gin.Context) {
 	var (
 		err        error
@@ -65,20 +67,187 @@ func (s *Server) ListUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+// Create a user via the API.
+// NOTE: Does not set a user password; the user must perform the "forgot password"
+// flow to reset their password via email.
 func (s *Server) CreateUser(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, api.Error("this endpoint not implemented yet"))
+	var (
+		user  *api.User
+		err   error
+		model *models.User
+	)
+
+	// Parse the model from the POST request
+	user = &api.User{}
+	if err = c.BindJSON(user); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusBadRequest, api.Error("could not parse user data"))
+		return
+	}
+
+	// Validate the user to be created
+	if err = user.Validate(); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusUnprocessableEntity, api.Error(err))
+		return
+	}
+
+	// Convert the API model to a database model
+	if model, err = user.Model(); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error("could not process user data"))
+		return
+	}
+
+	// Create the user
+	if err = s.store.CreateUser(c.Request.Context(), model); err != nil {
+		c.Error(errors.Fmt("could not create user: %w", err))
+		c.JSON(http.StatusInternalServerError, api.Error("could not process create user request"))
+		return
+	}
+
+	// TODO: send verification email (for now, the user can verify themselves by performing "forgot/reset" password)
+
+	// Convert the model back to an API response
+	if user, err = api.NewUser(model); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error("could not process create user request"))
+		return
+	}
+
+	// TODO: negotiate HTMX response when UI pages are implemented for users
+	c.JSON(http.StatusOK, user)
 }
 
+// Return the full user model for a specific user.
 func (s *Server) UserDetail(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, api.Error("this endpoint not implemented yet"))
+	var (
+		err    error
+		userID ulid.ULID
+		user   *models.User
+		out    *api.User
+	)
+
+	// Parse the user ID from the URL parameter
+	if userID, err = ulid.Parse(c.Param("userID")); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusNotFound, api.Error("user not found"))
+		return
+	}
+
+	// Retreive the user from DB
+	if user, err = s.store.RetrieveUser(c.Request.Context(), userID); err != nil {
+		if errors.Is(err, errors.ErrNotFound) {
+			c.JSON(http.StatusNotFound, api.Error("user not found"))
+			return
+		}
+
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error("could not process user detail request"))
+		return
+	}
+
+	// Convert the user to an API response
+	if out, err = api.NewUser(user); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error("could not process user detail request"))
+		return
+	}
+
+	// TODO: negotiate HTMX response when UI pages are implemented for users
+	c.JSON(http.StatusOK, out)
 }
 
+// Updates applicable user fields in the database.
 func (s *Server) UpdateUser(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, api.Error("this endpoint not implemented yet"))
+	var (
+		user   *api.User
+		userID ulid.ULID
+		err    error
+		model  *models.User
+	)
+
+	// Parse the model from the POST request
+	user = &api.User{}
+	if err = c.BindJSON(user); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusBadRequest, api.Error("could not parse user data"))
+		return
+	}
+
+	// Parse the user ID from the URL parameter
+	if userID, err = ulid.Parse(c.Param("userID")); err != nil {
+		c.JSON(http.StatusNotFound, api.Error("user id not found"))
+		return
+	}
+
+	// Validate the user to be updated
+	if err = user.Validate(); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusUnprocessableEntity, api.Error(err))
+		return
+	}
+
+	// Set the user ID only after validation
+	user.ID = userID
+
+	// Convert the API model to a database model
+	if model, err = user.Model(); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error("could not process user data"))
+		return
+	}
+
+	// Update the user
+	if err = s.store.UpdateUser(c.Request.Context(), model); err != nil {
+		if errors.Is(err, errors.ErrNotFound) {
+			c.JSON(http.StatusNotFound, api.Error("user not found"))
+			return
+		}
+
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error("could not process update user request"))
+		return
+	}
+
+	// Convert the model back to an API response
+	if user, err = api.NewUser(model); err != nil {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error("could not process create user request"))
+		return
+	}
+
+	// TODO: negotiate HTMX response when UI pages are implemented for users
+	c.JSON(http.StatusOK, user)
 }
 
 func (s *Server) DeleteUser(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, api.Error("this endpoint not implemented yet"))
+	var (
+		err    error
+		userID ulid.ULID
+	)
+
+	// Parse the user ID from the URL parameter
+	if userID, err = ulid.Parse(c.Param("userID")); err != nil {
+		c.JSON(http.StatusNotFound, api.Error("user not found"))
+		return
+	}
+
+	// Delete the user from the database
+	// TODO: for audit purposes we may simply want to move the user to an 'inactive' or 'deleted' status.
+	if err = s.store.DeleteUser(c.Request.Context(), userID); err != nil {
+		if errors.Is(err, errors.ErrNotFound) {
+			c.JSON(http.StatusNotFound, api.Error("user not found"))
+			return
+		}
+
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, api.Error("could not process delete user request"))
+		return
+	}
+
+	// TODO: negotiate HTMX response when UI pages are implemented for users
+	c.JSON(http.StatusOK, api.Reply{Success: true})
 }
 
 // Allows a user to change their password if they know their current one.
@@ -290,6 +459,13 @@ func (s *Server) ResetPassword(c *gin.Context) {
 
 	// Set the password for the specified user
 	if err = tx.UpdatePassword(veroToken.ResourceID.ULID, derivedKey); err != nil {
+		s.Error(c, err)
+		return
+	}
+
+	// Because we contacted the user via email to reset their password, this
+	// can count as an email verification if they are not yet verified
+	if err = tx.VerifyEmail(veroToken.ResourceID.ULID); err != nil {
 		s.Error(c, err)
 		return
 	}

@@ -112,6 +112,12 @@ func (u *User) Validate() (err error) {
 		err = ValidationError(err, ReadOnlyField("last_login"))
 	}
 
+	// TODO validate roles, if any
+
+	if u.Permissions != nil || len(u.Permissions) != 0 {
+		err = ValidationError(err, ReadOnlyField("permissions"))
+	}
+
 	if !u.Created.IsZero() {
 		err = ValidationError(err, ReadOnlyField("created"))
 	}
@@ -120,18 +126,15 @@ func (u *User) Validate() (err error) {
 		err = ValidationError(err, ReadOnlyField("modified"))
 	}
 
-	// TODO validate roles and permissions
-
 	return err
 }
 
 func (u *User) Model() (model *models.User, err error) {
 	model = &models.User{
+		Model: models.Model{ID: u.ID},
 		Name:  sql.NullString{Valid: u.Name != "", String: u.Name},
 		Email: u.Email,
 	}
-	model.ID = u.ID
-	model.SetPermissions(u.Permissions)
 
 	modelRoles := make([]*models.Role, len(u.Roles))
 	for _, role := range u.Roles {
