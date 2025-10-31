@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"net/mail"
 	"time"
 
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
@@ -47,7 +48,7 @@ func NewUser(model *models.User) (out *User, err error) {
 	if roles, err = model.Roles(); err != nil {
 		return nil, err
 	}
-	out.Roles = make([]*Role, len(roles))
+	out.Roles = make([]*Role, 0, len(roles))
 	for _, role := range roles {
 		out.Roles = append(out.Roles, &Role{
 			ID:    int(role.ID),
@@ -68,7 +69,7 @@ func NewUser(model *models.User) (out *User, err error) {
 
 func NewUserList(list *models.UserList) (out *UserList, err error) {
 	out = &UserList{
-		Users: make([]*User, len(list.Users)),
+		Users: make([]*User, 0, len(list.Users)),
 	}
 
 	if out.Page, err = NewUserPage(list.Page); err != nil {
@@ -106,15 +107,19 @@ func (u *User) Validate() (err error) {
 
 	if u.Email == "" {
 		err = ValidationError(err, MissingField("email"))
+	} else {
+		if _, perr := mail.ParseAddress(u.Email); perr != nil {
+			err = ValidationError(err, IncorrectField("email", perr.Error()))
+		}
 	}
 
 	if !u.LastLogin.IsZero() {
 		err = ValidationError(err, ReadOnlyField("last_login"))
 	}
 
-	// TODO validate roles, if any
+	// TODO validate Roles
 
-	if u.Permissions != nil || len(u.Permissions) != 0 {
+	if len(u.Permissions) != 0 {
 		err = ValidationError(err, ReadOnlyField("permissions"))
 	}
 
@@ -136,7 +141,7 @@ func (u *User) Model() (model *models.User, err error) {
 		Email: u.Email,
 	}
 
-	modelRoles := make([]*models.Role, len(u.Roles))
+	modelRoles := make([]*models.Role, 0, len(u.Roles))
 	for _, role := range u.Roles {
 		modelRoles = append(modelRoles, role.Model())
 	}
