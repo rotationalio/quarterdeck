@@ -29,7 +29,7 @@
         <div class="row">
           <div class="col-md-6 col-xl-7 mb-4">
             <!-- Note: the 'innerHTML' of this form is duplicated in the partials/profile/changePassword.html template and must be updated if this form is. -->
-            <form hx-post="/v1/accounts/{{ .UserID }}/password" hx-ext='form-json' hx-headers='{"Accept": "text/html"}'
+            <form hx-post="/v1/users/{{ .UserID }}/password" hx-ext='form-json' hx-headers='{"Accept": "text/html"}'
               hx-swap="innerHTML">
               <div class="mb-3">
                 <label class="form-label" for="current">Current password</label>
