@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	crand "crypto/rand"
 	"database/sql"
 	"math/rand/v2"
 	"net/http"
@@ -96,6 +97,13 @@ func (s *Server) CreateUser(c *gin.Context) {
 	if model, err = user.Model(); err != nil {
 		c.Error(err)
 		c.JSON(http.StatusInternalServerError, api.Error("could not process user data"))
+		return
+	}
+
+	// Set an unguessable random password for the new user (they will need to
+	// reset their password via an email verification link to login)
+	if model.Password, err = passwords.CreateDerivedKey(crand.Text()); err != nil {
+		s.Error(c, err)
 		return
 	}
 
