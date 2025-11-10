@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	crand "crypto/rand"
 	"database/sql"
 	"math/rand/v2"
 	"net/http"
@@ -22,6 +21,7 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/web/htmx"
 	"go.rtnl.ai/quarterdeck/pkg/web/scene"
 	"go.rtnl.ai/ulid"
+	"go.rtnl.ai/x/randstr"
 	"go.rtnl.ai/x/vero"
 )
 
@@ -102,7 +102,7 @@ func (s *Server) CreateUser(c *gin.Context) {
 
 	// Set an unguessable random password for the new user (they will need to
 	// reset their password via an email verification link to login)
-	if model.Password, err = passwords.CreateDerivedKey(crand.Text()); err != nil {
+	if model.Password, err = passwords.CreateDerivedKey(randstr.Password(24)); err != nil {
 		s.Error(c, err)
 		return
 	}
