@@ -238,7 +238,7 @@ func (s *TokenTestSuite) TestInvalidTokens() {
 		if genKey, ok := fields["genKey"].(bool); ok && genKey {
 			if signingMethod.Alg() == jwt.SigningMethodEdDSA.Alg() {
 				key, err := GenerateKeys()
-				require.NoError(err, "could not generate signing keys")
+				require.NoError(err, "could not generate ed25519 signing keys")
 
 				tks, err := token.SignedString(key.PrivateKey())
 				require.NoError(err, "could not sign token with generated keys")

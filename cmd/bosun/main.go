@@ -49,7 +49,7 @@ func main() {
 		},
 		{
 			Name:     "mkkey",
-			Usage:    "generate an RSA token key pair and kid (ulid) for JWT token signing",
+			Usage:    "generate an ed25519 token key pair and kid (ulid) for JWT token signing",
 			Category: "testing",
 			Action:   mkkey,
 			Flags: []cli.Flag{
