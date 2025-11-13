@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -673,13 +674,19 @@ func (s *Server) syncUserDelete(c *gin.Context, userID ulid.ULID) {
 	for _, u := range s.conf.UserSync.WebhookURLs() {
 		var (
 			req   *http.Request
+			idURL string
 			token string
 			resp  *http.Response
 			err   error
 		)
 
-		// Create a DELETE request using the userID provided
-		idURL := fmt.Sprintf("%s/%s", u.String(), userID.String())
+		// Create the URL by appending the userID onto the sync webhook url path
+		if idURL, err = url.JoinPath(u.String(), userID.String()); err != nil {
+			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msg("user sync delete: could not create sync url")
+			return
+		}
+
+		// Create a DELETE request
 		if req, err = http.NewRequestWithContext(c.Request.Context(), http.MethodDelete, idURL, nil); err != nil {
 			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msg("user sync delete: could not create new delete request")
 			return
