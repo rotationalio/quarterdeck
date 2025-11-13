@@ -73,6 +73,12 @@ type SecurityConfig struct {
 	TxtPath string `split_words:"true" required:"false" desc:"path to the security.txt file to serve at /.well-known/security.txt"`
 }
 
+// Configures user syncing. Quarterdeck will attempt to post any new or modified
+// users to each of the endpoints provided. A create/update for a user will be
+// sent via an HTTP POST with the [api.User] JSON to the endpoints, and when a
+// user is deleted the user's ID will be appended to each endpoint as a path
+// parameter and sent via an HTTP DELETE. This is a "best effort" functionality,
+// so failures will be logged but not handled at that time.
 type UserSyncConfig struct {
 	WebhookEndpoints []string `split_words:"true" required:"false" desc:"webhook endpoints for the applications that wish to recieve user sync events"`
 }
