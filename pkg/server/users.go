@@ -701,7 +701,7 @@ func (s *Server) syncUserDelete(c *gin.Context, userID ulid.ULID) {
 
 		// Do request
 		if resp, err = http.DefaultClient.Do(req); err != nil {
-			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Str("response_status", resp.Status).Msg("user sync delete: could not complete http post request")
+			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msg("user sync delete: could not complete http post request")
 			return
 		}
 	}
