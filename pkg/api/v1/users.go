@@ -13,6 +13,7 @@ type User struct {
 	ID          ulid.ULID `json:"id,omitempty"`
 	Name        string    `json:"name,omitempty"`
 	Email       string    `json:"email"`
+	Avatar      string    `json:"avatar,omitempty"`
 	LastLogin   time.Time `json:"last_login,omitempty"`
 	Roles       []*Role   `json:"roles"`
 	Permissions []string  `json:"permissions"`
@@ -39,6 +40,7 @@ func NewUser(model *models.User) (out *User, err error) {
 	out = &User{
 		ID:          model.ID,
 		Email:       model.Email,
+		Avatar:      model.Gravatar(),
 		Permissions: model.Permissions(),
 		Created:     model.Created,
 		Modified:    model.Modified,

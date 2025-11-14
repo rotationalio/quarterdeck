@@ -4,13 +4,17 @@ import (
 	"bytes"
 	"net/mail"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+	"go.rtnl.ai/commo"
 	"go.rtnl.ai/gimlet/logger"
+	"go.rtnl.ai/gimlet/ratelimit"
+	"go.rtnl.ai/gimlet/secure"
 	"go.rtnl.ai/quarterdeck/pkg/config"
 )
 
@@ -58,6 +62,7 @@ var testEnv = map[string]string{
 	"QD_EMAIL_BACKOFF_INITIAL_INTERVAL":                        "1s",
 	"QD_EMAIL_BACKOFF_MAX_INTERVAL":                            "1s",
 	"QD_EMAIL_BACKOFF_MAX_ELAPSED_TIME":                        "1s",
+	"QD_USER_SYNC_WEBHOOK_ENDPOINTS":                           "http://localhost:8000/api/v1/users/sync,https://api.example.com/syncUsers",
 }
 
 func TestConfig(t *testing.T) {
@@ -132,6 +137,8 @@ func TestConfig(t *testing.T) {
 	dur, err = time.ParseDuration(testEnv["QD_EMAIL_BACKOFF_MAX_ELAPSED_TIME"])
 	require.NoError(t, err)
 	require.Equal(t, dur, conf.Email.Backoff.MaxElapsedTime)
+	require.Len(t, conf.UserSync.WebhookEndpoints, 2)
+	require.ElementsMatch(t, strings.Split(testEnv["QD_USER_SYNC_WEBHOOK_ENDPOINTS"], ","), conf.UserSync.WebhookEndpoints)
 }
 
 func TestValidation(t *testing.T) {
@@ -231,6 +238,48 @@ func TestIsZero(t *testing.T) {
 				BindAddr:    "127.0.0.1:0",
 				LogLevel:    logger.LevelDecoder(zerolog.TraceLevel),
 				Mode:        gin.ReleaseMode,
+				RateLimit:   ratelimit.DefaultConfig,
+				Auth: config.AuthConfig{
+					Keys: map[string]string{
+						"01GECSDK5WJ7XWASQ0PMH6K41K": "testdata/01GECSDK5WJ7XWASQ0PMH6K41K.pem",
+						"01GECSJGDCDN368D0EENX23C7R": "testdata/01GECSJGDCDN368D0EENX23C7R.pem",
+					},
+					Audience:               []string{"https://example.com", "https://db.example.com"},
+					Issuer:                 "https://auth.example.com",
+					LoginURL:               "https://example.com/signin",
+					ResetPasswordURL:       "https://example.com/signout",
+					LogoutRedirect:         "https://example.com/dashboard",
+					AuthenticateRedirect:   "https://example.com/dashboard/authenticated",
+					ReauthenticateRedirect: "https://example.com/dashboard/reauthenticated",
+					LoginRedirect:          "https://example.com/login",
+					AccessTokenTTL:         24 * time.Hour,
+					RefreshTokenTTL:        48 * time.Hour,
+					TokenOverlap:           -12 * time.Hour,
+				},
+				CSRF: config.CSRFConfig{
+					CookieTTL: 5 * time.Minute,
+					Secret:    "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+				},
+				Secure: secure.Config{
+					ContentTypeNosniff:              false,
+					CrossOriginOpenerPolicy:         "noopener-allow-popups",
+					ReferrerPolicy:                  "same-origin",
+					ContentSecurityPolicy:           secure.CSPDirectives{DefaultSrc: []string{"https:"}},
+					ContentSecurityPolicyReportOnly: secure.CSPDirectives{ScriptSrc: []string{"'self'", "*.cloudflare.com"}, ReportTo: "csp-endpoint"},
+					ReportingEndpoints:              map[string]string{"csp-endpoint": "//example.com/csp-reports"},
+				},
+				Email: commo.Config{
+					Testing: false,
+					Backoff: commo.BackoffConfig{
+						Timeout:         1 * time.Second,
+						InitialInterval: 1 * time.Second,
+						MaxInterval:     1 * time.Second,
+						MaxElapsedTime:  1 * time.Second,
+					},
+				},
+				UserSync: config.UserSyncConfig{
+					WebhookEndpoints: []string{"http://localhost:8000/sync", "https://www.example.com/api/v1/sync"},
+				},
 			}
 
 			conf, err := conf.Mark()

@@ -34,12 +34,13 @@ type Config struct {
 	RateLimit    ratelimit.Config    `split_words:"true"`
 	DocsName     string              `split_words:"true" default:"quarterdeck" desc:"the display name for the API docs server in the Swagger app"`
 	SupportEmail string              `split_words:"true" default:"" desc:"an email address that a user may email for technical support, by default support@ISSUER.TLD"`
-	Database     DatabaseConfig
-	Auth         AuthConfig
-	CSRF         CSRFConfig
-	Secure       secure.Config
-	Security     SecurityConfig
-	Email        commo.Config
+	Database     DatabaseConfig      `split_words:"true"`
+	Auth         AuthConfig          `split_words:"true"`
+	CSRF         CSRFConfig          `split_words:"true"`
+	Secure       secure.Config       `split_words:"true"`
+	Security     SecurityConfig      `split_words:"true"`
+	Email        commo.Config        `split_words:"true"`
+	UserSync     UserSyncConfig      `split_words:"true"`
 	processed    bool
 }
 
@@ -72,6 +73,16 @@ type SecurityConfig struct {
 	TxtPath string `split_words:"true" required:"false" desc:"path to the security.txt file to serve at /.well-known/security.txt"`
 }
 
+// Configures user syncing. Quarterdeck will attempt to post any new or modified
+// users to each of the endpoints provided. A create/update for a user will be
+// sent via an HTTP POST with the [api.User] JSON to the endpoints, and when a
+// user is deleted the user's ID will be appended to each endpoint as a path
+// parameter and sent via an HTTP DELETE. This is a "best effort" functionality,
+// so failures will be logged but not handled at that time.
+type UserSyncConfig struct {
+	WebhookEndpoints []string `split_words:"true" required:"false" desc:"webhook endpoints for the applications that wish to recieve user sync events"`
+}
+
 func New() (conf Config, err error) {
 	if err = confire.Process(Prefix, &conf); err != nil {
 		return Config{}, err
@@ -97,6 +108,31 @@ func (c Config) Mark() (_ Config, err error) {
 	if err = c.Validate(); err != nil {
 		return c, err
 	}
+
+	if err = c.RateLimit.Validate(); err != nil {
+		return c, err
+	}
+
+	if err = c.Auth.Validate(); err != nil {
+		return c, err
+	}
+
+	if err = c.CSRF.Validate(); err != nil {
+		return c, err
+	}
+
+	if err = c.Secure.Validate(); err != nil {
+		return c, err
+	}
+
+	if err = c.Email.Validate(); err != nil {
+		return c, err
+	}
+
+	if err = c.UserSync.Validate(); err != nil {
+		return c, err
+	}
+
 	c.processed = true
 	return c, nil
 }
@@ -274,4 +310,27 @@ func (c CSRFConfig) GetSecret() []byte {
 		rand.Read(secret)
 	}
 	return secret
+}
+
+func (c UserSyncConfig) Validate() (err error) {
+	for idx, ep := range c.WebhookEndpoints {
+		if _, err := url.Parse(ep); err != nil {
+			return errors.ConfigError(err, errors.InvalidConfig("userSync", "webhookEndpoints", "url index %d is unparseable", idx))
+		}
+	}
+
+	return nil
+}
+
+// Returns the webhook endpoints as [url.URL]s.
+func (c UserSyncConfig) WebhookURLs() (urls []*url.URL) {
+	urls = make([]*url.URL, 0)
+	for _, ep := range c.WebhookEndpoints {
+		// We can ignore the error here because we have previously validated
+		// these URLs as parseable
+		u, _ := url.Parse(ep)
+		urls = append(urls, u)
+	}
+
+	return urls
 }

@@ -1,15 +1,20 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
+	"fmt"
 	"math/rand/v2"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 	"go.rtnl.ai/commo"
+	gimauth "go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
 	"go.rtnl.ai/quarterdeck/pkg/auth"
 	"go.rtnl.ai/quarterdeck/pkg/auth/passwords"
@@ -123,6 +128,9 @@ func (s *Server) CreateUser(c *gin.Context) {
 		return
 	}
 
+	// Sync user
+	s.syncUserPost(c, user, nil)
+
 	// TODO: negotiate HTMX response when UI pages are implemented for users
 	c.JSON(http.StatusOK, user)
 }
@@ -225,6 +233,9 @@ func (s *Server) UpdateUser(c *gin.Context) {
 		return
 	}
 
+	// Sync user
+	s.syncUserPost(c, user, nil)
+
 	// TODO: negotiate HTMX response when UI pages are implemented for users
 	c.JSON(http.StatusOK, user)
 }
@@ -253,6 +264,9 @@ func (s *Server) DeleteUser(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, api.Error("could not process delete user request"))
 		return
 	}
+
+	// Sync user
+	s.syncUserDelete(c, userID)
 
 	// TODO: negotiate HTMX response when UI pages are implemented for users
 	c.JSON(http.StatusOK, api.Reply{Success: true})
@@ -608,4 +622,98 @@ func (s *Server) verifyVeroToken(ctx context.Context, verification *api.URLVerif
 func SlowDown() {
 	delay := time.Duration(rand.Int64N(2000)+2500) * time.Millisecond
 	time.Sleep(delay)
+}
+
+// Syncs user create/update events with each configured webhook endpoint using a
+// HTTP POST request with the created/modified [api.User] as the JSON body. This
+// reuses the access token in the [gin.Context] to authenticate the request to
+// the endpoint. It will log all errors, but will not handle the errors. Takes
+// an optional access token to authorize the request in case it's not available
+// from another source.
+func (s *Server) syncUserPost(c *gin.Context, user *api.User, accessToken *string) {
+	for idx, u := range s.conf.UserSync.WebhookURLs() {
+		var (
+			req       *http.Request
+			bodyBytes []byte
+			token     string
+			resp      *http.Response
+			err       error
+		)
+
+		// Marshal the user into JSON bytes
+		if bodyBytes, err = json.Marshal(user); err != nil {
+			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msg("user sync post: could not marshal user to json")
+			return
+		}
+
+		// Create a POST request for JSON
+		if req, err = http.NewRequestWithContext(c.Request.Context(), http.MethodPost, u.String(), bytes.NewReader(bodyBytes)); err != nil {
+			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msg("user sync post: could not create new post request")
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		// Add authorization token
+		if accessToken == nil {
+			if token, err = gimauth.GetAccessToken(c); err != nil || token == "" {
+				log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msg("user sync post: could not attain an access token from context")
+				return
+			}
+			accessToken = &token
+		}
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", *accessToken))
+
+		// Do request
+		if resp, err = http.DefaultClient.Do(req); err != nil {
+			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msg("user sync post: could not complete http post request")
+			return
+		}
+		resp.Body.Close()
+
+		log.Debug().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msgf("user sync post: endpoint %d successful", idx)
+	}
+}
+
+// Syncs user delete events with each configured webhook endpoint using a
+// HTTP DELETE request with the deleted user's ID as a URL param. This reuses
+// the access token in the [gin.Context] to authenticate the request to the
+// endpoint. It will log all errors, but will not handle the errors.
+func (s *Server) syncUserDelete(c *gin.Context, userID ulid.ULID) {
+	for idx, u := range s.conf.UserSync.WebhookURLs() {
+		var (
+			req   *http.Request
+			idURL string
+			token string
+			resp  *http.Response
+			err   error
+		)
+
+		// Create the URL by appending the userID onto the sync webhook url path
+		if idURL, err = url.JoinPath(u.String(), userID.String()); err != nil {
+			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msg("user sync delete: could not create sync url")
+			return
+		}
+
+		// Create a DELETE request
+		if req, err = http.NewRequestWithContext(c.Request.Context(), http.MethodDelete, idURL, nil); err != nil {
+			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msg("user sync delete: could not create new delete request")
+			return
+		}
+
+		// Add authorization token
+		if token, err = gimauth.GetAccessToken(c); err != nil || token == "" {
+			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msg("user sync delete: could not attain an access token from context")
+			return
+		}
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+
+		// Do request
+		if resp, err = http.DefaultClient.Do(req); err != nil {
+			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msg("user sync delete: could not complete http post request")
+			return
+		}
+		resp.Body.Close()
+
+		log.Debug().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msgf("user sync delete: endpoint %d successful", idx)
+	}
 }
