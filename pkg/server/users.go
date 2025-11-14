@@ -129,7 +129,7 @@ func (s *Server) CreateUser(c *gin.Context) {
 	}
 
 	// Sync user
-	s.syncUserPost(c, user)
+	s.syncUserPost(c, user, nil)
 
 	// TODO: negotiate HTMX response when UI pages are implemented for users
 	c.JSON(http.StatusOK, user)
@@ -234,7 +234,7 @@ func (s *Server) UpdateUser(c *gin.Context) {
 	}
 
 	// Sync user
-	s.syncUserPost(c, user)
+	s.syncUserPost(c, user, nil)
 
 	// TODO: negotiate HTMX response when UI pages are implemented for users
 	c.JSON(http.StatusOK, user)
@@ -627,9 +627,11 @@ func SlowDown() {
 // Syncs user create/update events with each configured webhook endpoint using a
 // HTTP POST request with the created/modified [api.User] as the JSON body. This
 // reuses the access token in the [gin.Context] to authenticate the request to
-// the endpoint. It will log all errors, but will not handle the errors.
-func (s *Server) syncUserPost(c *gin.Context, user *api.User) {
-	for _, u := range s.conf.UserSync.WebhookURLs() {
+// the endpoint. It will log all errors, but will not handle the errors. Takes
+// an optional access token to authorize the request in case it's not available
+// from another source.
+func (s *Server) syncUserPost(c *gin.Context, user *api.User, accessToken *string) {
+	for idx, u := range s.conf.UserSync.WebhookURLs() {
 		var (
 			req       *http.Request
 			bodyBytes []byte
@@ -652,11 +654,14 @@ func (s *Server) syncUserPost(c *gin.Context, user *api.User) {
 		req.Header.Set("Content-Type", "application/json")
 
 		// Add authorization token
-		if token, err = gimauth.GetAccessToken(c); err != nil || token == "" {
-			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msg("user sync post: could not attain an access token from context")
-			return
+		if accessToken == nil {
+			if token, err = gimauth.GetAccessToken(c); err != nil || token == "" {
+				log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msg("user sync post: could not attain an access token from context")
+				return
+			}
+			accessToken = &token
 		}
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", *accessToken))
 
 		// Do request
 		if resp, err = http.DefaultClient.Do(req); err != nil {
@@ -664,6 +669,8 @@ func (s *Server) syncUserPost(c *gin.Context, user *api.User) {
 			return
 		}
 		resp.Body.Close()
+
+		log.Debug().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msgf("user sync post: endpoint %d successful", idx)
 	}
 }
 
@@ -672,7 +679,7 @@ func (s *Server) syncUserPost(c *gin.Context, user *api.User) {
 // the access token in the [gin.Context] to authenticate the request to the
 // endpoint. It will log all errors, but will not handle the errors.
 func (s *Server) syncUserDelete(c *gin.Context, userID ulid.ULID) {
-	for _, u := range s.conf.UserSync.WebhookURLs() {
+	for idx, u := range s.conf.UserSync.WebhookURLs() {
 		var (
 			req   *http.Request
 			idURL string
@@ -706,5 +713,7 @@ func (s *Server) syncUserDelete(c *gin.Context, userID ulid.ULID) {
 			return
 		}
 		resp.Body.Close()
+
+		log.Debug().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msgf("user sync delete: endpoint %d successful", idx)
 	}
 }

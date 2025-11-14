@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+	"github.com/rs/zerolog/log"
 	gimlet "go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/ulid"
 
@@ -141,6 +142,14 @@ func (s *Server) Login(c *gin.Context) {
 		c.Error(err)
 		c.JSON(http.StatusInternalServerError, api.Error(errors.ErrInternal))
 		return
+	}
+
+	// Sync user
+	if apiUser, err := api.NewUser(user); err != nil {
+		// Only log this error
+		log.Warn().Err(err).Str("user_id", user.ID.String()).Msg("user login sync: could not convert model user to api user for sync")
+	} else {
+		s.syncUserPost(c, apiUser, &out.AccessToken)
 	}
 
 	// Content negotiation and redirection if required.
