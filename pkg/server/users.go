@@ -663,6 +663,7 @@ func (s *Server) syncUserPost(c *gin.Context, user *api.User) {
 			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msg("user sync post: could not complete http post request")
 			return
 		}
+		resp.Body.Close()
 	}
 }
 
@@ -704,6 +705,6 @@ func (s *Server) syncUserDelete(c *gin.Context, userID ulid.ULID) {
 			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msg("user sync delete: could not complete http post request")
 			return
 		}
+		resp.Body.Close()
 	}
-
 }
