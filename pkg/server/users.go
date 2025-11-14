@@ -660,7 +660,7 @@ func (s *Server) syncUserPost(c *gin.Context, user *api.User) {
 
 		// Do request
 		if resp, err = http.DefaultClient.Do(req); err != nil {
-			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Str("response_status", resp.Status).Msg("user sync post: could not complete http post request")
+			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msg("user sync post: could not complete http post request")
 			return
 		}
 	}
