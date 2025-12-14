@@ -379,8 +379,7 @@ func (s *Server) ForgotPassword(c *gin.Context) {
 	// Send the email, also creating a verification token; if no email was provided
 	// simply redirect them to the success page to avoid leaking information.
 	if in.Email != "" {
-		ctx := c.Request.Context()
-		if err = s.sendResetPasswordEmail(ctx, in.Email); err != nil {
+		if err = s.sendResetPasswordEmail(c, in.Email); err != nil {
 			// If the user is not found, then still redirect to the success page because
 			// we don't want to leak information about whether the email address is valid.
 			// If the error is ErrTooSoon, then we want to rate limit the user without
@@ -511,7 +510,9 @@ func (s *Server) ResetPassword(c *gin.Context) {
 const resetPasswordTokenTTL = 15 * time.Minute
 
 // Send a reset password email to the user, also creating a verification token.
-func (s *Server) sendResetPasswordEmail(ctx context.Context, emailOrUserID any) (err error) {
+func (s *Server) sendResetPasswordEmail(c *gin.Context, emailOrUserID any) (err error) {
+	ctx := c.Request.Context()
+
 	// Begin a read-write transaction
 	var tx txn.Txn
 	if tx, err = s.store.Begin(ctx, &sql.TxOptions{ReadOnly: false}); err != nil {
@@ -543,10 +544,16 @@ func (s *Server) sendResetPasswordEmail(ctx context.Context, emailOrUserID any) 
 		return err
 	}
 
+	// If this is for a forwarded request, change the host
+	resetURL := s.conf.Auth.GetResetPasswordURL()
+	if forwardedHost := c.Request.Header.Get("X-Forwarded-Host"); forwardedHost != "" {
+		resetURL.Host = forwardedHost
+	}
+
 	// Create the ResetPasswordEmailData for the email builder
 	emailData := emails.ResetPasswordEmailData{
 		ContactName:  user.Name.String,
-		BaseURL:      s.conf.Auth.GetResetPasswordURL(),
+		BaseURL:      resetURL,
 		SupportEmail: s.conf.SupportEmail,
 	}
 
