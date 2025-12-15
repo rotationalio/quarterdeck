@@ -24,9 +24,9 @@ var (
 	buildDate    = pkg.BuildDate
 
 	// Authentication URLs
-	issuer            *url.URL
-	loginURL          string
-	forgotPasswordURL string
+	issuer                  *url.URL
+	loginURL                *url.URL
+	issuerForgotPasswordURL *url.URL
 )
 
 // Keys for default Scene context items
@@ -164,6 +164,6 @@ func (s Scene) APIKey() *api.APIKey {
 
 func WithConf(conf config.Config) {
 	issuer, _ = url.Parse(conf.Auth.Issuer)
-	loginURL = issuer.ResolveReference(&url.URL{Path: "/v1/login"}).String()
-	forgotPasswordURL = issuer.ResolveReference(&url.URL{Path: "/forgot-password"}).String()
+	loginURL = issuer.ResolveReference(&url.URL{Path: "/v1/login"})
+	issuerForgotPasswordURL = issuer.ResolveReference(&url.URL{Path: "/forgot-password"})
 }

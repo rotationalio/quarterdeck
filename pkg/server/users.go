@@ -379,8 +379,7 @@ func (s *Server) ForgotPassword(c *gin.Context) {
 	// Send the email, also creating a verification token; if no email was provided
 	// simply redirect them to the success page to avoid leaking information.
 	if in.Email != "" {
-		ctx := c.Request.Context()
-		if err = s.sendResetPasswordEmail(ctx, in.Email); err != nil {
+		if err = s.sendResetPasswordEmail(c, in.Email); err != nil {
 			// If the user is not found, then still redirect to the success page because
 			// we don't want to leak information about whether the email address is valid.
 			// If the error is ErrTooSoon, then we want to rate limit the user without
@@ -511,7 +510,9 @@ func (s *Server) ResetPassword(c *gin.Context) {
 const resetPasswordTokenTTL = 15 * time.Minute
 
 // Send a reset password email to the user, also creating a verification token.
-func (s *Server) sendResetPasswordEmail(ctx context.Context, emailOrUserID any) (err error) {
+func (s *Server) sendResetPasswordEmail(c *gin.Context, emailOrUserID any) (err error) {
+	ctx := c.Request.Context()
+
 	// Begin a read-write transaction
 	var tx txn.Txn
 	if tx, err = s.store.Begin(ctx, &sql.TxOptions{ReadOnly: false}); err != nil {
@@ -543,10 +544,26 @@ func (s *Server) sendResetPasswordEmail(ctx context.Context, emailOrUserID any) 
 		return err
 	}
 
+	// Change the host for validated forwarded requests, defaulting to using the
+	// Quarderdeck base URL if the 'forwarded host' is not one of the hosts in
+	// [config.Config.AllowOrigins]
+	resetURL := s.conf.Auth.GetResetPasswordURL()
+	if forwardedHost := c.Request.Header.Get("X-Forwarded-Host"); forwardedHost != "" {
+		// Validate the forwarded host against Quarderdeck's allowed origins
+		for _, origin := range s.conf.AllowOrigins {
+			if originURL, err := url.Parse(origin); err == nil { // No error
+				if originURL.Host == forwardedHost {
+					// The forwarded host is a valid origin in the config
+					resetURL.Host = forwardedHost
+				}
+			}
+		}
+	}
+
 	// Create the ResetPasswordEmailData for the email builder
 	emailData := emails.ResetPasswordEmailData{
 		ContactName:  user.Name.String,
-		BaseURL:      s.conf.Auth.GetResetPasswordURL(),
+		BaseURL:      resetURL,
 		SupportEmail: s.conf.SupportEmail,
 	}
 
