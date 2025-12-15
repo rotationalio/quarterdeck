@@ -544,10 +544,20 @@ func (s *Server) sendResetPasswordEmail(c *gin.Context, emailOrUserID any) (err 
 		return err
 	}
 
-	// If this is for a forwarded request, change the host
+	// Change the host for validated forwarded requests, defaulting to using the
+	// Quarderdeck base URL if the 'forwarded host' is not one of the hosts in
+	// [config.Config.AllowOrigins]
 	resetURL := s.conf.Auth.GetResetPasswordURL()
 	if forwardedHost := c.Request.Header.Get("X-Forwarded-Host"); forwardedHost != "" {
-		resetURL.Host = forwardedHost
+		// Validate the forwarded host against Quarderdeck's allowed origins
+		for _, origin := range s.conf.AllowOrigins {
+			if originURL, err := url.Parse(origin); err == nil { // No error
+				if originURL.Host == forwardedHost {
+					// The forwarded host is a valid origin in the config
+					resetURL.Host = forwardedHost
+				}
+			}
+		}
 	}
 
 	// Create the ResetPasswordEmailData for the email builder
