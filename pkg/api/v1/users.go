@@ -2,9 +2,11 @@ package api
 
 import (
 	"database/sql"
+	"errors"
 	"net/mail"
 	"time"
 
+	qde "go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/ulid"
 )
@@ -48,7 +50,10 @@ func NewUser(model *models.User) (out *User, err error) {
 
 	var roles []*models.Role
 	if roles, err = model.Roles(); err != nil {
-		return nil, err
+		if !errors.Is(err, qde.ErrMissingAssociation) {
+			return nil, err
+		}
+		roles = []*models.Role{}
 	}
 	out.Roles = make([]*Role, 0, len(roles))
 	for _, role := range roles {
