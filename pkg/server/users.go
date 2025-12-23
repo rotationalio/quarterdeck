@@ -131,7 +131,11 @@ func (s *Server) CreateUser(c *gin.Context) {
 	// Sync user
 	s.syncUserPost(c, user, nil)
 
-	// TODO: negotiate HTMX response when UI pages are implemented for users
+	// Send custom event if request is sent via HTMX.
+	if htmx.IsHTMXRequest(c) {
+		htmx.Trigger(c, "user-created")
+	}
+
 	c.JSON(http.StatusOK, user)
 }
 
