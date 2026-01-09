@@ -12,9 +12,9 @@ import (
 const (
 	VersionMajor         = 0
 	VersionMinor         = 8
-	VersionPatch         = 1
+	VersionPatch         = 2
 	VersionReleaseLevel  = "alpha"
-	VersionReleaseNumber = 11
+	VersionReleaseNumber = 12
 )
 
 // Set the GitVersion via -ldflags="-X 'go.rtnl.ai/quarterdeck/pkg.GitVersion=$(git rev-parse --short HEAD)'"
