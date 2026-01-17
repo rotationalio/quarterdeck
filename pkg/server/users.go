@@ -760,7 +760,7 @@ func (s *Server) sendWelcomeEmail(c *gin.Context, user *models.User) (err error)
 
 	// Create a VeroToken record for database storage
 	record := &models.VeroToken{
-		TokenType:  enum.TokenTypeResetPassword,
+		TokenType:  enum.TokenTypeTeamInvite,
 		ResourceID: ulid.NullULID{Valid: true, ULID: user.ID},
 		Email:      user.Email,
 		Expiration: time.Now().Add(welcomeEmailTokenTTL),
