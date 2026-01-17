@@ -114,6 +114,26 @@ func (s *Server) CreateUser(c *gin.Context) {
 
 	// Create the user
 	if err = s.store.CreateUser(c.Request.Context(), model); err != nil {
+		if errors.Is(err, errors.ErrAlreadyExists) {
+			// Sync the current user with this email in case it was not synced
+			// when the user was created originally.
+			var serr error
+			email := user.Email
+			if model, serr = s.store.RetrieveUser(c.Request.Context(), email); serr != nil {
+				log.Debug().Err(serr).Str("email", email).Msg("could not retrieve user for syncing")
+			}
+			if user, serr = api.NewUser(model); serr != nil {
+				log.Debug().Err(serr).Str("email", email).Msg("could not convert model user to api user for syncing")
+			}
+			s.syncUserPost(c, user, nil)
+
+			// 400 error
+			c.Error(err)
+			c.JSON(http.StatusBadRequest, api.Error(fmt.Sprintf("user already exists with email: %s", email)))
+			return
+		}
+
+		// Other errors are 500
 		c.Error(errors.Fmt("could not create user: %w", err))
 		c.JSON(http.StatusInternalServerError, api.Error("could not process create user request"))
 		return
