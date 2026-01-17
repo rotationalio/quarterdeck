@@ -147,6 +147,10 @@ func dbe(err error) error {
 		if errors.Is(sqliteErr.Code, sqlite3.ErrReadonly) {
 			return errors.ErrReadOnly
 		}
+
+		if errors.Is(sqliteErr.Code, sqlite3.ErrConstraint) && errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
+			return errors.ErrAlreadyExists
+		}
 	}
 
 	return errors.Fmt("sqlite3 error: %w", err)
