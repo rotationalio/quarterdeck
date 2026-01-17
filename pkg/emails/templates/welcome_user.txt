@@ -1,0 +1,15 @@
+Hello{{ if .ContactName }} {{ .ContactName }}{{ end }},
+
+Someone has created a new user for you.
+
+For security purposes, this password link will expire in 48 hours.
+
+To set your password, visit the following URL in your web browser:
+
+{{ .VerifyURL }}
+
+{{ if .SupportEmail }}
+If you have trouble visiting the link, please contact us at {{ .SupportEmail }}.
+{{ end }}
+
+This is an automated message sent by Rotational Quarterdeck (https://rotational.io)
