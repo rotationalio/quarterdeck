@@ -556,7 +556,7 @@ func (s *Server) sendResetPasswordEmail(c *gin.Context, emailOrUserID any) (err 
 	// [config.Config.AllowOrigins]
 	resetURL := s.conf.Auth.GetResetPasswordURL()
 	if forwardedHost := c.Request.Header.Get("X-Forwarded-Host"); forwardedHost != "" {
-		log.Debug().Str("x_forwarded_host", forwardedHost).Strs("allow_origins", s.conf.AllowOrigins).Msg("found 'X-Forwarded-Host' header")
+		log.Info().Str("x_forwarded_host", forwardedHost).Strs("allow_origins", s.conf.AllowOrigins).Msg("found 'X-Forwarded-Host' header")
 		// Validate the forwarded host against Quarderdeck's allowed origins
 		for _, origin := range s.conf.AllowOrigins {
 			if originURL, err := url.Parse(origin); err == nil { // No error
@@ -781,7 +781,7 @@ func (s *Server) sendWelcomeEmail(c *gin.Context, user *models.User) (err error)
 	// [config.Config.AllowOrigins]
 	resetURL := s.conf.Auth.GetResetPasswordURL()
 	if forwardedHost := c.Request.Header.Get("X-Forwarded-Host"); forwardedHost != "" {
-		log.Debug().Str("x_forwarded_host", forwardedHost).Strs("allow_origins", s.conf.AllowOrigins).Msg("found 'X-Forwarded-Host' header")
+		log.Info().Str("x_forwarded_host", forwardedHost).Strs("allow_origins", s.conf.AllowOrigins).Msg("found 'X-Forwarded-Host' header")
 		// Validate the forwarded host against Quarderdeck's allowed origins
 		for _, origin := range s.conf.AllowOrigins {
 			if originURL, err := url.Parse(origin); err == nil { // No error
