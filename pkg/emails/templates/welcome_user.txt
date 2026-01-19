@@ -1,10 +1,10 @@
 Hello{{ if .ContactName }} {{ .ContactName }}{{ end }},
 
-Someone has created a new user for you.
+You have been invited to join a team in Endeavor.
 
-For security purposes, this password link will expire in 48 hours.
+Accept the invitation by clicking the link below, or copying and pasting it into your browser.
 
-To set your password, visit the following URL in your web browser:
+For security purposes, this invitation will expire in 48 hours.
 
 {{ .VerifyURL }}
 
@@ -12,4 +12,4 @@ To set your password, visit the following URL in your web browser:
 If you have trouble visiting the link, please contact us at {{ .SupportEmail }}.
 {{ end }}
 
-This is an automated message sent by Rotational Quarterdeck (https://rotational.io)
+This is an automated message sent by the Endeavor Team (https://rotational.ai)

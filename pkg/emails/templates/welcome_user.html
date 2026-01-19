@@ -1,6 +1,6 @@
 {{ template "base" . }}
 
-{{ define "title" }}Welcome to Quarterdeck!{{ end }}
+{{ define "title" }}Welcome to Endeavor!{{ end }}
 {{ define "preheader" }}Here is a link to set your password.{{ end }}
 
 {{ define "content" }}
@@ -12,13 +12,13 @@
 
           <p style="margin: 0 0 16px;">Hello{{ if .ContactName }} {{ .ContactName }},{{ end }}</p>
           <p style="padding: 12px 0; margin: 0;">
-            Someone has created a new user for you.
+            You have been invited to join a team in Endeavor.
           </p>
           <p style="padding: 12px 0; margin: 0;">
-            For security purposes, this password link will expire in 48 hours.
+            Accept the invitation by clicking the button below.
           </p>
           <p style="padding: 12px 0; margin: 0;">
-            To set your password, click the button below.
+            For security purposes, this invitation will expire in 48 hours.
           </p>
         </td>
       </tr>
@@ -30,7 +30,7 @@
               <td class="button-td button-td-primary" style="border-radius: 4px; background: #55ACD8;">
                 <a class="button-a button-a-primary" href="{{ .VerifyURL }}"
                   style="background: #55ACD8; font-family: sans-serif; font-size: 16px; line-height: 20px; text-decoration: none; padding: 13px 17px; color: #ffffff; display: block; border-radius: 4px;">
-                  Set your password
+                  Join Endeavor
                 </a>
               </td>
             </tr>
@@ -56,8 +56,8 @@
       </tr>
       <tr>
         <td style="padding: 20px; font-family: sans-serif; font-size: 16px; line-height: 20px; color: #000000;">
-          <p style="margin: 0 0 16px;">This is an automated message sent by <a href="https://rotational.io">Rotational
-              Quarterdeck</a>
+          <p style="margin: 0 0 16px;">This is an automated message sent by the <a href="https://rotational.ai">Endeavor
+              Team</a>
           </p>
         </td>
       </tr>

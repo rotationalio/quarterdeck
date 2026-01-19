@@ -12,7 +12,9 @@ import (
 // ===========================================================================
 
 const (
-	WelcomeUserRE       = "Welcome to Quarterdeck"
+	// TODO: when we add organizations, use the org name here and in the
+	// templates instead of hard-coding "Endeavor"
+	WelcomeUserRE       = "Welcome to Endeavor"
 	WelcomeUserTemplate = "welcome_user"
 )
 
