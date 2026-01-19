@@ -751,7 +751,7 @@ func (s *Server) syncUserDelete(c *gin.Context, userID ulid.ULID) {
 }
 
 // Re-syncs the user with the email provided.
-func (s *Server) resyncUser(c *gin.Context, email string) (err error) {
+func (s *Server) resyncUser(c *gin.Context, email string) {
 	var (
 		model *models.User
 		user  *api.User
@@ -759,12 +759,12 @@ func (s *Server) resyncUser(c *gin.Context, email string) (err error) {
 
 	if model, err = s.store.RetrieveUser(c.Request.Context(), email); err != nil {
 		log.Warn().Err(err).Str("email", email).Msg("could not retrieve user for syncing")
-		return err
+		return
 	}
 
 	if user, err = api.NewUser(model); err != nil {
 		log.Warn().Err(err).Str("email", email).Msg("could not convert model user to api user for syncing")
-		return err
+		return
 	}
 
 	s.syncUserPost(c, user, nil)
