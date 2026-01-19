@@ -805,7 +805,7 @@ func (s *Server) sendWelcomeEmail(c *gin.Context, user *models.User) (err error)
 	// (expired) record for the user and create a new one. ErrTooSoon will
 	// enable rate limiting to make sure the user cannot spam reset password
 	// requests.
-	if err = tx.CreateResetPasswordVeroToken(record); err != nil {
+	if err = tx.CreateTeamInviteVeroToken(record); err != nil {
 		return err
 	}
 
