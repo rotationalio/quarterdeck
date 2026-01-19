@@ -755,6 +755,7 @@ func (s *Server) resyncUser(c *gin.Context, email string) {
 	var (
 		model *models.User
 		user  *api.User
+		err   error
 	)
 
 	if model, err = s.store.RetrieveUser(c.Request.Context(), email); err != nil {
