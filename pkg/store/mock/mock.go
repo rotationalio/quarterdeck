@@ -76,6 +76,7 @@ type Store struct {
 	OnUpdateVeroToken              func(context.Context, *models.VeroToken) error
 	OnDeleteVeroToken              func(context.Context, ulid.ULID) error
 	OnCreateResetPasswordVeroToken func(context.Context, *models.VeroToken) error
+	OnCreateTeamInviteVeroToken    func(context.Context, *models.VeroToken) error
 }
 
 func Open(uri *dsn.DSN) (*Store, error) {
@@ -449,6 +450,7 @@ const (
 	UpdateVeroToken              = "UpdateVeroToken"
 	DeleteVeroToken              = "DeleteVeroToken"
 	CreateResetPasswordVeroToken = "CreateResetPasswordVeroToken"
+	CreateTeamInviteVeroToken    = "CreateTeamInviteVeroToken"
 )
 
 func (s *Store) CreateVeroToken(ctx context.Context, in *models.VeroToken) error {
@@ -487,6 +489,14 @@ func (s *Store) CreateResetPasswordVeroToken(ctx context.Context, in *models.Ver
 	s.calls[CreateResetPasswordVeroToken]++
 	if s.OnCreateResetPasswordVeroToken != nil {
 		return s.OnCreateResetPasswordVeroToken(ctx, in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", CreateVeroToken))
+}
+
+func (s *Store) CreateTeamInviteVeroToken(ctx context.Context, in *models.VeroToken) error {
+	s.calls[CreateTeamInviteVeroToken]++
+	if s.OnCreateTeamInviteVeroToken != nil {
+		return s.OnCreateTeamInviteVeroToken(ctx, in)
 	}
 	panic(errors.Fmt("%s callback is not mocked", CreateVeroToken))
 }

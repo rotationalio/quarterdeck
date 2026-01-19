@@ -130,7 +130,10 @@ func (s *Server) CreateUser(c *gin.Context) {
 		return
 	}
 
-	// TODO: send verification email (for now, the user can verify themselves by performing "forgot/reset" password)
+	// Send welcome/verification email
+	if err = s.sendWelcomeEmail(c, model); err != nil {
+		log.Error().Err(err).Str("user_id", user.ID.String()).Msg("could not send user a welcome email")
+	}
 
 	// Convert the model back to an API response
 	if user, err = api.NewUser(model); err != nil {
@@ -564,6 +567,7 @@ func (s *Server) sendResetPasswordEmail(c *gin.Context, emailOrUserID any) (err 
 	// [config.Config.AllowOrigins]
 	resetURL := s.conf.Auth.GetResetPasswordURL()
 	if forwardedHost := c.Request.Header.Get("X-Forwarded-Host"); forwardedHost != "" {
+		log.Info().Str("x_forwarded_host", forwardedHost).Strs("allow_origins", s.conf.AllowOrigins).Msg("found 'X-Forwarded-Host' header")
 		// Validate the forwarded host against Quarderdeck's allowed origins
 		for _, origin := range s.conf.AllowOrigins {
 			if originURL, err := url.Parse(origin); err == nil { // No error
@@ -770,4 +774,100 @@ func (s *Server) resyncUser(c *gin.Context, email string) {
 
 	s.syncUserPost(c, user, nil)
 
+}
+
+// The default amount of time that a welcome email reset password token will
+// expire after.
+const welcomeEmailTokenTTL = 48 * time.Hour
+
+// Send a welcome email to the user, also creating a verification token.
+func (s *Server) sendWelcomeEmail(c *gin.Context, user *models.User) (err error) {
+	ctx := c.Request.Context()
+
+	// Begin a read-write transaction
+	var tx txn.Txn
+	if tx, err = s.store.Begin(ctx, &sql.TxOptions{ReadOnly: false}); err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Create a VeroToken record for database storage
+	record := &models.VeroToken{
+		TokenType:  enum.TokenTypeTeamInvite,
+		ResourceID: ulid.NullULID{Valid: true, ULID: user.ID},
+		Email:      user.Email,
+		Expiration: time.Now().Add(welcomeEmailTokenTTL),
+	}
+
+	// Create the ID in the database of the VeroToken record.
+	// NOTE: the CreateVeroToken function will return ErrTooSoon if the record
+	// already exists and is not expired; otherwise it will delete any existing
+	// (expired) record for the user and create a new one. ErrTooSoon will
+	// enable rate limiting to make sure the user cannot spam reset password
+	// requests.
+	if err = tx.CreateTeamInviteVeroToken(record); err != nil {
+		return err
+	}
+
+	// Change the host for validated forwarded requests, defaulting to using the
+	// Quarderdeck base URL if the 'forwarded host' is not one of the hosts in
+	// [config.Config.AllowOrigins]
+	resetURL := s.conf.Auth.GetResetPasswordURL()
+	if forwardedHost := c.Request.Header.Get("X-Forwarded-Host"); forwardedHost != "" {
+		log.Info().Str("x_forwarded_host", forwardedHost).Strs("allow_origins", s.conf.AllowOrigins).Msg("found 'X-Forwarded-Host' header")
+		// Validate the forwarded host against Quarderdeck's allowed origins
+		for _, origin := range s.conf.AllowOrigins {
+			if originURL, err := url.Parse(origin); err == nil { // No error
+				if originURL.Host == forwardedHost {
+					// The forwarded host is a valid origin in the config
+					resetURL.Host = forwardedHost
+				}
+			}
+		}
+	}
+
+	// Create the WelcomeUserEmailData for the email builder
+	emailData := emails.WelcomeUserEmailData{
+		ContactName:  user.Name.String,
+		BaseURL:      resetURL,
+		SupportEmail: s.conf.SupportEmail,
+	}
+
+	// Create the HMAC verification token for the VeroToken
+	var verification *vero.Token
+	if verification, err = vero.New(record.ID[:], record.Expiration); err != nil {
+		return err
+	}
+
+	// Sign the verification token
+	if emailData.Token, record.Signature, err = verification.Sign(); err != nil {
+		return err
+	}
+
+	// Update the VeroToken record in the database with the token
+	if err = tx.UpdateVeroToken(record); err != nil {
+		return err
+	}
+
+	// Build the email
+	var email *commo.Email
+	if email, err = emails.NewWelcomeUserEmail(user.Email, emailData); err != nil {
+		return err
+	}
+
+	// Send the email to the user
+	if err = email.Send(); err != nil {
+		return err
+	}
+
+	// Update the VeroToken record in the database with a SentOn timestamp
+	record.SentOn = sql.NullTime{Valid: true, Time: time.Now()}
+	if err = tx.UpdateVeroToken(record); err != nil {
+		return err
+	}
+
+	// Commit the successful transaction
+	tx.Commit()
+
+	return nil
 }
