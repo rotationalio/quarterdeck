@@ -116,6 +116,9 @@ func (s *Server) CreateUser(c *gin.Context) {
 	if err = s.store.CreateUser(c.Request.Context(), model); err != nil {
 		if errors.Is(err, errors.ErrAlreadyExists) {
 			s.resyncUser(c, user.Email)
+			// Slow down the request and send back a 400.
+			// The slow down prevents spamming this endpoint to discover users.
+			SlowDown()
 			c.Error(err)
 			c.JSON(http.StatusBadRequest, api.Error("user already exists"))
 			return
