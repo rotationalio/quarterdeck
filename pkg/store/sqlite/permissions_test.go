@@ -352,7 +352,7 @@ func (s *storeTestSuite) TestCreatePermission() {
 		}
 		require := s.Require()
 		err := s.db.CreatePermission(s.Context(), perm)
-		require.EqualError(err, "sqlite3 error: UNIQUE constraint failed: permissions.title")
+		require.ErrorIs(err, errors.ErrAlreadyExists)
 	})
 
 }

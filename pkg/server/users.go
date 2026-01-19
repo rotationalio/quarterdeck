@@ -115,21 +115,9 @@ func (s *Server) CreateUser(c *gin.Context) {
 	// Create the user
 	if err = s.store.CreateUser(c.Request.Context(), model); err != nil {
 		if errors.Is(err, errors.ErrAlreadyExists) {
-			// Sync the current user with this email in case it was not synced
-			// when the user was created originally.
-			var serr error
-			email := user.Email
-			if model, serr = s.store.RetrieveUser(c.Request.Context(), email); serr != nil {
-				log.Debug().Err(serr).Str("email", email).Msg("could not retrieve user for syncing")
-			}
-			if user, serr = api.NewUser(model); serr != nil {
-				log.Debug().Err(serr).Str("email", email).Msg("could not convert model user to api user for syncing")
-			}
-			s.syncUserPost(c, user, nil)
-
-			// 400 error
+			s.resyncUser(c, user.Email)
 			c.Error(err)
-			c.JSON(http.StatusBadRequest, api.Error(fmt.Sprintf("user already exists with email: %s", email)))
+			c.JSON(http.StatusBadRequest, api.Error("user already exists"))
 			return
 		}
 
@@ -757,4 +745,30 @@ func (s *Server) syncUserDelete(c *gin.Context, userID ulid.ULID) {
 
 		log.Debug().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msgf("user sync delete: endpoint %d successful", idx)
 	}
+}
+
+// Re-syncs the user with the email provided if the user exists, otherwise does
+// nothing.
+func (s *Server) resyncUser(c *gin.Context, email string) (err error) {
+	var (
+		model *models.User
+		user  *api.User
+	)
+
+	if model, err = s.store.RetrieveUser(c.Request.Context(), email); err != nil {
+		if errors.Is(err, errors.ErrNotFound) {
+			return nil
+		}
+		log.Debug().Err(err).Str("email", email).Msg("could not retrieve user for syncing")
+		return err
+	}
+
+	if user, err = api.NewUser(model); err != nil {
+		log.Debug().Err(err).Str("email", email).Msg("could not convert model user to api user for syncing")
+		return err
+	}
+
+	s.syncUserPost(c, user, nil)
+
+	return nil
 }

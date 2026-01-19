@@ -127,7 +127,7 @@ func (s *storeTestSuite) TestCreateAPIKey() {
 		}
 
 		err := s.db.CreateAPIKey(s.Context(), key)
-		s.Require().EqualError(err, "sqlite3 error: UNIQUE constraint failed: api_keys.client_id", "should not allow creating API key with duplicate client ID")
+		s.Require().ErrorIs(err, errors.ErrAlreadyExists, "should not allow creating API key with duplicate client ID")
 	})
 }
 
