@@ -114,6 +114,17 @@ func (s *Server) CreateUser(c *gin.Context) {
 
 	// Create the user
 	if err = s.store.CreateUser(c.Request.Context(), model); err != nil {
+		if errors.Is(err, errors.ErrAlreadyExists) {
+			s.resyncUser(c, user.Email)
+			// Slow down the request and send back a 400.
+			// The slow down prevents spamming this endpoint to discover users.
+			SlowDown()
+			c.Error(err)
+			c.JSON(http.StatusBadRequest, api.Error("user already exists"))
+			return
+		}
+
+		// Other errors are 500
 		c.Error(errors.Fmt("could not create user: %w", err))
 		c.JSON(http.StatusInternalServerError, api.Error("could not process create user request"))
 		return
@@ -741,6 +752,28 @@ func (s *Server) syncUserDelete(c *gin.Context, userID ulid.ULID) {
 
 		log.Debug().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msgf("user sync delete: endpoint %d successful", idx)
 	}
+}
+
+// Re-syncs the user with the email provided.
+func (s *Server) resyncUser(c *gin.Context, email string) {
+	var (
+		model *models.User
+		user  *api.User
+		err   error
+	)
+
+	if model, err = s.store.RetrieveUser(c.Request.Context(), email); err != nil {
+		log.Warn().Err(err).Str("email", email).Msg("could not retrieve user for syncing")
+		return
+	}
+
+	if user, err = api.NewUser(model); err != nil {
+		log.Warn().Err(err).Str("email", email).Msg("could not convert model user to api user for syncing")
+		return
+	}
+
+	s.syncUserPost(c, user, nil)
+
 }
 
 // The default amount of time that a welcome email reset password token will

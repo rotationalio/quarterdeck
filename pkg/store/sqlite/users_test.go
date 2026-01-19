@@ -117,7 +117,7 @@ func (s *storeTestSuite) TestCreateUser() {
 			Password: "$argon2id$v=19$m=65536,t=1,p=2$nXCe+4HPx0YfO/BMRTtePQ==$vRxaszj/Y4NtfqL7DYDKp3zILXuAnEpzxCtCAc1fdTk=",
 		}
 		err := s.db.CreateUser(s.Context(), user)
-		s.Require().EqualError(err, "sqlite3 error: UNIQUE constraint failed: users.email", "should not allow creating user with duplicate email")
+		s.Require().ErrorIs(err, errors.ErrAlreadyExists, "should not allow creating user with duplicate email")
 	})
 }
 
