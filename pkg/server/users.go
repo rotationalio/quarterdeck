@@ -769,5 +769,4 @@ func (s *Server) resyncUser(c *gin.Context, email string) {
 
 	s.syncUserPost(c, user, nil)
 
-	return nil
 }
