@@ -177,6 +177,12 @@ func (s *Server) setupRoutes() (err error) {
 			apikeys.DELETE("/:keyID", csrf, s.DeleteAPIKey)
 			apikeys.GET("/:keyID/edit", s.UpdateAPIKeyPreview)
 		}
+
+		// OIDC Endpoints
+		oidc := v1a.Group("oidc")
+		{
+			oidc.GET("/userinfo", s.UserInfo)
+		}
 	}
 
 	return nil
