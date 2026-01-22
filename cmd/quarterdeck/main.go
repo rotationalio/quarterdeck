@@ -21,6 +21,7 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/store"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/ulid"
+	"go.rtnl.ai/x/randstr"
 	"golang.org/x/term"
 )
 
@@ -61,9 +62,28 @@ func main() {
 			},
 		},
 		{
+			Name:     "mkkey",
+			Usage:    "generate an ed25519 token key pair and kid (ulid) for JWT token signing",
+			Category: "service",
+			Action:   mkkey,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:    "out",
+					Aliases: []string{"o"},
+					Usage:   "path to write keys out to (optional, will be saved as [kid].pem by default)",
+				},
+				&cli.IntFlag{
+					Name:    "size",
+					Aliases: []string{"s"},
+					Usage:   "number of bits for the generated keys",
+					Value:   4096,
+				},
+			},
+		},
+		{
 			Name:     "createuser",
 			Usage:    "create a new user to access Quarterdeck with",
-			Category: "admin",
+			Category: "users",
 			Before:   openDB,
 			Action:   createUser,
 			After:    closeDB,
@@ -87,21 +107,23 @@ func main() {
 			},
 		},
 		{
-			Name:     "mkkey",
-			Usage:    "generate an ed25519 token key pair and kid (ulid) for JWT token signing",
-			Category: "admin",
-			Action:   mkkey,
+			Name:     "resetpassword",
+			Usage:    "reset a user's password and print new password to console",
+			Category: "users",
+			Before:   openDB,
+			Action:   resetPassword,
+			After:    closeDB,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
-					Name:    "out",
-					Aliases: []string{"o"},
-					Usage:   "path to write keys out to (optional, will be saved as [kid].pem by default)",
+					Name:     "email",
+					Aliases:  []string{"e"},
+					Required: true,
+					Usage:    "email address of user to reset password for",
 				},
-				&cli.IntFlag{
-					Name:    "size",
-					Aliases: []string{"s"},
-					Usage:   "number of bits for the generated keys",
-					Value:   4096,
+				&cli.BoolFlag{
+					Name:    "generate",
+					Aliases: []string{"g"},
+					Usage:   "generate a random password instead of prompting for one",
 				},
 			},
 		},
@@ -147,8 +169,32 @@ func usage(c *cli.Context) (err error) {
 	return nil
 }
 
+func mkkey(c *cli.Context) (err error) {
+	// Create ULID and determine outpath
+	keyid := ulid.Make()
+
+	var out string
+	if out = c.String("out"); out == "" {
+		out = fmt.Sprintf("%s.pem", keyid)
+	}
+
+	// Generate Signing Key Pair using Signing Key algorithm currently in use.
+	var keypair auth.SigningKey
+	if keypair, err = auth.GenerateKeys(); err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	// Save the keypair to the specified file in PEM format.
+	if err = keypair.Dump(out); err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	fmt.Printf("signing key id: %s -- saved with PEM encoding to %s\n", keyid, out)
+	return nil
+}
+
 //===========================================================================
-// Admin Commands
+// User Commands
 //===========================================================================
 
 func createUser(c *cli.Context) (err error) {
@@ -202,27 +248,48 @@ func createUser(c *cli.Context) (err error) {
 	return nil
 }
 
-func mkkey(c *cli.Context) (err error) {
-	// Create ULID and determine outpath
-	keyid := ulid.Make()
-
-	var out string
-	if out = c.String("out"); out == "" {
-		out = fmt.Sprintf("%s.pem", keyid)
-	}
-
-	// Generate Signing Key Pair using Signing Key algorithm currently in use.
-	var keypair auth.SigningKey
-	if keypair, err = auth.GenerateKeys(); err != nil {
+func resetPassword(c *cli.Context) (err error) {
+	// Retrieve the user by email
+	var user *models.User
+	if user, err = db.RetrieveUser(c.Context, c.String("email")); err != nil {
+		if errors.Is(err, errors.ErrNotFound) {
+			return cli.Exit(fmt.Errorf("user with email %q does not exist", c.String("email")), 1)
+		}
 		return cli.Exit(err, 1)
 	}
 
-	// Save the keypair to the specified file in PEM format.
-	if err = keypair.Dump(out); err != nil {
+	var (
+		pwdk     string
+		password string
+	)
+
+	if c.Bool("generate") {
+		// Generate a random password
+		password = randstr.AlphaNumeric(16)
+	} else {
+		// Prompt for a new password
+		if password, err = inputPassword(); err != nil {
+			return cli.Exit(err, 1)
+		}
+	}
+
+	// Create the derived password key
+	if pwdk, err = passwords.CreateDerivedKey(password); err != nil {
 		return cli.Exit(err, 1)
 	}
 
-	fmt.Printf("signing key id: %s -- saved with PEM encoding to %s\n", keyid, out)
+	// Save the user to the database
+	if err = db.UpdatePassword(c.Context, user.ID, pwdk); err != nil {
+		return cli.Exit(err, 1)
+	}
+
+	// Notify the user that the operation is complete.
+	if c.Bool("generate") {
+		fmt.Printf("new password for %q is: %s\n", user.Email, password)
+	} else {
+		fmt.Printf("password for %q has been reset\n", user.Email)
+	}
+
 	return nil
 }
 
