@@ -70,4 +70,5 @@ type VeroTokenTxn interface {
 	UpdateVeroToken(*models.VeroToken) error
 	DeleteVeroToken(ulid.ULID) error
 	CreateResetPasswordVeroToken(*models.VeroToken) error
+	CreateTeamInviteVeroToken(*models.VeroToken) error
 }

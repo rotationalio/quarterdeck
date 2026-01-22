@@ -224,3 +224,72 @@ func (tx *Tx) CreateResetPasswordVeroToken(token *models.VeroToken) (err error) 
 
 	return nil
 }
+
+// Creates a [models.VeroToken] of the type [enum.TokenTypeTeamInvite]
+// ensuring that there is at most one unexpired team invite token for a user.
+func (s *Store) CreateTeamInviteVeroToken(ctx context.Context, token *models.VeroToken) (err error) {
+	var tx *Tx
+	if tx, err = s.BeginTx(ctx, nil); err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err = tx.CreateTeamInviteVeroToken(token); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// Creates a [models.VeroToken] of the type [enum.TokenTypeTeamInvite]
+// ensuring that there is at most one unexpired team invite token for a user.
+func (tx *Tx) CreateTeamInviteVeroToken(token *models.VeroToken) (err error) {
+	// Check that there is no ID, but we do not need to create the ID or set
+	// the Created/Modified times because those will be done in CreateVeroToken
+	// at the end of this function.
+	if !token.ID.IsZero() {
+		return errors.ErrNoIDOnCreate
+	}
+
+	// Ensure the token type is for reset password
+	if token.TokenType != enum.TokenTypeTeamInvite {
+		return errors.ErrTypeMismatch
+	}
+
+	// Ensure the resource ID is set
+	if !token.ResourceID.Valid || (token.ResourceID.ULID == ulid.Zero) {
+		return errors.ErrMissingReference
+	}
+
+	// Get any existing team invite tokens
+	existing := &models.VeroToken{}
+	if err = existing.Scan(tx.QueryRow(
+		retrieveResetPasswordTokenSQL,
+		sql.Named("resourceID", token.ResourceID),
+		sql.Named("tokenType", enum.TokenTypeTeamInvite),
+	)); err != nil {
+		if err != sql.ErrNoRows {
+			return dbe(err)
+		}
+	}
+
+	// Ensure any current token is not expired
+	if !existing.Expiration.IsZero() {
+		// If the existing link is not expired, then return ErrTooSoon
+		if !existing.IsExpired() {
+			return errors.ErrTooSoon
+		}
+
+		// Delete the existing token if it is expired
+		if err = tx.DeleteVeroToken(existing.ID); err != nil {
+			return err
+		}
+	}
+
+	// Create the token
+	if err = tx.CreateVeroToken(token); err != nil {
+		return err
+	}
+
+	return nil
+}

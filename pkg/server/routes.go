@@ -177,6 +177,16 @@ func (s *Server) setupRoutes() (err error) {
 			apikeys.DELETE("/:keyID", csrf, s.DeleteAPIKey)
 			apikeys.GET("/:keyID/edit", s.UpdateAPIKeyPreview)
 		}
+
+		// OIDC Endpoints
+		oidc := v1a.Group("oidc")
+		{
+			// OIDC UserInfo endpoint.
+			// See: https://openid.net/specs/openid-connect-core-1_0.html#UserInfo
+			// NOTE: Requires both POST and GET per the spec
+			oidc.GET("/userinfo", s.UserInfo)
+			oidc.POST("/userinfo", s.UserInfo)
+		}
 	}
 
 	return nil

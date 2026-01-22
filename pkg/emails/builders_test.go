@@ -9,6 +9,19 @@ import (
 	"go.rtnl.ai/x/vero"
 )
 
+func TestVerifyWelcomeUserURL(t *testing.T) {
+	invite := emails.WelcomeUserEmailData{
+		BaseURL: &url.URL{
+			Scheme: "https",
+			Host:   "resetpassword.example.com",
+			Path:   "/reset-password",
+		},
+		Token: vero.VerificationToken("abc123"),
+	}
+
+	require.Equal(t, "https://resetpassword.example.com/reset-password?token=YWJjMTIz", invite.VerifyURL())
+}
+
 func TestVerifyResetPasswordURL(t *testing.T) {
 	invite := emails.ResetPasswordEmailData{
 		BaseURL: &url.URL{
