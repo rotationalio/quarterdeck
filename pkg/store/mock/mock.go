@@ -77,6 +77,13 @@ type Store struct {
 	OnDeleteVeroToken              func(context.Context, ulid.ULID) error
 	OnCreateResetPasswordVeroToken func(context.Context, *models.VeroToken) error
 	OnCreateTeamInviteVeroToken    func(context.Context, *models.VeroToken) error
+
+	// Application callbacks
+	OnListApplications    func(context.Context, *models.Page) (*models.ApplicationList, error)
+	OnCreateApplication   func(context.Context, *models.Application) error
+	OnRetrieveApplication func(ctx context.Context, ulidOrClientID any) (*models.Application, error)
+	OnUpdateApplication   func(context.Context, *models.Application) error
+	OnDeleteApplication   func(ctx context.Context, ulidOrClientID any) error
 }
 
 func Open(uri *dsn.DSN) (*Store, error) {
@@ -499,4 +506,56 @@ func (s *Store) CreateTeamInviteVeroToken(ctx context.Context, in *models.VeroTo
 		return s.OnCreateTeamInviteVeroToken(ctx, in)
 	}
 	panic(errors.Fmt("%s callback is not mocked", CreateVeroToken))
+}
+
+//===========================================================================
+// ApplicationStore
+//===========================================================================
+
+const (
+	ListApplications    = "ListApplications"
+	CreateApplication   = "CreateApplication"
+	RetrieveApplication = "RetrieveApplication"
+	UpdateApplication   = "UpdateApplication"
+	DeleteApplication   = "DeleteApplication"
+)
+
+func (s *Store) ListApplications(ctx context.Context, in *models.Page) (*models.ApplicationList, error) {
+	s.calls[ListApplications]++
+	if s.OnListApplications != nil {
+		return s.OnListApplications(ctx, in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", ListApplications))
+}
+
+func (s *Store) CreateApplication(ctx context.Context, in *models.Application) error {
+	s.calls[CreateApplication]++
+	if s.OnCreateApplication != nil {
+		return s.OnCreateApplication(ctx, in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", CreateApplication))
+}
+
+func (s *Store) RetrieveApplication(ctx context.Context, in any) (*models.Application, error) {
+	s.calls[RetrieveApplication]++
+	if s.OnRetrieveApplication != nil {
+		return s.OnRetrieveApplication(ctx, in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RetrieveApplication))
+}
+
+func (s *Store) UpdateApplication(ctx context.Context, in *models.Application) error {
+	s.calls[UpdateApplication]++
+	if s.OnUpdateApplication != nil {
+		return s.OnUpdateApplication(ctx, in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", UpdateApplication))
+}
+
+func (s *Store) DeleteApplication(ctx context.Context, in any) error {
+	s.calls[DeleteApplication]++
+	if s.OnDeleteApplication != nil {
+		return s.OnDeleteApplication(ctx, in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", DeleteApplication))
 }

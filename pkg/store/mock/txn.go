@@ -73,6 +73,13 @@ type Tx struct {
 	OnDeleteVeroToken              func(ulid.ULID) error
 	OnCreateResetPasswordVeroToken func(*models.VeroToken) error
 	OnCreateTeamInviteVeroToken    func(*models.VeroToken) error
+
+	// Application callbacks
+	OnListApplications    func(*models.Page) (*models.ApplicationList, error)
+	OnCreateApplication   func(*models.Application) error
+	OnRetrieveApplication func(ulidOrClientID any) (*models.Application, error)
+	OnUpdateApplication   func(*models.Application) error
+	OnDeleteApplication   func(ulidOrClientID any) error
 }
 
 //===========================================================================
@@ -468,4 +475,48 @@ func (tx *Tx) CreateTeamInviteVeroToken(in *models.VeroToken) error {
 		return tx.OnCreateTeamInviteVeroToken(in)
 	}
 	panic(errors.Fmt("%s callback is not mocked", CreateResetPasswordVeroToken))
+}
+
+//===========================================================================
+// ApplicationStore
+//===========================================================================
+
+func (t *Tx) ListApplications(in *models.Page) (*models.ApplicationList, error) {
+	t.calls[ListApplications]++
+	if t.OnListApplications != nil {
+		return t.OnListApplications(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", ListApplications))
+}
+
+func (t *Tx) CreateApplication(in *models.Application) error {
+	t.calls[CreateApplication]++
+	if t.OnCreateApplication != nil {
+		return t.OnCreateApplication(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", CreateApplication))
+}
+
+func (t *Tx) RetrieveApplication(in any) (*models.Application, error) {
+	t.calls[RetrieveApplication]++
+	if t.OnRetrieveApplication != nil {
+		return t.OnRetrieveApplication(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RetrieveApplication))
+}
+
+func (t *Tx) UpdateApplication(in *models.Application) error {
+	t.calls[UpdateApplication]++
+	if t.OnUpdateApplication != nil {
+		return t.OnUpdateApplication(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", UpdateApplication))
+}
+
+func (t *Tx) DeleteApplication(in any) error {
+	t.calls[DeleteApplication]++
+	if t.OnDeleteApplication != nil {
+		return t.OnDeleteApplication(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", DeleteApplication))
 }

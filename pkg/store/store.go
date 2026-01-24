@@ -53,6 +53,7 @@ type Store interface {
 	PermissionStore
 	APIKeyStore
 	VeroTokenStore
+	ApplicationStore
 }
 
 // The Stats interface exposes database statistics if it is available from the backend.
@@ -108,4 +109,12 @@ type VeroTokenStore interface {
 	DeleteVeroToken(context.Context, ulid.ULID) error
 	CreateResetPasswordVeroToken(context.Context, *models.VeroToken) error
 	CreateTeamInviteVeroToken(context.Context, *models.VeroToken) error
+}
+
+type ApplicationStore interface {
+	ListApplications(context.Context, *models.Page) (*models.ApplicationList, error)
+	CreateApplication(context.Context, *models.Application) error
+	RetrieveApplication(ctx context.Context, ulidOrClientID any) (*models.Application, error)
+	UpdateApplication(context.Context, *models.Application) error
+	DeleteApplication(ctx context.Context, ulidOrClientID any) error
 }

@@ -21,6 +21,7 @@ type Txn interface {
 	PermissionTxn
 	APIKeyTxn
 	VeroTokenTxn
+	ApplicationTxn
 }
 
 type UserTxn interface {
@@ -71,4 +72,12 @@ type VeroTokenTxn interface {
 	DeleteVeroToken(ulid.ULID) error
 	CreateResetPasswordVeroToken(*models.VeroToken) error
 	CreateTeamInviteVeroToken(*models.VeroToken) error
+}
+
+type ApplicationTxn interface {
+	ListApplications(*models.Page) (*models.ApplicationList, error)
+	CreateApplication(*models.Application) error
+	RetrieveApplication(ulidOrClientID any) (*models.Application, error)
+	UpdateApplication(*models.Application) error
+	DeleteApplication(ulidOrClientID any) error
 }
