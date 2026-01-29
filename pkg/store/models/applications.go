@@ -7,14 +7,15 @@ import (
 
 type Application struct {
 	Model
-	DisplayName          string // Application's display name
-	OrgDisplayName       string // Organization's name that owns the application
-	SupportEmail         string // Support email for the application
-	ClientID             string // ID for the application for OIDC use
-	ClientSecret         string // Secret for the application for OIDC use
-	NewUserEmailTemplate string // Go template string for new user emails //FIXME: add to db table and funcs
-	baseURL              string // Application's base URL; all other paths are appended to this base
-	oidcRedirectPath     string // OIDC login redirect path for this application
+	DisplayName              string // Application's display name
+	OrgDisplayName           string // Organization's display name that owns the application
+	SupportEmail             string // Support email for the application
+	ClientID                 string // ID for the application for OIDC use
+	ClientSecret             string // Secret for the application for OIDC use
+	NewUserEmailTemplateHTML string // Go template string for new user emails (HTML) //FIXME: add to db table and funcs
+	NewUserEmailTemplateText string // Go template string for new user emails (text only) //FIXME: add to db table and funcs
+	baseURL                  string // Application's base URL; all other paths are appended to this base
+	oidcRedirectPath         string // OIDC login redirect path for this application
 }
 
 type ApplicationList struct {

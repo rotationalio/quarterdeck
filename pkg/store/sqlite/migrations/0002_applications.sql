@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS applications (
     support_email TEXT NOT NULL,
     client_id TEXT NOT NULL UNIQUE,
     client_secret TEXT NOT NULL UNIQUE,
+    new_user_email_template_html TEXT NOT NULL,
+    new_user_email_template_text TEXT NOT NULL,
     base_url TEXT NOT NULL UNIQUE,
     oidc_redirect_path TEXT NOT NULL,
     created DATETIME NOT NULL,

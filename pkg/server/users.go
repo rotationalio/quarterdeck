@@ -831,6 +831,7 @@ func (s *Server) sendWelcomeEmail(c *gin.Context, user *models.User) (err error)
 		ContactName:  user.Name.String,
 		BaseURL:      resetURL,
 		SupportEmail: s.conf.SupportEmail,
+		App:          nil, //FIXME get the app for here
 	}
 
 	// Create the HMAC verification token for the VeroToken

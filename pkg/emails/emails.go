@@ -1,10 +1,15 @@
 package emails
 
 import (
+	"context"
 	"embed"
 	"html/template"
 	"io/fs"
+	"maps"
 	"path/filepath"
+
+	"go.rtnl.ai/quarterdeck/pkg/store"
+	"go.rtnl.ai/quarterdeck/pkg/store/models"
 )
 
 const (
@@ -18,8 +23,17 @@ const (
 //go:embed templates/*.html templates/*.txt templates/partials/*html
 var files embed.FS
 
-// Load templates
-func LoadTemplates() (templates map[string]*template.Template) {
+// Load all templates
+func LoadTemplates(store store.Store) (templates map[string]*template.Template, err error) {
+	if templates, err = LoadApplicationTemplates(store); err != nil {
+		return nil, err
+	}
+	maps.Copy(templates, LoadEmbeddedTemplates())
+	return templates, nil
+}
+
+// Load embedded templates
+func LoadEmbeddedTemplates() (templates map[string]*template.Template) {
 	var (
 		err           error
 		templateFiles []fs.DirEntry
@@ -49,4 +63,21 @@ func LoadTemplates() (templates map[string]*template.Template) {
 	}
 
 	return templates
+}
+
+// Load [models.Application] templates
+func LoadApplicationTemplates(store store.Store) (templates map[string]*template.Template, err error) {
+	var apps *models.ApplicationList
+	if apps, err = store.ListApplications(context.Background(), &models.Page{}); err != nil {
+		return nil, err
+	}
+
+	templates = make(map[string]*template.Template)
+	for _, app := range apps.Applications {
+		// Using `app.ClientID` as the "file name" since it is unique for each app
+		templates[app.ClientID+".html"] = template.Must(template.New(app.DisplayName).Parse(app.NewUserEmailTemplateHTML))
+		templates[app.ClientID+".txt"] = template.Must(template.New(app.DisplayName).Parse(app.NewUserEmailTemplateText))
+	}
+
+	return templates, nil
 }

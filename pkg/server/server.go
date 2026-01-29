@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"html/template"
 	"net"
 	"net/http"
 	"net/url"
@@ -83,9 +84,6 @@ func New(conf config.Config) (s *Server, err error) {
 	// Configure the scene for handling templates
 	scene.WithConf(conf)
 
-	// Initialize commo for email sending
-	commo.Initialize(conf.Email, emails.LoadTemplates())
-
 	// Create a new server instance and prepare to serve.
 	s = &Server{
 		conf: conf,
@@ -96,6 +94,13 @@ func New(conf config.Config) (s *Server, err error) {
 	if s.store, err = store.Open(conf.Database); err != nil {
 		return nil, err
 	}
+
+	// Initialize commo for email sending
+	var templates map[string]*template.Template
+	if templates, err = emails.LoadTemplates(s.store); err != nil {
+		return nil, err
+	}
+	commo.Initialize(conf.Email, templates)
 
 	// Initialize the claims issuer for JWT tokens.
 	if s.issuer, err = auth.NewIssuer(conf.Auth); err != nil {
