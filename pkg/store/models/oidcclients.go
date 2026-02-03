@@ -174,6 +174,17 @@ func (k *OIDCClient) Params() []any {
 func (k *OIDCClient) Validate() error {
 	var errs []error
 
+	// Required persistence fields
+	if k.ClientID == "" {
+		errs = append(errs, fmt.Errorf("client_id: required"))
+	}
+	if k.Secret == "" {
+		errs = append(errs, fmt.Errorf("secret: required"))
+	}
+	if k.CreatedBy.IsZero() {
+		errs = append(errs, fmt.Errorf("created_by: required"))
+	}
+
 	// redirect_uris: REQUIRED; at least one; each must be valid URL; web: https, no localhost (unless debug)
 	if len(k.RedirectURIs) == 0 {
 		errs = append(errs, fmt.Errorf("redirect_uris: at least one redirect URI is required"))

@@ -226,6 +226,9 @@ func TestOIDCClientValidate(t *testing.T) {
 
 	t.Run("ValidMinimal", func(t *testing.T) {
 		client := &OIDCClient{
+			ClientID:     "minimal-client-id",
+			Secret:       "minimal-secret",
+			CreatedBy:    ulid.MakeSecure(),
 			RedirectURIs: []string{"https://app.example.com/oauth/cb"},
 		}
 		require.NoError(t, client.Validate())
@@ -285,6 +288,9 @@ func TestOIDCClientValidate(t *testing.T) {
 		gin.SetMode(gin.DebugMode)
 		defer gin.SetMode(gin.TestMode)
 		client := &OIDCClient{
+			ClientID:     "debug-client",
+			Secret:       "secret",
+			CreatedBy:    ulid.MakeSecure(),
 			RedirectURIs: []string{"http://example.com/cb"},
 		}
 		require.NoError(t, client.Validate())
@@ -294,6 +300,9 @@ func TestOIDCClientValidate(t *testing.T) {
 		gin.SetMode(gin.DebugMode)
 		defer gin.SetMode(gin.TestMode)
 		client := &OIDCClient{
+			ClientID:     "debug-client",
+			Secret:       "secret",
+			CreatedBy:    ulid.MakeSecure(),
 			RedirectURIs: []string{"https://localhost/cb", "http://127.0.0.1:3000/callback", "http://[::1]/cb"},
 		}
 		require.NoError(t, client.Validate())
@@ -303,6 +312,9 @@ func TestOIDCClientValidate(t *testing.T) {
 		gin.SetMode(gin.DebugMode)
 		defer gin.SetMode(gin.TestMode)
 		client := &OIDCClient{
+			ClientID:     "debug-client",
+			Secret:       "secret",
+			CreatedBy:    ulid.MakeSecure(),
 			RedirectURIs: []string{"http://localhost:3000/oauth/callback"},
 		}
 		require.NoError(t, client.Validate())

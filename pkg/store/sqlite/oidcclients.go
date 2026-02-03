@@ -54,8 +54,8 @@ func (tx *Tx) CreateOIDCClient(client *models.OIDCClient) (err error) {
 		return errors.ErrNoIDOnCreate
 	}
 
-	if client.ClientID == "" || client.Secret == "" || client.CreatedBy.IsZero() {
-		return errors.ErrZeroValuedNotNull
+	if err = client.Validate(); err != nil {
+		return err
 	}
 
 	client.ID = ulid.MakeSecure()
@@ -114,6 +114,10 @@ const (
 func (tx *Tx) UpdateOIDCClient(client *models.OIDCClient) (err error) {
 	if client.ID.IsZero() {
 		return errors.ErrMissingID
+	}
+
+	if err = client.Validate(); err != nil {
+		return err
 	}
 
 	client.Modified = time.Now()
