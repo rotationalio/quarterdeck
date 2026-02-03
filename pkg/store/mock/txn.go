@@ -66,6 +66,14 @@ type Tx struct {
 	OnRevokeAPIKey               func(ulid.ULID) error
 	OnDeleteAPIKey               func(ulid.ULID) error
 
+	// OIDCClientTxn Callbacks
+	OnListOIDCClients    func(*models.Page) (*models.OIDCClientList, error)
+	OnCreateOIDCClient   func(*models.OIDCClient) error
+	OnRetrieveOIDCClient func(any) (*models.OIDCClient, error)
+	OnUpdateOIDCClient   func(*models.OIDCClient) error
+	OnRevokeOIDCClient   func(ulid.ULID) error
+	OnDeleteOIDCClient   func(ulid.ULID) error
+
 	// VeroTokenTxn Callbacks
 	OnCreateVeroToken              func(*models.VeroToken) error
 	OnRetrieveVeroToken            func(ulid.ULID) (*models.VeroToken, error)
@@ -416,6 +424,58 @@ func (tx *Tx) DeleteAPIKey(in ulid.ULID) error {
 		return tx.OnDeleteAPIKey(in)
 	}
 	panic(errors.Fmt("%s callback is not mocked", DeleteAPIKey))
+}
+
+//===========================================================================
+// OIDCClientTxn Methods
+//===========================================================================
+
+func (tx *Tx) ListOIDCClients(in *models.Page) (*models.OIDCClientList, error) {
+	tx.calls[ListOIDCClients]++
+	if tx.OnListOIDCClients != nil {
+		return tx.OnListOIDCClients(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", ListOIDCClients))
+}
+
+func (tx *Tx) CreateOIDCClient(in *models.OIDCClient) error {
+	tx.calls[CreateOIDCClient]++
+	if tx.OnCreateOIDCClient != nil {
+		return tx.OnCreateOIDCClient(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", CreateOIDCClient))
+}
+
+func (tx *Tx) RetrieveOIDCClient(in any) (*models.OIDCClient, error) {
+	tx.calls[RetrieveOIDCClient]++
+	if tx.OnRetrieveOIDCClient != nil {
+		return tx.OnRetrieveOIDCClient(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RetrieveOIDCClient))
+}
+
+func (tx *Tx) UpdateOIDCClient(in *models.OIDCClient) error {
+	tx.calls[UpdateOIDCClient]++
+	if tx.OnUpdateOIDCClient != nil {
+		return tx.OnUpdateOIDCClient(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", UpdateOIDCClient))
+}
+
+func (tx *Tx) RevokeOIDCClient(in ulid.ULID) error {
+	tx.calls[RevokeOIDCClient]++
+	if tx.OnRevokeOIDCClient != nil {
+		return tx.OnRevokeOIDCClient(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RevokeOIDCClient))
+}
+
+func (tx *Tx) DeleteOIDCClient(in ulid.ULID) error {
+	tx.calls[DeleteOIDCClient]++
+	if tx.OnDeleteOIDCClient != nil {
+		return tx.OnDeleteOIDCClient(in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", DeleteOIDCClient))
 }
 
 //===========================================================================
