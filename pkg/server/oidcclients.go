@@ -161,27 +161,15 @@ func (s *Server) OIDCClientDetail(c *gin.Context) {
 
 func (s *Server) UpdateOIDCClient(c *gin.Context) {
 	var (
-		err      error
-		id       ulid.ULID
-		existing *models.OIDCClient
-		in       *api.OIDCClient
-		client   *models.OIDCClient
-		out      *api.OIDCClient
+		err    error
+		id     ulid.ULID
+		in     *api.OIDCClient
+		client *models.OIDCClient
+		out    *api.OIDCClient
 	)
 
 	if id, err = ulid.Parse(c.Param("id")); err != nil {
 		c.JSON(http.StatusNotFound, api.Error("oidc client not found"))
-		return
-	}
-
-	existing, err = s.store.RetrieveOIDCClient(c.Request.Context(), id)
-	if err != nil {
-		if errors.Is(err, errors.ErrNotFound) {
-			c.JSON(http.StatusNotFound, api.Error("oidc client not found"))
-			return
-		}
-		c.Error(err)
-		c.JSON(http.StatusInternalServerError, api.Error("could not process update oidc client request"))
 		return
 	}
 
@@ -192,13 +180,17 @@ func (s *Server) UpdateOIDCClient(c *gin.Context) {
 		return
 	}
 
-	if err = in.Validate(); err != nil {
+	if in.ID != id {
+		c.Error(errors.Fmt("client ulid must match the id parameter"))
+		c.JSON(http.StatusBadRequest, api.Error("client ulid must match the id parameter"))
+		return
+	}
+
+	if err = in.ValidateForUpdate(); err != nil {
 		c.Error(err)
 		c.JSON(http.StatusUnprocessableEntity, api.Error(err))
 		return
 	}
-
-	in.ID = existing.ID
 
 	if client, err = in.Model(); err != nil {
 		c.Error(err)

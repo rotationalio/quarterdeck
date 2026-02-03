@@ -106,7 +106,16 @@ func (o *OIDCClient) Validate() (err error) {
 	if !o.ID.IsZero() {
 		err = ValidationError(err, ReadOnlyField("id"))
 	}
+	return o.validateCommon(err)
+}
 
+// ValidateForUpdate runs validation for an update request. ID is allowed (must
+// match URL param).
+func (o *OIDCClient) ValidateForUpdate() (err error) {
+	return o.validateCommon(err)
+}
+
+func (o *OIDCClient) validateCommon(err error) error {
 	if o.ClientID != "" {
 		err = ValidationError(err, ReadOnlyField("client_id"))
 	}
@@ -130,7 +139,10 @@ func (o *OIDCClient) Validate() (err error) {
 	if o.Revoked != nil {
 		err = ValidationError(err, IncorrectField("revoked", "this field cannot be set on create"))
 	}
+	return o.validateURIsAndContacts(err)
+}
 
+func (o *OIDCClient) validateURIsAndContacts(err error) error {
 	// redirect_uris: at least one required; each must be valid URL
 	if len(o.RedirectURIs) == 0 {
 		err = ValidationError(err, MissingField("redirect_uris"))
@@ -177,7 +189,6 @@ func (o *OIDCClient) Validate() (err error) {
 			err = ValidationError(err, IncorrectField(fmt.Sprintf("contacts[%d]", i), perr.Error()))
 		}
 	}
-
 	return err
 }
 

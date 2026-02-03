@@ -427,30 +427,16 @@ func TestUpdateOIDCClient(t *testing.T) {
 		mockStore := openMockStore(t)
 		defer mockStore.Close()
 		clientID := ulid.MakeSecure()
-		existing := &models.OIDCClient{
-			Model:        models.Model{ID: clientID, Created: time.Now(), Modified: time.Now()},
-			ClientName:   "Old",
-			RedirectURIs: []string{"https://old.com/cb"},
-			ClientID:     "cid",
-			CreatedBy:    ulid.MakeSecure(),
-		}
 		var updated *models.OIDCClient
 		srv := newTestServer(mockStore)
 
-		// set mock callbacks
-		mockStore.OnRetrieveOIDCClient = func(ctx context.Context, id any) (*models.OIDCClient, error) {
-			if id.(ulid.ULID) == clientID {
-				return existing, nil
-			}
-			return nil, errors.ErrNotFound
-		}
 		mockStore.OnUpdateOIDCClient = func(ctx context.Context, in *models.OIDCClient) error {
 			updated = in
 			return nil
 		}
 
 		// build request and context
-		w, c := requestContext(t, http.MethodPut, "/v1/oidc/oidcclients/"+clientID.String(), validUpdateBody("Updated"), gin.Params{{Key: "id", Value: clientID.String()}})
+		w, c := requestContext(t, http.MethodPut, "/v1/oidc/oidcclients/"+clientID.String(), validUpdateBody(clientID, "Updated"), gin.Params{{Key: "id", Value: clientID.String()}})
 		c.Request.Header.Set("Content-Type", "application/json")
 
 		// execute handler
@@ -469,8 +455,8 @@ func TestUpdateOIDCClient(t *testing.T) {
 		defer mockStore.Close()
 		srv := newTestServer(mockStore)
 
-		// build request (invalid ID)
-		w, c := requestContext(t, http.MethodPut, "/v1/oidc/oidcclients/badid", validUpdateBody("Updated"), gin.Params{{Key: "id", Value: "badid"}})
+		// build request (invalid ID in URL)
+		w, c := requestContext(t, http.MethodPut, "/v1/oidc/oidcclients/badid", validUpdateBody(ulid.MakeSecure(), "Updated"), gin.Params{{Key: "id", Value: "badid"}})
 		c.Request.Header.Set("Content-Type", "application/json")
 
 		// execute handler
@@ -482,54 +468,25 @@ func TestUpdateOIDCClient(t *testing.T) {
 		require.Equal(t, "oidc client not found", reply.Error)
 	})
 
-	t.Run("NotFoundRetrieve", func(t *testing.T) {
+	t.Run("BadRequestIDMismatch", func(t *testing.T) {
 		// prepare mocks
 		mockStore := openMockStore(t)
 		defer mockStore.Close()
-		id := ulid.MakeSecure()
+		paramID := ulid.MakeSecure()
+		bodyID := ulid.MakeSecure()
 		srv := newTestServer(mockStore)
 
-		// set mock callback
-		mockStore.OnRetrieveOIDCClient = func(ctx context.Context, id any) (*models.OIDCClient, error) {
-			return nil, errors.ErrNotFound
-		}
-
-		// build request and context
-		w, c := requestContext(t, http.MethodPut, "/v1/oidc/oidcclients/"+id.String(), validUpdateBody("Updated"), gin.Params{{Key: "id", Value: id.String()}})
+		// build request (body id differs from URL param)
+		w, c := requestContext(t, http.MethodPut, "/v1/oidc/oidcclients/"+paramID.String(), validUpdateBody(bodyID, "Updated"), gin.Params{{Key: "id", Value: paramID.String()}})
 		c.Request.Header.Set("Content-Type", "application/json")
 
 		// execute handler
 		srv.UpdateOIDCClient(c)
 
 		// assert response
-		require.Equal(t, http.StatusNotFound, w.Code)
+		require.Equal(t, http.StatusBadRequest, w.Code)
 		reply := parseReply(t, w)
-		require.Equal(t, "oidc client not found", reply.Error)
-	})
-
-	t.Run("StoreRetrieveError", func(t *testing.T) {
-		// prepare mocks
-		mockStore := openMockStore(t)
-		defer mockStore.Close()
-		id := ulid.MakeSecure()
-		srv := newTestServer(mockStore)
-
-		// set mock callback
-		mockStore.OnRetrieveOIDCClient = func(ctx context.Context, id any) (*models.OIDCClient, error) {
-			return nil, errors.Fmt("db error")
-		}
-
-		// build request and context
-		w, c := requestContext(t, http.MethodPut, "/v1/oidc/oidcclients/"+id.String(), validUpdateBody("Updated"), gin.Params{{Key: "id", Value: id.String()}})
-		c.Request.Header.Set("Content-Type", "application/json")
-
-		// execute handler
-		srv.UpdateOIDCClient(c)
-
-		// assert response
-		require.Equal(t, http.StatusInternalServerError, w.Code)
-		reply := parseReply(t, w)
-		require.Equal(t, "could not process update oidc client request", reply.Error)
+		require.Equal(t, "client ulid must match the id parameter", reply.Error)
 	})
 
 	t.Run("BadRequest", func(t *testing.T) {
@@ -538,11 +495,6 @@ func TestUpdateOIDCClient(t *testing.T) {
 		defer mockStore.Close()
 		id := ulid.MakeSecure()
 		srv := newTestServer(mockStore)
-
-		// set mock callback
-		mockStore.OnRetrieveOIDCClient = func(ctx context.Context, id any) (*models.OIDCClient, error) {
-			return &models.OIDCClient{Model: models.Model{ID: id.(ulid.ULID)}}, nil
-		}
 
 		// build request (invalid JSON)
 		w, c := requestContext(t, http.MethodPut, "/v1/oidc/oidcclients/"+id.String(), []byte("not json"), gin.Params{{Key: "id", Value: id.String()}})
@@ -564,12 +516,7 @@ func TestUpdateOIDCClient(t *testing.T) {
 		id := ulid.MakeSecure()
 		srv := newTestServer(mockStore)
 
-		// set mock callback
-		mockStore.OnRetrieveOIDCClient = func(ctx context.Context, id any) (*models.OIDCClient, error) {
-			return &models.OIDCClient{Model: models.Model{ID: id.(ulid.ULID)}}, nil
-		}
-
-		body, _ := json.Marshal(&api.OIDCClient{ClientName: "x", RedirectURIs: []string{}})
+		body, _ := json.Marshal(&api.OIDCClient{ID: id, ClientName: "x", RedirectURIs: []string{}})
 
 		// build request and context
 		w, c := requestContext(t, http.MethodPut, "/v1/oidc/oidcclients/"+id.String(), body, gin.Params{{Key: "id", Value: id.String()}})
@@ -591,16 +538,12 @@ func TestUpdateOIDCClient(t *testing.T) {
 		id := ulid.MakeSecure()
 		srv := newTestServer(mockStore)
 
-		// set mock callbacks
-		mockStore.OnRetrieveOIDCClient = func(ctx context.Context, id any) (*models.OIDCClient, error) {
-			return &models.OIDCClient{Model: models.Model{ID: id.(ulid.ULID)}}, nil
-		}
 		mockStore.OnUpdateOIDCClient = func(ctx context.Context, in *models.OIDCClient) error {
 			return errors.ErrNotFound
 		}
 
 		// build request and context
-		w, c := requestContext(t, http.MethodPut, "/v1/oidc/oidcclients/"+id.String(), validUpdateBody("Updated"), gin.Params{{Key: "id", Value: id.String()}})
+		w, c := requestContext(t, http.MethodPut, "/v1/oidc/oidcclients/"+id.String(), validUpdateBody(id, "Updated"), gin.Params{{Key: "id", Value: id.String()}})
 		c.Request.Header.Set("Content-Type", "application/json")
 
 		// execute handler
@@ -619,16 +562,12 @@ func TestUpdateOIDCClient(t *testing.T) {
 		id := ulid.MakeSecure()
 		srv := newTestServer(mockStore)
 
-		// set mock callbacks
-		mockStore.OnRetrieveOIDCClient = func(ctx context.Context, id any) (*models.OIDCClient, error) {
-			return &models.OIDCClient{Model: models.Model{ID: id.(ulid.ULID)}}, nil
-		}
 		mockStore.OnUpdateOIDCClient = func(ctx context.Context, in *models.OIDCClient) error {
 			return errors.Fmt("db error")
 		}
 
 		// build request and context
-		w, c := requestContext(t, http.MethodPut, "/v1/oidc/oidcclients/"+id.String(), validUpdateBody("Updated"), gin.Params{{Key: "id", Value: id.String()}})
+		w, c := requestContext(t, http.MethodPut, "/v1/oidc/oidcclients/"+id.String(), validUpdateBody(id, "Updated"), gin.Params{{Key: "id", Value: id.String()}})
 		c.Request.Header.Set("Content-Type", "application/json")
 
 		// execute handler
@@ -886,8 +825,10 @@ func validCreateBody() []byte {
 }
 
 // validUpdateBody returns JSON for a minimal valid OIDC client update request.
-func validUpdateBody(clientName string) []byte {
+// The id must match the URL param so the handler accepts the body.
+func validUpdateBody(id ulid.ULID, clientName string) []byte {
 	b, _ := json.Marshal(&api.OIDCClient{
+		ID:           id,
 		ClientName:   clientName,
 		RedirectURIs: []string{"https://example.com/cb"},
 	})
