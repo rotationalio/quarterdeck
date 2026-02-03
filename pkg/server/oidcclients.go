@@ -27,7 +27,7 @@ func (s *Server) ListOIDCClients(c *gin.Context) {
 		return
 	}
 
-	list, err = s.store.ListOIDCClients(c.Request.Context(), nil)
+	list, err = s.store.ListOIDCClients(c.Request.Context(), in.PageModel())
 	if err != nil {
 		c.Error(err)
 		c.JSON(http.StatusInternalServerError, api.Error("could not process oidc clients list request"))
