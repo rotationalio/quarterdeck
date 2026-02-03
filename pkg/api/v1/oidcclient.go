@@ -180,6 +180,9 @@ func validateURI(field, raw string) error {
 	if !parsed.IsAbs() || parsed.Scheme == "" || parsed.Host == "" {
 		return fmt.Errorf("%s: must be an absolute URL with scheme and host", field)
 	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("%s: scheme must be http or https", field)
+	}
 	return nil
 }
 
