@@ -23,7 +23,7 @@ func TestOIDCClientValidate_IDNotZero(t *testing.T) {
 	o.ID = ulid.MakeSecure()
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "missing id: this field is required", nil)
+	assertSingleValidationError(t, o.Validate(), "read-only field id: this field cannot be written by the user", nil)
 }
 
 func TestOIDCClientValidate_ClientIDSet(t *testing.T) {
@@ -32,7 +32,7 @@ func TestOIDCClientValidate_ClientIDSet(t *testing.T) {
 	o.ClientID = "some-client-id"
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "missing client_id: this field is required", nil)
+	assertSingleValidationError(t, o.Validate(), "read-only field client_id: this field cannot be written by the user", nil)
 }
 
 func TestOIDCClientValidate_SecretSet(t *testing.T) {
@@ -41,7 +41,7 @@ func TestOIDCClientValidate_SecretSet(t *testing.T) {
 	o.Secret = "some-secret"
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "missing secret: this field is required", nil)
+	assertSingleValidationError(t, o.Validate(), "read-only field secret: this field cannot be written by the user", nil)
 }
 
 func TestOIDCClientValidate_CreatedBySet(t *testing.T) {
@@ -50,7 +50,7 @@ func TestOIDCClientValidate_CreatedBySet(t *testing.T) {
 	o.CreatedBy = ulid.MakeSecure()
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "missing created_by: this field is required", nil)
+	assertSingleValidationError(t, o.Validate(), "read-only field created_by: this field cannot be written by the user", nil)
 }
 
 func TestOIDCClientValidate_CreatedSet(t *testing.T) {
@@ -59,7 +59,7 @@ func TestOIDCClientValidate_CreatedSet(t *testing.T) {
 	o.Created = time.Now()
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "missing created: this field is required", nil)
+	assertSingleValidationError(t, o.Validate(), "read-only field created: this field cannot be written by the user", nil)
 }
 
 func TestOIDCClientValidate_ModifiedSet(t *testing.T) {
@@ -68,7 +68,17 @@ func TestOIDCClientValidate_ModifiedSet(t *testing.T) {
 	o.Modified = time.Now()
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "missing modified: this field is required", nil)
+	assertSingleValidationError(t, o.Validate(), "read-only field modified: this field cannot be written by the user", nil)
+}
+
+func TestOIDCClientValidate_RevokedSet(t *testing.T) {
+	// setup
+	o := validOIDCClient()
+	revoked := time.Now()
+	o.Revoked = &revoked
+
+	// test
+	assertSingleValidationError(t, o.Validate(), "invalid field revoked: this field cannot be set on create", nil)
 }
 
 func TestOIDCClientValidate_RedirectURIsEmpty(t *testing.T) {

@@ -104,22 +104,31 @@ func NewOIDCClientList(list *models.OIDCClientList) (out *OIDCClientList, err er
 
 func (o *OIDCClient) Validate() (err error) {
 	if !o.ID.IsZero() {
-		err = ValidationError(err, MissingField("id"))
+		err = ValidationError(err, ReadOnlyField("id"))
 	}
+
 	if o.ClientID != "" {
-		err = ValidationError(err, MissingField("client_id"))
+		err = ValidationError(err, ReadOnlyField("client_id"))
 	}
+
 	if o.Secret != "" {
-		err = ValidationError(err, MissingField("secret"))
+		err = ValidationError(err, ReadOnlyField("secret"))
 	}
+
 	if !o.CreatedBy.IsZero() {
-		err = ValidationError(err, MissingField("created_by"))
+		err = ValidationError(err, ReadOnlyField("created_by"))
 	}
+
 	if !o.Created.IsZero() {
-		err = ValidationError(err, MissingField("created"))
+		err = ValidationError(err, ReadOnlyField("created"))
 	}
+
 	if !o.Modified.IsZero() {
-		err = ValidationError(err, MissingField("modified"))
+		err = ValidationError(err, ReadOnlyField("modified"))
+	}
+
+	if o.Revoked != nil {
+		err = ValidationError(err, IncorrectField("revoked", "this field cannot be set on create"))
 	}
 
 	// redirect_uris: at least one required; each must be valid URL
@@ -140,16 +149,19 @@ func (o *OIDCClient) Validate() (err error) {
 			err = ValidationError(err, IncorrectField("client_uri", perr.Error()))
 		}
 	}
+
 	if o.LogoURI != nil && *o.LogoURI != "" {
 		if perr := validateURI("logo_uri", *o.LogoURI); perr != nil {
 			err = ValidationError(err, IncorrectField("logo_uri", perr.Error()))
 		}
 	}
+
 	if o.PolicyURI != nil && *o.PolicyURI != "" {
 		if perr := validateURI("policy_uri", *o.PolicyURI); perr != nil {
 			err = ValidationError(err, IncorrectField("policy_uri", perr.Error()))
 		}
 	}
+
 	if o.TOSURI != nil && *o.TOSURI != "" {
 		if perr := validateURI("tos_uri", *o.TOSURI); perr != nil {
 			err = ValidationError(err, IncorrectField("tos_uri", perr.Error()))
