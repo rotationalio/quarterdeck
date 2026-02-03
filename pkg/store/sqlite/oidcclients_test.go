@@ -108,8 +108,7 @@ func (s *storeTestSuite) TestCreateOIDCClient() {
 			RedirectURIs: []string{"https://example.com/cb"},
 		}
 		err := s.db.CreateOIDCClient(s.Context(), client)
-		s.Require().Error(err)
-		s.Require().Contains(err.Error(), "client_id")
+		s.Require().ErrorIs(err, errors.ErrZeroValuedNotNull)
 	})
 
 	s.Run("RejectsEmptySecret", func() {
@@ -125,8 +124,7 @@ func (s *storeTestSuite) TestCreateOIDCClient() {
 			RedirectURIs: []string{"https://example.com/cb"},
 		}
 		err := s.db.CreateOIDCClient(s.Context(), client)
-		s.Require().Error(err)
-		s.Require().Contains(err.Error(), "secret")
+		s.Require().ErrorIs(err, errors.ErrZeroValuedNotNull)
 	})
 
 	s.Run("ReadOnly", func() {
@@ -348,17 +346,6 @@ func (s *storeTestSuite) TestUpdateOIDCClient() {
 		client.ID = ulid.Make() // new ID
 		err = s.db.UpdateOIDCClient(s.Context(), client)
 		require.ErrorIs(err, errors.ErrNotFound)
-	})
-
-	s.Run("ValidationError", func() {
-		require := s.Require()
-		client, err := s.db.RetrieveOIDCClient(s.Context(), fullMetadataClientID)
-		require.NoError(err)
-		require.NotNil(client)
-		client.RedirectURIs = nil // invalid: at least one redirect URI required
-		err = s.db.UpdateOIDCClient(s.Context(), client)
-		require.Error(err)
-		require.Contains(err.Error(), "redirect_uris")
 	})
 }
 
