@@ -186,6 +186,18 @@ func (s *Server) setupRoutes() (err error) {
 			// NOTE: Requires both POST and GET per the spec
 			oidc.GET("/userinfo", s.UserInfo)
 			oidc.POST("/userinfo", s.UserInfo)
+
+			// OIDC Client Management (Dynamic Client Registration)
+			oidcclients := oidc.Group("oidcclients")
+			{
+				oidcclients.GET("", s.ListOIDCClients)
+				oidcclients.POST("", csrf, s.CreateOIDCClient)
+				// TODO: it might be good to accept the ID (ULID) or the ClientID (random string) here, instead of just the ID (ULID)
+				oidcclients.GET("/:id", s.OIDCClientDetail)
+				oidcclients.PUT("/:id", csrf, s.UpdateOIDCClient)
+				oidcclients.POST("/:id/revoke", csrf, s.RevokeOIDCClient)
+				oidcclients.DELETE("/:id", csrf, s.DeleteOIDCClient)
+			}
 		}
 	}
 
