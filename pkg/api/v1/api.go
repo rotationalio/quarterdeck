@@ -1,6 +1,11 @@
 package api
 
-import "context"
+import (
+	"context"
+
+	"go.rtnl.ai/quarterdeck/pkg/store/models"
+	"go.rtnl.ai/ulid"
+)
 
 //===========================================================================
 // Service Interface
@@ -28,6 +33,22 @@ type Reply struct {
 type PageQuery struct {
 	PageSize      int    `json:"page_size,omitempty" url:"page_size,omitempty" form:"page_size"`
 	NextPageToken string `json:"next_page_token,omitempty" url:"next_page_token,omitempty" form:"next_page_token"`
+}
+
+// PageModel returns a store models.Page for list calls. Nil receiver returns nil.
+func (q *PageQuery) PageModel() *models.Page {
+	if q == nil {
+		return nil
+	}
+	out := &models.Page{
+		PageSize: uint32(q.PageSize),
+	}
+	if q.NextPageToken != "" {
+		if next, err := ulid.Parse(q.NextPageToken); err == nil {
+			out.NextPageID = next
+		}
+	}
+	return out
 }
 
 type Page struct {

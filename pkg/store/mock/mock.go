@@ -70,6 +70,13 @@ type Store struct {
 	OnRevokeAPIKey               func(context.Context, ulid.ULID) error
 	OnDeleteAPIKey               func(context.Context, ulid.ULID) error
 
+	// OIDCClientStore Callbacks
+	OnListOIDCClients   func(context.Context, *models.Page) (*models.OIDCClientList, error)
+	OnCreateOIDCClient  func(context.Context, *models.OIDCClient) error
+	OnRetrieveOIDCClient func(context.Context, any) (*models.OIDCClient, error)
+	OnUpdateOIDCClient   func(context.Context, *models.OIDCClient) error
+	OnDeleteOIDCClient   func(context.Context, ulid.ULID) error
+
 	// VeroTokenStore Callbacks
 	OnCreateVeroToken              func(context.Context, *models.VeroToken) error
 	OnRetrieveVeroToken            func(context.Context, ulid.ULID) (*models.VeroToken, error)
@@ -438,6 +445,58 @@ func (s *Store) DeleteAPIKey(ctx context.Context, id ulid.ULID) error {
 		return s.OnDeleteAPIKey(ctx, id)
 	}
 	panic(errors.Fmt("%s callback is not mocked", DeleteAPIKey))
+}
+
+//===========================================================================
+// OIDCClientStore
+//===========================================================================
+
+const (
+	ListOIDCClients   = "ListOIDCClients"
+	CreateOIDCClient  = "CreateOIDCClient"
+	RetrieveOIDCClient = "RetrieveOIDCClient"
+	UpdateOIDCClient   = "UpdateOIDCClient"
+	DeleteOIDCClient   = "DeleteOIDCClient"
+)
+
+func (s *Store) ListOIDCClients(ctx context.Context, page *models.Page) (*models.OIDCClientList, error) {
+	s.calls[ListOIDCClients]++
+	if s.OnListOIDCClients != nil {
+		return s.OnListOIDCClients(ctx, page)
+	}
+	panic(errors.Fmt("%s callback is not mocked", ListOIDCClients))
+}
+
+func (s *Store) CreateOIDCClient(ctx context.Context, in *models.OIDCClient) error {
+	s.calls[CreateOIDCClient]++
+	if s.OnCreateOIDCClient != nil {
+		return s.OnCreateOIDCClient(ctx, in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", CreateOIDCClient))
+}
+
+func (s *Store) RetrieveOIDCClient(ctx context.Context, in any) (*models.OIDCClient, error) {
+	s.calls[RetrieveOIDCClient]++
+	if s.OnRetrieveOIDCClient != nil {
+		return s.OnRetrieveOIDCClient(ctx, in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RetrieveOIDCClient))
+}
+
+func (s *Store) UpdateOIDCClient(ctx context.Context, in *models.OIDCClient) error {
+	s.calls[UpdateOIDCClient]++
+	if s.OnUpdateOIDCClient != nil {
+		return s.OnUpdateOIDCClient(ctx, in)
+	}
+	panic(errors.Fmt("%s callback is not mocked", UpdateOIDCClient))
+}
+
+func (s *Store) DeleteOIDCClient(ctx context.Context, id ulid.ULID) error {
+	s.calls[DeleteOIDCClient]++
+	if s.OnDeleteOIDCClient != nil {
+		return s.OnDeleteOIDCClient(ctx, id)
+	}
+	panic(errors.Fmt("%s callback is not mocked", DeleteOIDCClient))
 }
 
 //===========================================================================

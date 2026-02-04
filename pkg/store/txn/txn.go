@@ -20,6 +20,7 @@ type Txn interface {
 	RoleTxn
 	PermissionTxn
 	APIKeyTxn
+	OIDCClientTxn
 	VeroTokenTxn
 }
 
@@ -62,6 +63,14 @@ type APIKeyTxn interface {
 	RemovePermissionFromAPIKey(ulid.ULID, int64) error
 	RevokeAPIKey(ulid.ULID) error
 	DeleteAPIKey(ulid.ULID) error
+}
+
+type OIDCClientTxn interface {
+	ListOIDCClients(*models.Page) (*models.OIDCClientList, error)
+	CreateOIDCClient(*models.OIDCClient) error
+	RetrieveOIDCClient(any) (*models.OIDCClient, error)
+	UpdateOIDCClient(*models.OIDCClient) error
+	DeleteOIDCClient(ulid.ULID) error
 }
 
 type VeroTokenTxn interface {

@@ -52,6 +52,7 @@ type Store interface {
 	RoleStore
 	PermissionStore
 	APIKeyStore
+	OIDCClientStore
 	VeroTokenStore
 }
 
@@ -99,6 +100,14 @@ type APIKeyStore interface {
 	RemovePermissionFromAPIKey(context.Context, ulid.ULID, int64) error
 	RevokeAPIKey(context.Context, ulid.ULID) error
 	DeleteAPIKey(context.Context, ulid.ULID) error
+}
+
+type OIDCClientStore interface {
+	ListOIDCClients(context.Context, *models.Page) (*models.OIDCClientList, error)
+	CreateOIDCClient(context.Context, *models.OIDCClient) error
+	RetrieveOIDCClient(context.Context, any) (*models.OIDCClient, error)
+	UpdateOIDCClient(context.Context, *models.OIDCClient) error
+	DeleteOIDCClient(context.Context, ulid.ULID) error
 }
 
 type VeroTokenStore interface {

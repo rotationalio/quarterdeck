@@ -20,6 +20,11 @@ func TestMigrations(t *testing.T) {
 			Name: "Initial Schema",
 			Path: "0001_initial_schema.sql",
 		},
+		{
+			ID:   2,
+			Name: "Oidc Clients",
+			Path: "0002_oidc_clients.sql",
+		},
 	}
 
 	migrations, err := sqlite.Migrations()
