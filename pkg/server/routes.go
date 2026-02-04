@@ -192,7 +192,6 @@ func (s *Server) setupRoutes() (err error) {
 			{
 				oidcclients.GET("", s.ListOIDCClients)
 				oidcclients.POST("", csrf, s.CreateOIDCClient)
-				// TODO: it might be good to accept the ID (ULID) or the ClientID (random string) here, instead of just the ID (ULID)
 				oidcclients.GET("/:id", s.OIDCClientDetail)
 				oidcclients.PUT("/:id", csrf, s.UpdateOIDCClient)
 				oidcclients.POST("/:id/revoke", csrf, s.RevokeOIDCClient)
