@@ -9,170 +9,118 @@ import (
 	"go.rtnl.ai/ulid"
 )
 
-func TestOIDCClientValidate_Valid(t *testing.T) {
-	// setup
-	o := validOIDCClient()
+func TestOIDCClientValidate(t *testing.T) {
+	t.Run("Valid", func(t *testing.T) {
+		o := validOIDCClient()
+		require.NoError(t, o.Validate(true))
+	})
 
-	// test
-	require.NoError(t, o.Validate(true))
-}
+	t.Run("IDNotZero", func(t *testing.T) {
+		o := validOIDCClient()
+		o.ID = ulid.MakeSecure()
+		assertSingleValidationError(t, o.Validate(true), "read-only field id: this field cannot be written by the user", nil)
+	})
 
-func TestOIDCClientValidate_IDNotZero(t *testing.T) {
-	// setup
-	o := validOIDCClient()
-	o.ID = ulid.MakeSecure()
+	t.Run("ClientIDSet", func(t *testing.T) {
+		o := validOIDCClient()
+		o.ClientID = "some-client-id"
+		assertSingleValidationError(t, o.Validate(true), "read-only field client_id: this field cannot be written by the user", nil)
+	})
 
-	// test
-	assertSingleValidationError(t, o.Validate(true), "read-only field id: this field cannot be written by the user", nil)
-}
+	t.Run("SecretSet", func(t *testing.T) {
+		o := validOIDCClient()
+		o.Secret = "some-secret"
+		assertSingleValidationError(t, o.Validate(true), "read-only field secret: this field cannot be written by the user", nil)
+	})
 
-func TestOIDCClientValidate_ClientIDSet(t *testing.T) {
-	// setup
-	o := validOIDCClient()
-	o.ClientID = "some-client-id"
+	t.Run("CreatedBySet", func(t *testing.T) {
+		o := validOIDCClient()
+		o.CreatedBy = ulid.MakeSecure()
+		assertSingleValidationError(t, o.Validate(true), "read-only field created_by: this field cannot be written by the user", nil)
+	})
 
-	// test
-	assertSingleValidationError(t, o.Validate(true), "read-only field client_id: this field cannot be written by the user", nil)
-}
+	t.Run("CreatedSet", func(t *testing.T) {
+		o := validOIDCClient()
+		o.Created = time.Now()
+		assertSingleValidationError(t, o.Validate(true), "read-only field created: this field cannot be written by the user", nil)
+	})
 
-func TestOIDCClientValidate_SecretSet(t *testing.T) {
-	// setup
-	o := validOIDCClient()
-	o.Secret = "some-secret"
+	t.Run("ModifiedSet", func(t *testing.T) {
+		o := validOIDCClient()
+		o.Modified = time.Now()
+		assertSingleValidationError(t, o.Validate(true), "read-only field modified: this field cannot be written by the user", nil)
+	})
 
-	// test
-	assertSingleValidationError(t, o.Validate(true), "read-only field secret: this field cannot be written by the user", nil)
-}
+	t.Run("RevokedSet", func(t *testing.T) {
+		o := validOIDCClient()
+		revoked := time.Now()
+		o.Revoked = &revoked
+		assertSingleValidationError(t, o.Validate(true), "invalid field revoked: this field cannot be set on create", nil)
+	})
 
-func TestOIDCClientValidate_CreatedBySet(t *testing.T) {
-	// setup
-	o := validOIDCClient()
-	o.CreatedBy = ulid.MakeSecure()
+	t.Run("RedirectURIsEmpty", func(t *testing.T) {
+		o := validOIDCClient()
+		o.RedirectURIs = nil
+		assertSingleValidationError(t, o.Validate(true), "missing redirect_uris: this field is required", nil)
+	})
 
-	// test
-	assertSingleValidationError(t, o.Validate(true), "read-only field created_by: this field cannot be written by the user", nil)
-}
+	t.Run("RedirectURIsEmptySlice", func(t *testing.T) {
+		o := validOIDCClient()
+		o.RedirectURIs = []string{}
+		assertSingleValidationError(t, o.Validate(true), "missing redirect_uris: this field is required", nil)
+	})
 
-func TestOIDCClientValidate_CreatedSet(t *testing.T) {
-	// setup
-	o := validOIDCClient()
-	o.Created = time.Now()
+	t.Run("RedirectURIEmptyString", func(t *testing.T) {
+		o := validOIDCClient()
+		o.RedirectURIs = []string{""}
+		assertSingleValidationError(t, o.Validate(true), "", []string{"redirect_uris[0]", "cannot be empty"})
+	})
 
-	// test
-	assertSingleValidationError(t, o.Validate(true), "read-only field created: this field cannot be written by the user", nil)
-}
+	t.Run("RedirectURINotAbsolute", func(t *testing.T) {
+		o := validOIDCClient()
+		o.RedirectURIs = []string{"/relative"}
+		assertSingleValidationError(t, o.Validate(true), "", []string{"redirect_uris[0]", "must be an absolute URL with scheme and host"})
+	})
 
-func TestOIDCClientValidate_ModifiedSet(t *testing.T) {
-	// setup
-	o := validOIDCClient()
-	o.Modified = time.Now()
+	t.Run("RedirectURIInvalid", func(t *testing.T) {
+		o := validOIDCClient()
+		o.RedirectURIs = []string{"://bad"}
+		assertSingleValidationError(t, o.Validate(true), "", []string{"redirect_uris[0]"})
+	})
 
-	// test
-	assertSingleValidationError(t, o.Validate(true), "read-only field modified: this field cannot be written by the user", nil)
-}
+	t.Run("ClientURIInvalid", func(t *testing.T) {
+		o := validOIDCClient()
+		invalid := "not-a-url"
+		o.ClientURI = &invalid
+		assertSingleValidationError(t, o.Validate(true), "", []string{"client_uri", "invalid field"})
+	})
 
-func TestOIDCClientValidate_RevokedSet(t *testing.T) {
-	// setup
-	o := validOIDCClient()
-	revoked := time.Now()
-	o.Revoked = &revoked
+	t.Run("LogoURIInvalid", func(t *testing.T) {
+		o := validOIDCClient()
+		invalid := "/relative"
+		o.LogoURI = &invalid
+		assertSingleValidationError(t, o.Validate(true), "", []string{"logo_uri", "must be an absolute URL with scheme and host"})
+	})
 
-	// test
-	assertSingleValidationError(t, o.Validate(true), "invalid field revoked: this field cannot be set on create", nil)
-}
+	t.Run("PolicyURIInvalid", func(t *testing.T) {
+		o := validOIDCClient()
+		invalid := "ftp://ftp.example.com"
+		o.PolicyURI = &invalid
+		assertSingleValidationError(t, o.Validate(true), "", []string{"policy_uri", "scheme must be http or https"})
+	})
 
-func TestOIDCClientValidate_RedirectURIsEmpty(t *testing.T) {
-	// setup
-	o := validOIDCClient()
-	o.RedirectURIs = nil
+	t.Run("TOSURIInvalid", func(t *testing.T) {
+		o := validOIDCClient()
+		invalid := "no-scheme.com"
+		o.TOSURI = &invalid
+		assertSingleValidationError(t, o.Validate(true), "", []string{"tos_uri", "must be an absolute URL with scheme and host"})
+	})
 
-	// test
-	assertSingleValidationError(t, o.Validate(true), "missing redirect_uris: this field is required", nil)
-}
-
-func TestOIDCClientValidate_RedirectURIsEmptySlice(t *testing.T) {
-	// setup
-	o := validOIDCClient()
-	o.RedirectURIs = []string{}
-
-	// test
-	assertSingleValidationError(t, o.Validate(true), "missing redirect_uris: this field is required", nil)
-}
-
-func TestOIDCClientValidate_RedirectURIEmptyString(t *testing.T) {
-	// setup
-	o := validOIDCClient()
-	o.RedirectURIs = []string{""}
-
-	// test
-	assertSingleValidationError(t, o.Validate(true), "", []string{"redirect_uris[0]", "cannot be empty"})
-}
-
-func TestOIDCClientValidate_RedirectURINotAbsolute(t *testing.T) {
-	// setup
-	o := validOIDCClient()
-	o.RedirectURIs = []string{"/relative"}
-
-	// test
-	assertSingleValidationError(t, o.Validate(true), "", []string{"redirect_uris[0]", "must be an absolute URL with scheme and host"})
-}
-
-func TestOIDCClientValidate_RedirectURIInvalid(t *testing.T) {
-	// setup
-	o := validOIDCClient()
-	o.RedirectURIs = []string{"://bad"}
-
-	// test
-	assertSingleValidationError(t, o.Validate(true), "", []string{"redirect_uris[0]"})
-}
-
-func TestOIDCClientValidate_ClientURIInvalid(t *testing.T) {
-	// setup
-	o := validOIDCClient()
-	invalid := "not-a-url"
-	o.ClientURI = &invalid
-
-	// test
-	assertSingleValidationError(t, o.Validate(true), "", []string{"client_uri", "invalid field"})
-}
-
-func TestOIDCClientValidate_LogoURIInvalid(t *testing.T) {
-	// setup
-	o := validOIDCClient()
-	invalid := "/relative"
-	o.LogoURI = &invalid
-
-	// test
-	assertSingleValidationError(t, o.Validate(true), "", []string{"logo_uri", "must be an absolute URL with scheme and host"})
-}
-
-func TestOIDCClientValidate_PolicyURIInvalid(t *testing.T) {
-	// setup
-	o := validOIDCClient()
-	invalid := "ftp://ftp.example.com"
-	o.PolicyURI = &invalid
-
-	// test
-	assertSingleValidationError(t, o.Validate(true), "", []string{"policy_uri", "scheme must be http or https"})
-}
-
-func TestOIDCClientValidate_TOSURIInvalid(t *testing.T) {
-	// setup
-	o := validOIDCClient()
-	invalid := "no-scheme.com"
-	o.TOSURI = &invalid
-
-	// test
-	assertSingleValidationError(t, o.Validate(true), "", []string{"tos_uri", "must be an absolute URL with scheme and host"})
-}
-
-func TestOIDCClientValidate_ContactInvalidEmail(t *testing.T) {
-	// setup
-	o := validOIDCClient()
-	o.Contacts = []string{"notanemail"}
-
-	// test
-	assertSingleValidationError(t, o.Validate(true), "", []string{"contacts[0]", "invalid field"})
+	t.Run("ContactInvalidEmail", func(t *testing.T) {
+		o := validOIDCClient()
+		o.Contacts = []string{"notanemail"}
+		assertSingleValidationError(t, o.Validate(true), "", []string{"contacts[0]", "invalid field"})
+	})
 }
 
 // ---------------------------------------------------------------------------
