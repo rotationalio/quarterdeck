@@ -71,7 +71,6 @@ type Tx struct {
 	OnCreateOIDCClient   func(*models.OIDCClient) error
 	OnRetrieveOIDCClient func(any) (*models.OIDCClient, error)
 	OnUpdateOIDCClient   func(*models.OIDCClient) error
-	OnRevokeOIDCClient   func(ulid.ULID) error
 	OnDeleteOIDCClient   func(ulid.ULID) error
 
 	// VeroTokenTxn Callbacks
@@ -460,14 +459,6 @@ func (tx *Tx) UpdateOIDCClient(in *models.OIDCClient) error {
 		return tx.OnUpdateOIDCClient(in)
 	}
 	panic(errors.Fmt("%s callback is not mocked", UpdateOIDCClient))
-}
-
-func (tx *Tx) RevokeOIDCClient(in ulid.ULID) error {
-	tx.calls[RevokeOIDCClient]++
-	if tx.OnRevokeOIDCClient != nil {
-		return tx.OnRevokeOIDCClient(in)
-	}
-	panic(errors.Fmt("%s callback is not mocked", RevokeOIDCClient))
 }
 
 func (tx *Tx) DeleteOIDCClient(in ulid.ULID) error {

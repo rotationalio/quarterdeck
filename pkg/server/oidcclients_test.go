@@ -580,98 +580,6 @@ func TestUpdateOIDCClient(t *testing.T) {
 	})
 }
 
-func TestRevokeOIDCClient(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
-		// prepare mocks
-		mockStore := openMockStore(t)
-		defer mockStore.Close()
-		id := ulid.MakeSecure()
-		srv := newTestServer(mockStore)
-
-		// set mock callback
-		mockStore.OnRevokeOIDCClient = func(ctx context.Context, id ulid.ULID) error {
-			return nil
-		}
-
-		// build request and context
-		w, c := requestContext(t, http.MethodPost, "/v1/oidc/oidcclients/"+id.String()+"/revoke", nil, gin.Params{{Key: "id", Value: id.String()}})
-
-		// execute handler
-		srv.RevokeOIDCClient(c)
-
-		// assert response
-		require.Equal(t, http.StatusOK, w.Code)
-		reply := parseReply(t, w)
-		require.True(t, reply.Success)
-	})
-
-	t.Run("NotFoundBadID", func(t *testing.T) {
-		// prepare mocks
-		mockStore := openMockStore(t)
-		defer mockStore.Close()
-		srv := newTestServer(mockStore)
-
-		// build request (invalid ID)
-		w, c := requestContext(t, http.MethodPost, "/v1/oidc/oidcclients/invalid/revoke", nil, gin.Params{{Key: "id", Value: "invalid"}})
-
-		// execute handler
-		srv.RevokeOIDCClient(c)
-
-		// assert response
-		require.Equal(t, http.StatusNotFound, w.Code)
-		reply := parseReply(t, w)
-		require.Equal(t, "oidc client not found", reply.Error)
-	})
-
-	t.Run("NotFoundStore", func(t *testing.T) {
-		// prepare mocks
-		mockStore := openMockStore(t)
-		defer mockStore.Close()
-		id := ulid.MakeSecure()
-		srv := newTestServer(mockStore)
-
-		// set mock callback
-		mockStore.OnRevokeOIDCClient = func(ctx context.Context, id ulid.ULID) error {
-			return errors.ErrNotFound
-		}
-
-		// build request and context
-		w, c := requestContext(t, http.MethodPost, "/v1/oidc/oidcclients/"+id.String()+"/revoke", nil, gin.Params{{Key: "id", Value: id.String()}})
-
-		// execute handler
-		srv.RevokeOIDCClient(c)
-
-		// assert response
-		require.Equal(t, http.StatusNotFound, w.Code)
-		reply := parseReply(t, w)
-		require.Equal(t, "oidc client not found", reply.Error)
-	})
-
-	t.Run("StoreError", func(t *testing.T) {
-		// prepare mocks
-		mockStore := openMockStore(t)
-		defer mockStore.Close()
-		id := ulid.MakeSecure()
-		srv := newTestServer(mockStore)
-
-		// set mock callback
-		mockStore.OnRevokeOIDCClient = func(ctx context.Context, id ulid.ULID) error {
-			return errors.Fmt("db error")
-		}
-
-		// build request and context
-		w, c := requestContext(t, http.MethodPost, "/v1/oidc/oidcclients/"+id.String()+"/revoke", nil, gin.Params{{Key: "id", Value: id.String()}})
-
-		// execute handler
-		srv.RevokeOIDCClient(c)
-
-		// assert response
-		require.Equal(t, http.StatusInternalServerError, w.Code)
-		reply := parseReply(t, w)
-		require.Equal(t, "could not process revoke oidc client request", reply.Error)
-	})
-}
-
 func TestDeleteOIDCClient(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		// prepare mocks
@@ -780,7 +688,6 @@ func newTestServer(store store.Store) *Server {
 	oidcclients.POST("", s.CreateOIDCClient)
 	oidcclients.GET("/:id", s.OIDCClientDetail)
 	oidcclients.PUT("/:id", s.UpdateOIDCClient)
-	oidcclients.POST("/:id/revoke", s.RevokeOIDCClient)
 	oidcclients.DELETE("/:id", s.DeleteOIDCClient)
 	return s
 }

@@ -107,7 +107,6 @@ type OIDCClientStore interface {
 	CreateOIDCClient(context.Context, *models.OIDCClient) error
 	RetrieveOIDCClient(context.Context, any) (*models.OIDCClient, error)
 	UpdateOIDCClient(context.Context, *models.OIDCClient) error
-	RevokeOIDCClient(context.Context, ulid.ULID) error
 	DeleteOIDCClient(context.Context, ulid.ULID) error
 }
 

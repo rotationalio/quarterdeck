@@ -51,13 +51,6 @@ func TestOIDCClientValidate(t *testing.T) {
 		assertSingleValidationError(t, o.Validate(true), "read-only field modified: this field cannot be written by the user", nil)
 	})
 
-	t.Run("RevokedSet", func(t *testing.T) {
-		o := validOIDCClient()
-		revoked := time.Now()
-		o.Revoked = &revoked
-		assertSingleValidationError(t, o.Validate(true), "invalid field revoked: this field cannot be set on create", nil)
-	})
-
 	t.Run("RedirectURIsEmpty", func(t *testing.T) {
 		o := validOIDCClient()
 		o.RedirectURIs = nil

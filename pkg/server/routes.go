@@ -194,7 +194,6 @@ func (s *Server) setupRoutes() (err error) {
 				oidcclients.POST("", csrf, s.CreateOIDCClient)
 				oidcclients.GET("/:id", s.OIDCClientDetail)
 				oidcclients.PUT("/:id", csrf, s.UpdateOIDCClient)
-				oidcclients.POST("/:id/revoke", csrf, s.RevokeOIDCClient)
 				oidcclients.DELETE("/:id", csrf, s.DeleteOIDCClient)
 			}
 		}

@@ -217,30 +217,6 @@ func (s *Server) UpdateOIDCClient(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
-func (s *Server) RevokeOIDCClient(c *gin.Context) {
-	var (
-		err error
-		id  ulid.ULID
-	)
-
-	if id, err = ulid.Parse(c.Param("id")); err != nil {
-		c.JSON(http.StatusNotFound, api.Error("oidc client not found"))
-		return
-	}
-
-	if err = s.store.RevokeOIDCClient(c.Request.Context(), id); err != nil {
-		if errors.Is(err, errors.ErrNotFound) {
-			c.JSON(http.StatusNotFound, api.Error("oidc client not found"))
-			return
-		}
-		c.Error(err)
-		c.JSON(http.StatusInternalServerError, api.Error("could not process revoke oidc client request"))
-		return
-	}
-
-	c.JSON(http.StatusOK, api.Reply{Success: true})
-}
-
 func (s *Server) DeleteOIDCClient(c *gin.Context) {
 	var (
 		err error

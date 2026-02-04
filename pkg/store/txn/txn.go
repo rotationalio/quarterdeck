@@ -70,7 +70,6 @@ type OIDCClientTxn interface {
 	CreateOIDCClient(*models.OIDCClient) error
 	RetrieveOIDCClient(any) (*models.OIDCClient, error)
 	UpdateOIDCClient(*models.OIDCClient) error
-	RevokeOIDCClient(ulid.ULID) error
 	DeleteOIDCClient(ulid.ULID) error
 }
 

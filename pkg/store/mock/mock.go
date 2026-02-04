@@ -75,7 +75,6 @@ type Store struct {
 	OnCreateOIDCClient  func(context.Context, *models.OIDCClient) error
 	OnRetrieveOIDCClient func(context.Context, any) (*models.OIDCClient, error)
 	OnUpdateOIDCClient   func(context.Context, *models.OIDCClient) error
-	OnRevokeOIDCClient   func(context.Context, ulid.ULID) error
 	OnDeleteOIDCClient   func(context.Context, ulid.ULID) error
 
 	// VeroTokenStore Callbacks
@@ -457,7 +456,6 @@ const (
 	CreateOIDCClient  = "CreateOIDCClient"
 	RetrieveOIDCClient = "RetrieveOIDCClient"
 	UpdateOIDCClient   = "UpdateOIDCClient"
-	RevokeOIDCClient   = "RevokeOIDCClient"
 	DeleteOIDCClient   = "DeleteOIDCClient"
 )
 
@@ -491,14 +489,6 @@ func (s *Store) UpdateOIDCClient(ctx context.Context, in *models.OIDCClient) err
 		return s.OnUpdateOIDCClient(ctx, in)
 	}
 	panic(errors.Fmt("%s callback is not mocked", UpdateOIDCClient))
-}
-
-func (s *Store) RevokeOIDCClient(ctx context.Context, id ulid.ULID) error {
-	s.calls[RevokeOIDCClient]++
-	if s.OnRevokeOIDCClient != nil {
-		return s.OnRevokeOIDCClient(ctx, id)
-	}
-	panic(errors.Fmt("%s callback is not mocked", RevokeOIDCClient))
 }
 
 func (s *Store) DeleteOIDCClient(ctx context.Context, id ulid.ULID) error {

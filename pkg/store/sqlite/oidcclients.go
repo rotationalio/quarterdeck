@@ -15,7 +15,7 @@ import (
 //===========================================================================
 
 const (
-	listOIDCClientsSQL = "SELECT id, client_name, client_uri, logo_uri, policy_uri, tos_uri, redirect_uris, contacts, client_id, created_by, revoked, created, modified FROM oidc_clients WHERE revoked IS NULL ORDER BY created DESC"
+	listOIDCClientsSQL = "SELECT id, client_name, client_uri, logo_uri, policy_uri, tos_uri, redirect_uris, contacts, client_id, created_by, created, modified FROM oidc_clients ORDER BY created DESC"
 )
 
 func (tx *Tx) ListOIDCClients(page *models.Page) (out *models.OIDCClientList, err error) {
@@ -46,7 +46,7 @@ func (tx *Tx) ListOIDCClients(page *models.Page) (out *models.OIDCClientList, er
 }
 
 const (
-	createOIDCClientSQL = "INSERT INTO oidc_clients (id, client_name, client_uri, logo_uri, policy_uri, tos_uri, redirect_uris, contacts, client_id, secret, created_by, revoked, created, modified) VALUES (:id, :clientName, :clientURI, :logoURI, :policyURI, :tosURI, :redirectURIs, :contacts, :clientID, :secret, :createdBy, :revoked, :created, :modified)"
+	createOIDCClientSQL = "INSERT INTO oidc_clients (id, client_name, client_uri, logo_uri, policy_uri, tos_uri, redirect_uris, contacts, client_id, secret, created_by, created, modified) VALUES (:id, :clientName, :clientURI, :logoURI, :policyURI, :tosURI, :redirectURIs, :contacts, :clientID, :secret, :createdBy, :created, :modified)"
 )
 
 func (tx *Tx) CreateOIDCClient(client *models.OIDCClient) (err error) {
@@ -70,8 +70,8 @@ func (tx *Tx) CreateOIDCClient(client *models.OIDCClient) (err error) {
 }
 
 const (
-	retrieveOIDCClientByClientIDSQL = "SELECT id, client_name, client_uri, logo_uri, policy_uri, tos_uri, redirect_uris, contacts, client_id, secret, created_by, revoked, created, modified FROM oidc_clients WHERE client_id=:clientID"
-	retrieveOIDCClientByIDSQL       = "SELECT id, client_name, client_uri, logo_uri, policy_uri, tos_uri, redirect_uris, contacts, client_id, secret, created_by, revoked, created, modified FROM oidc_clients WHERE id=:id"
+	retrieveOIDCClientByClientIDSQL = "SELECT id, client_name, client_uri, logo_uri, policy_uri, tos_uri, redirect_uris, contacts, client_id, secret, created_by, created, modified FROM oidc_clients WHERE client_id=:clientID"
+	retrieveOIDCClientByIDSQL       = "SELECT id, client_name, client_uri, logo_uri, policy_uri, tos_uri, redirect_uris, contacts, client_id, secret, created_by, created, modified FROM oidc_clients WHERE id=:id"
 )
 
 func (tx *Tx) RetrieveOIDCClient(id any) (client *models.OIDCClient, err error) {
@@ -120,34 +120,6 @@ func (tx *Tx) UpdateOIDCClient(client *models.OIDCClient) (err error) {
 
 	var result sql.Result
 	if result, err = tx.Exec(updateOIDCClientSQL, client.Params()...); err != nil {
-		return dbe(err)
-	}
-
-	if nRows, _ := result.RowsAffected(); nRows == 0 {
-		return errors.ErrNotFound
-	}
-
-	return nil
-}
-
-const (
-	revokeOIDCClientSQL = "UPDATE oidc_clients SET revoked=:revoked, modified=:modified WHERE id=:id"
-)
-
-func (tx *Tx) RevokeOIDCClient(id ulid.ULID) (err error) {
-	if id.IsZero() {
-		return errors.ErrMissingID
-	}
-
-	now := time.Now()
-	params := []any{
-		sql.Named("id", id),
-		sql.Named("revoked", sql.NullTime{Time: now, Valid: true}),
-		sql.Named("modified", now),
-	}
-
-	var result sql.Result
-	if result, err = tx.Exec(revokeOIDCClientSQL, params...); err != nil {
 		return dbe(err)
 	}
 
@@ -241,20 +213,6 @@ func (s *Store) UpdateOIDCClient(ctx context.Context, client *models.OIDCClient)
 	defer tx.Rollback()
 
 	if err = tx.UpdateOIDCClient(client); err != nil {
-		return err
-	}
-
-	return tx.Commit()
-}
-
-func (s *Store) RevokeOIDCClient(ctx context.Context, id ulid.ULID) (err error) {
-	var tx *Tx
-	if tx, err = s.BeginTx(ctx, nil); err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	if err = tx.RevokeOIDCClient(id); err != nil {
 		return err
 	}
 

@@ -21,7 +21,7 @@ func (s *storeTestSuite) TestListOIDCClients() {
 		out, err := s.db.ListOIDCClients(s.Context(), nil)
 		require.NoError(err, "should be able to list OIDC clients")
 		require.NotNil(out, "should return an OIDC client list")
-		require.Len(out.OIDCClients, 2, "list should return 2 non-revoked clients")
+		require.Len(out.OIDCClients, 2, "list should return 2 clients")
 
 		var full *models.OIDCClient
 		for _, c := range out.OIDCClients {
@@ -50,7 +50,6 @@ func (s *storeTestSuite) TestListOIDCClients() {
 		require.Equal(fullMetadataClientID, full.ClientID)
 		require.Empty(full.Secret, "list should not return secret")
 		require.False(full.CreatedBy.IsZero())
-		require.False(full.Revoked.Valid)
 		require.False(full.Created.IsZero())
 		require.False(full.Modified.IsZero())
 	})
@@ -68,7 +67,7 @@ func (s *storeTestSuite) TestListOIDCClients() {
 			}
 		}
 		require.NotNil(minimal, "minimal client should be in list")
-		require.Empty(minimal.ClientName)
+		require.Equal("Minimal Metadata OIDC Client", minimal.ClientName)
 		require.False(minimal.ClientURI.Valid)
 		require.False(minimal.LogoURI.Valid)
 		require.False(minimal.PolicyURI.Valid)
@@ -244,7 +243,6 @@ func (s *storeTestSuite) TestRetrieveOIDCClient() {
 		require.Equal(fullMetadataClientID, client.ClientID)
 		require.Equal("$argon2id$v=19$m=65536,t=1,p=2$Bk7GvOXGHdfDdSZH1OUyIA==$1AcYMKcJwm/DngmCw9db/J7PbvPzav/i/kk+Z0EKd44=", client.Secret)
 		require.False(client.CreatedBy.IsZero())
-		require.False(client.Revoked.Valid)
 		require.Equal(time.Date(2025, 2, 20, 21, 34, 8, 0, time.UTC), client.Created)
 		require.Equal(time.Date(2025, 2, 20, 21, 34, 8, 0, time.UTC), client.Modified)
 
@@ -345,44 +343,6 @@ func (s *storeTestSuite) TestUpdateOIDCClient() {
 		require.NotNil(client)
 		client.ID = ulid.Make() // new ID
 		err = s.db.UpdateOIDCClient(s.Context(), client)
-		require.ErrorIs(err, errors.ErrNotFound)
-	})
-}
-
-func (s *storeTestSuite) TestRevokeOIDCClient() {
-	if s.ReadOnly() {
-		s.T().Skip("skipping revoke test in read-only mode")
-	}
-
-	s.Run("Success", func() {
-		require := s.Require()
-		client, err := s.db.RetrieveOIDCClient(s.Context(), fullMetadataClientID)
-		require.NoError(err)
-		require.NotNil(client)
-
-		err = s.db.RevokeOIDCClient(s.Context(), client.ID)
-		require.NoError(err)
-
-		got, err := s.db.RetrieveOIDCClient(s.Context(), client.ID)
-		require.NoError(err)
-		require.True(got.Revoked.Valid)
-
-		out, err := s.db.ListOIDCClients(s.Context(), nil)
-		require.NoError(err)
-		for _, c := range out.OIDCClients {
-			require.NotEqual(fullMetadataClientID, c.ClientID, "revoked client should not appear in list")
-		}
-	})
-
-	s.Run("ErrMissingID", func() {
-		require := s.Require()
-		err := s.db.RevokeOIDCClient(s.Context(), ulid.ULID{})
-		require.ErrorIs(err, errors.ErrMissingID)
-	})
-
-	s.Run("ErrNotFound", func() {
-		require := s.Require()
-		err := s.db.RevokeOIDCClient(s.Context(), ulid.Make())
 		require.ErrorIs(err, errors.ErrNotFound)
 	})
 }

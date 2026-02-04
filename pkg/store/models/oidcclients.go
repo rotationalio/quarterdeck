@@ -10,7 +10,6 @@ import (
 type OIDCClient struct {
 	Model
 	CreatedBy ulid.ULID
-	Revoked   sql.NullTime
 
 	// OIDC spec descriptive fields
 
@@ -53,7 +52,6 @@ func (k *OIDCClient) Scan(scanner Scanner) (err error) {
 		&k.ClientID,
 		&k.Secret,
 		&k.CreatedBy,
-		&k.Revoked,
 		&k.Created,
 		&k.Modified,
 	); err != nil {
@@ -95,7 +93,6 @@ func (k *OIDCClient) ScanSummary(scanner Scanner) (err error) {
 		&contactsJSON,
 		&k.ClientID,
 		&k.CreatedBy,
-		&k.Revoked,
 		&k.Created,
 		&k.Modified,
 	); err != nil {
@@ -152,7 +149,6 @@ func (k *OIDCClient) Params() []any {
 		sql.Named("clientID", k.ClientID),
 		sql.Named("secret", k.Secret),
 		sql.Named("createdBy", k.CreatedBy),
-		sql.Named("revoked", k.Revoked),
 		sql.Named("created", k.Created),
 		sql.Named("modified", k.Modified),
 	}

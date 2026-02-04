@@ -23,7 +23,6 @@ type OIDCClient struct {
 	ClientID     string     `json:"client_id,omitempty"`
 	Secret       string     `json:"secret,omitempty"`
 	CreatedBy    ulid.ULID  `json:"created_by,omitempty"`
-	Revoked      *time.Time `json:"revoked,omitempty"`
 	Created      time.Time  `json:"created,omitempty"`
 	Modified     time.Time  `json:"modified,omitempty"`
 }
@@ -69,10 +68,6 @@ func NewOIDCClient(model *models.OIDCClient) (out *OIDCClient, err error) {
 				out.Contacts = append(out.Contacts, c.String)
 			}
 		}
-	}
-	if model.Revoked.Valid {
-		t := model.Revoked.Time
-		out.Revoked = &t
 	}
 
 	return out, nil
@@ -129,11 +124,6 @@ func (o *OIDCClient) Validate(create bool) (err error) {
 
 	if !o.Modified.IsZero() {
 		err = ValidationError(err, ReadOnlyField("modified"))
-	}
-
-	// revoked: not allowed on create
-	if o.Revoked != nil {
-		err = ValidationError(err, IncorrectField("revoked", "this field cannot be set on create"))
 	}
 
 	// redirect_uris: at least one required; each must be valid URL
@@ -225,9 +215,6 @@ func (o *OIDCClient) Model() (model *models.OIDCClient, err error) {
 	}
 	if o.TOSURI != nil && *o.TOSURI != "" {
 		model.TOSURI = sql.NullString{String: *o.TOSURI, Valid: true}
-	}
-	if o.Revoked != nil {
-		model.Revoked = sql.NullTime{Time: *o.Revoked, Valid: true}
 	}
 	if len(o.Contacts) > 0 {
 		model.Contacts = make([]sql.NullString, len(o.Contacts))

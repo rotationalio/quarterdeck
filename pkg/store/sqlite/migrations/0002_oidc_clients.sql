@@ -14,7 +14,6 @@ CREATE TABLE IF NOT EXISTS oidc_clients (
     client_id TEXT NOT NULL UNIQUE,
     secret TEXT NOT NULL UNIQUE,
     created_by TEXT NOT NULL,
-    revoked DATETIME,
     created DATETIME NOT NULL,
     modified DATETIME NOT NULL,
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE

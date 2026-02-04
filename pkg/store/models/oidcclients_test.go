@@ -32,7 +32,6 @@ func TestOIDCClientParams(t *testing.T) {
 		ClientID:     "XUiRZrNDUnLjeenQQmblpv",
 		Secret:       "$argon2id$v=19$m=65536,t=1,p=2$Bk7GvOXGHdfDdSZH1OUyIA==$1AcYMKcJwm/DngmCw9db/J7PbvPzav/i/kk+Z0EKd44=",
 		CreatedBy:    ulid.MakeSecure(),
-		Revoked:      sql.NullTime{Valid: false},
 	}
 
 	redirectURIsJSON, _ := json.Marshal(redirectURIs)
@@ -42,12 +41,12 @@ func TestOIDCClientParams(t *testing.T) {
 		[]string{
 			"id", "clientName", "clientURI", "logoURI", "policyURI", "tosURI",
 			"redirectURIs", "contacts", "clientID", "secret", "createdBy",
-			"revoked", "created", "modified",
+			"created", "modified",
 		},
 		[]any{
 			client.ID, client.ClientName, client.ClientURI, client.LogoURI, client.PolicyURI, client.TOSURI,
 			string(redirectURIsJSON), string(contactsJSON), client.ClientID, client.Secret, client.CreatedBy,
-			client.Revoked, client.Created, client.Modified,
+			client.Created, client.Modified,
 		},
 	)
 }
@@ -69,7 +68,6 @@ func TestOIDCClientScan(t *testing.T) {
 			"XUiRZrNDUnLjeenQQmblpv",    // ClientID
 			"$argon2id$v=19$m=65536,t=1,p=2$GCSPNYPRVwBT9E559vqOnQ==$QMiOdjzXvvyNiQid3G7WY6E2zprY00UI4xJDCbd1HkM=", // Secret
 			ulid.MakeSecure().String(),        // CreatedBy
-			time.Now().Add(-30 * time.Minute), // Revoked
 			time.Now().Add(-14 * time.Hour),   // Created
 			time.Now().Add(-30 * time.Minute), // Modified
 		}
@@ -100,9 +98,8 @@ func TestOIDCClientScan(t *testing.T) {
 		require.Equal(t, data[8], model.ClientID, "expected field ClientID to match data[8]")
 		require.Equal(t, data[9], model.Secret, "expected field Secret to match data[9]")
 		require.Equal(t, data[10], model.CreatedBy.String(), "expected field CreatedBy to match data[10]")
-		require.Equal(t, data[11], model.Revoked.Time, "expected field Revoked to match data[11]")
-		require.Equal(t, data[12], model.Created, "expected field Created to match data[12]")
-		require.Equal(t, data[13], model.Modified, "expected field Modified to match data[13]")
+		require.Equal(t, data[11], model.Created, "expected field Created to match data[11]")
+		require.Equal(t, data[12], model.Modified, "expected field Modified to match data[12]")
 	})
 
 	t.Run("Nulls", func(t *testing.T) {
@@ -118,7 +115,6 @@ func TestOIDCClientScan(t *testing.T) {
 			"XUiRZrNDUnLjeenQQmblpv",   // ClientID
 			"$argon2id$v=19$m=65536,t=1,p=2$GCSPNYPRVwBT9E559vqOnQ==$QMiOdjzXvvyNiQid3G7WY6E2zprY00UI4xJDCbd1HkM=", // Secret
 			ulid.MakeSecure().String(), // CreatedBy
-			nil,                        // Revoked
 			time.Now(),                 // Created
 			time.Time{},                // Modified (testing zero time)
 		}
@@ -134,7 +130,6 @@ func TestOIDCClientScan(t *testing.T) {
 		require.False(t, model.ClientURI.Valid, "expected ClientURI invalid (null)")
 		require.Nil(t, model.RedirectURIs, "expected RedirectURI nil when JSON null")
 		require.Nil(t, model.Contacts, "expected Contacts nil when JSON null")
-		require.False(t, model.Revoked.Valid, "expected field Revoked to be invalid (null)")
 		require.True(t, model.Modified.IsZero(), "expected field Modified to be zero time")
 	})
 
@@ -163,7 +158,6 @@ func TestOIDCClientScanSummary(t *testing.T) {
 		contactsJSON,                      // contacts (driver returns string)
 		"XUiRZrNDUnLjeenQQmblpv",          // ClientID
 		ulid.MakeSecure().String(),        // CreatedBy
-		time.Now().Add(-30 * time.Minute), // Revoked
 		time.Now().Add(-14 * time.Hour),   // Created
 		time.Now().Add(-30 * time.Minute), // Modified
 	}
@@ -194,7 +188,6 @@ func TestOIDCClientScanSummary(t *testing.T) {
 	require.Equal(t, data[8], model.ClientID, "expected field ClientID to match data[8]")
 	require.Equal(t, "", model.Secret, "expected field Secret to be empty") // This is the only difference from Scan()
 	require.Equal(t, data[9], model.CreatedBy.String(), "expected field CreatedBy to match data[9]")
-	require.Equal(t, data[10], model.Revoked.Time, "expected field Revoked to match data[10]")
-	require.Equal(t, data[11], model.Created, "expected field Created to match data[11]")
-	require.Equal(t, data[12], model.Modified, "expected field Modified to match data[12]")
+	require.Equal(t, data[10], model.Created, "expected field Created to match data[10]")
+	require.Equal(t, data[11], model.Modified, "expected field Modified to match data[11]")
 }
