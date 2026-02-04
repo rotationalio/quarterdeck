@@ -74,7 +74,7 @@ func (s *Server) CreateOIDCClient(c *gin.Context) {
 		return
 	}
 
-	if err = in.Validate(); err != nil {
+	if err = in.Validate(true); err != nil {
 		c.Error(err)
 		c.JSON(http.StatusUnprocessableEntity, api.Error(err))
 		return
@@ -186,7 +186,7 @@ func (s *Server) UpdateOIDCClient(c *gin.Context) {
 		return
 	}
 
-	if err = in.ValidateForUpdate(); err != nil {
+	if err = in.Validate(false); err != nil {
 		c.Error(err)
 		c.JSON(http.StatusUnprocessableEntity, api.Error(err))
 		return

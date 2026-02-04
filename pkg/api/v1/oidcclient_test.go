@@ -14,7 +14,7 @@ func TestOIDCClientValidate_Valid(t *testing.T) {
 	o := validOIDCClient()
 
 	// test
-	require.NoError(t, o.Validate())
+	require.NoError(t, o.Validate(true))
 }
 
 func TestOIDCClientValidate_IDNotZero(t *testing.T) {
@@ -23,7 +23,7 @@ func TestOIDCClientValidate_IDNotZero(t *testing.T) {
 	o.ID = ulid.MakeSecure()
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "read-only field id: this field cannot be written by the user", nil)
+	assertSingleValidationError(t, o.Validate(true), "read-only field id: this field cannot be written by the user", nil)
 }
 
 func TestOIDCClientValidate_ClientIDSet(t *testing.T) {
@@ -32,7 +32,7 @@ func TestOIDCClientValidate_ClientIDSet(t *testing.T) {
 	o.ClientID = "some-client-id"
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "read-only field client_id: this field cannot be written by the user", nil)
+	assertSingleValidationError(t, o.Validate(true), "read-only field client_id: this field cannot be written by the user", nil)
 }
 
 func TestOIDCClientValidate_SecretSet(t *testing.T) {
@@ -41,7 +41,7 @@ func TestOIDCClientValidate_SecretSet(t *testing.T) {
 	o.Secret = "some-secret"
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "read-only field secret: this field cannot be written by the user", nil)
+	assertSingleValidationError(t, o.Validate(true), "read-only field secret: this field cannot be written by the user", nil)
 }
 
 func TestOIDCClientValidate_CreatedBySet(t *testing.T) {
@@ -50,7 +50,7 @@ func TestOIDCClientValidate_CreatedBySet(t *testing.T) {
 	o.CreatedBy = ulid.MakeSecure()
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "read-only field created_by: this field cannot be written by the user", nil)
+	assertSingleValidationError(t, o.Validate(true), "read-only field created_by: this field cannot be written by the user", nil)
 }
 
 func TestOIDCClientValidate_CreatedSet(t *testing.T) {
@@ -59,7 +59,7 @@ func TestOIDCClientValidate_CreatedSet(t *testing.T) {
 	o.Created = time.Now()
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "read-only field created: this field cannot be written by the user", nil)
+	assertSingleValidationError(t, o.Validate(true), "read-only field created: this field cannot be written by the user", nil)
 }
 
 func TestOIDCClientValidate_ModifiedSet(t *testing.T) {
@@ -68,7 +68,7 @@ func TestOIDCClientValidate_ModifiedSet(t *testing.T) {
 	o.Modified = time.Now()
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "read-only field modified: this field cannot be written by the user", nil)
+	assertSingleValidationError(t, o.Validate(true), "read-only field modified: this field cannot be written by the user", nil)
 }
 
 func TestOIDCClientValidate_RevokedSet(t *testing.T) {
@@ -78,7 +78,7 @@ func TestOIDCClientValidate_RevokedSet(t *testing.T) {
 	o.Revoked = &revoked
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "invalid field revoked: this field cannot be set on create", nil)
+	assertSingleValidationError(t, o.Validate(true), "invalid field revoked: this field cannot be set on create", nil)
 }
 
 func TestOIDCClientValidate_RedirectURIsEmpty(t *testing.T) {
@@ -87,7 +87,7 @@ func TestOIDCClientValidate_RedirectURIsEmpty(t *testing.T) {
 	o.RedirectURIs = nil
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "missing redirect_uris: this field is required", nil)
+	assertSingleValidationError(t, o.Validate(true), "missing redirect_uris: this field is required", nil)
 }
 
 func TestOIDCClientValidate_RedirectURIsEmptySlice(t *testing.T) {
@@ -96,7 +96,7 @@ func TestOIDCClientValidate_RedirectURIsEmptySlice(t *testing.T) {
 	o.RedirectURIs = []string{}
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "missing redirect_uris: this field is required", nil)
+	assertSingleValidationError(t, o.Validate(true), "missing redirect_uris: this field is required", nil)
 }
 
 func TestOIDCClientValidate_RedirectURIEmptyString(t *testing.T) {
@@ -105,7 +105,7 @@ func TestOIDCClientValidate_RedirectURIEmptyString(t *testing.T) {
 	o.RedirectURIs = []string{""}
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "", []string{"redirect_uris[0]", "cannot be empty"})
+	assertSingleValidationError(t, o.Validate(true), "", []string{"redirect_uris[0]", "cannot be empty"})
 }
 
 func TestOIDCClientValidate_RedirectURINotAbsolute(t *testing.T) {
@@ -114,7 +114,7 @@ func TestOIDCClientValidate_RedirectURINotAbsolute(t *testing.T) {
 	o.RedirectURIs = []string{"/relative"}
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "", []string{"redirect_uris[0]", "must be an absolute URL with scheme and host"})
+	assertSingleValidationError(t, o.Validate(true), "", []string{"redirect_uris[0]", "must be an absolute URL with scheme and host"})
 }
 
 func TestOIDCClientValidate_RedirectURIInvalid(t *testing.T) {
@@ -123,7 +123,7 @@ func TestOIDCClientValidate_RedirectURIInvalid(t *testing.T) {
 	o.RedirectURIs = []string{"://bad"}
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "", []string{"redirect_uris[0]"})
+	assertSingleValidationError(t, o.Validate(true), "", []string{"redirect_uris[0]"})
 }
 
 func TestOIDCClientValidate_ClientURIInvalid(t *testing.T) {
@@ -133,7 +133,7 @@ func TestOIDCClientValidate_ClientURIInvalid(t *testing.T) {
 	o.ClientURI = &invalid
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "", []string{"client_uri", "invalid field"})
+	assertSingleValidationError(t, o.Validate(true), "", []string{"client_uri", "invalid field"})
 }
 
 func TestOIDCClientValidate_LogoURIInvalid(t *testing.T) {
@@ -143,7 +143,7 @@ func TestOIDCClientValidate_LogoURIInvalid(t *testing.T) {
 	o.LogoURI = &invalid
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "", []string{"logo_uri", "must be an absolute URL with scheme and host"})
+	assertSingleValidationError(t, o.Validate(true), "", []string{"logo_uri", "must be an absolute URL with scheme and host"})
 }
 
 func TestOIDCClientValidate_PolicyURIInvalid(t *testing.T) {
@@ -153,7 +153,7 @@ func TestOIDCClientValidate_PolicyURIInvalid(t *testing.T) {
 	o.PolicyURI = &invalid
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "", []string{"policy_uri", "scheme must be http or https"})
+	assertSingleValidationError(t, o.Validate(true), "", []string{"policy_uri", "scheme must be http or https"})
 }
 
 func TestOIDCClientValidate_TOSURIInvalid(t *testing.T) {
@@ -163,7 +163,7 @@ func TestOIDCClientValidate_TOSURIInvalid(t *testing.T) {
 	o.TOSURI = &invalid
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "", []string{"tos_uri", "must be an absolute URL with scheme and host"})
+	assertSingleValidationError(t, o.Validate(true), "", []string{"tos_uri", "must be an absolute URL with scheme and host"})
 }
 
 func TestOIDCClientValidate_ContactInvalidEmail(t *testing.T) {
@@ -172,7 +172,7 @@ func TestOIDCClientValidate_ContactInvalidEmail(t *testing.T) {
 	o.Contacts = []string{"notanemail"}
 
 	// test
-	assertSingleValidationError(t, o.Validate(), "", []string{"contacts[0]", "invalid field"})
+	assertSingleValidationError(t, o.Validate(true), "", []string{"contacts[0]", "invalid field"})
 }
 
 // ---------------------------------------------------------------------------
