@@ -24,6 +24,7 @@ type WelcomeUserEmailData struct {
 	BaseURL      *url.URL               // the Quarterdeck node's url
 	Token        vero.VerificationToken // verification token for reset password link record
 	SupportEmail string                 // the Quarterdeck node's support email address
+	// FIXME: add required new app/org info here
 }
 
 func NewWelcomeUserEmail(recipient string, data WelcomeUserEmailData) (*commo.Email, error) {
@@ -57,6 +58,7 @@ type ResetPasswordEmailData struct {
 	BaseURL      *url.URL               // the Quarterdeck node's url
 	Token        vero.VerificationToken // verification token for reset password link record
 	SupportEmail string                 // the Quarterdeck node's support email address
+	// FIXME: add required new app/org info here
 }
 
 func NewResetPasswordEmail(recipient string, data ResetPasswordEmailData) (*commo.Email, error) {

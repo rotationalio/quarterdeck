@@ -34,14 +34,17 @@ type Config struct {
 	RateLimit    ratelimit.Config    `split_words:"true"`
 	DocsName     string              `split_words:"true" default:"quarterdeck" desc:"the display name for the API docs server in the Swagger app"`
 	SupportEmail string              `split_words:"true" default:"" desc:"an email address that a user may email for technical support, by default support@ISSUER.TLD"`
-	Database     DatabaseConfig      `split_words:"true"`
-	Auth         AuthConfig          `split_words:"true"`
-	CSRF         CSRFConfig          `split_words:"true"`
-	Secure       secure.Config       `split_words:"true"`
-	Security     SecurityConfig      `split_words:"true"`
-	Email        commo.Config        `split_words:"true"`
-	UserSync     UserSyncConfig      `split_words:"true"`
-	processed    bool
+	// FIXME: "OrgConfig": name, street address, support email (move it into here from above), org homepage url
+	// FIXME: "AppConfig": name, logo, base url (fix the login and other urls with this), welcome email body (both HTML and TEXT)
+	Database DatabaseConfig `split_words:"true"`
+	Auth     AuthConfig     `split_words:"true"`
+	CSRF     CSRFConfig     `split_words:"true"`
+	Secure   secure.Config  `split_words:"true"`
+	Security SecurityConfig `split_words:"true"`
+	Email    commo.Config   `split_words:"true"`
+	// FIXME: move this into the AppConfig
+	UserSync  UserSyncConfig `split_words:"true"`
+	processed bool
 }
 
 type DatabaseConfig struct {
@@ -79,6 +82,9 @@ type SecurityConfig struct {
 // user is deleted the user's ID will be appended to each endpoint as a path
 // parameter and sent via an HTTP DELETE. This is a "best effort" functionality,
 // so failures will be logged but not handled at that time.
+//
+// TODO: this endpoint config should be converted to the OIDC spec for auth
+// callbacks in the future, or removed when that callback is implemented
 type UserSyncConfig struct {
 	WebhookEndpoints []string `split_words:"true" required:"false" desc:"webhook endpoints for the applications that wish to recieve user sync events"`
 }

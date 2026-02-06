@@ -1,5 +1,6 @@
 Hello{{ if .ContactName }} {{ .ContactName }}{{ end }},
 
+<!--FIXME: reoplace below with the app's welcome email body-->
 You have been invited to join a team in Endeavor.
 
 Accept the invitation by clicking the link below, or copying and pasting it into your browser.
@@ -12,4 +13,5 @@ For security purposes, this invitation will expire in 48 hours.
 If you have trouble visiting the link, please contact us at {{ .SupportEmail }}.
 {{ end }}
 
+<!--FIXME: app and org names below-->
 This is an automated message sent by the Endeavor Team (https://rotational.ai)
