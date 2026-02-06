@@ -30,7 +30,7 @@ type EmailBaseData struct {
 type WelcomeUserEmailData struct {
 	EmailBaseData
 	ContactName          string                 // the user's name, if available
-	BaseURL              *url.URL               // the app url
+	PasswordLinkBaseURL  *url.URL               // the app url
 	Token                vero.VerificationToken // verification token for reset password link record
 	WelcomeEmailBodyText string                 // the body of the email in text format
 	WelcomeEmailBodyHTML string                 // the body of the email in html format
@@ -43,15 +43,15 @@ func NewWelcomeUserEmail(recipient string, data WelcomeUserEmailData) (*commo.Em
 }
 
 func (s WelcomeUserEmailData) VerifyURL() string {
-	if s.BaseURL == nil {
+	if s.PasswordLinkBaseURL == nil {
 		return ""
 	}
 
 	params := make(url.Values, 1)
 	params.Set("token", s.Token.String())
 
-	s.BaseURL.RawQuery = params.Encode()
-	return s.BaseURL.String()
+	s.PasswordLinkBaseURL.RawQuery = params.Encode()
+	return s.PasswordLinkBaseURL.String()
 }
 
 // ===========================================================================
@@ -61,9 +61,9 @@ func (s WelcomeUserEmailData) VerifyURL() string {
 // ResetPasswordEmailData is used to complete the reset_password template.
 type ResetPasswordEmailData struct {
 	EmailBaseData
-	ContactName string                 // the user's name, if available
-	BaseURL     *url.URL               // the app url
-	Token       vero.VerificationToken // verification token for reset password link record
+	ContactName         string                 // the user's name, if available
+	PasswordLinkBaseURL *url.URL               // the app url
+	Token               vero.VerificationToken // verification token for reset password link record
 }
 
 func NewResetPasswordEmail(recipient string, data ResetPasswordEmailData) (*commo.Email, error) {
@@ -73,13 +73,13 @@ func NewResetPasswordEmail(recipient string, data ResetPasswordEmailData) (*comm
 }
 
 func (s ResetPasswordEmailData) VerifyURL() string {
-	if s.BaseURL == nil {
+	if s.PasswordLinkBaseURL == nil {
 		return ""
 	}
 
 	params := make(url.Values, 1)
 	params.Set("token", s.Token.String())
 
-	s.BaseURL.RawQuery = params.Encode()
-	return s.BaseURL.String()
+	s.PasswordLinkBaseURL.RawQuery = params.Encode()
+	return s.PasswordLinkBaseURL.String()
 }

@@ -11,7 +11,7 @@ import (
 
 func TestVerifyWelcomeUserURL(t *testing.T) {
 	invite := emails.WelcomeUserEmailData{
-		BaseURL: &url.URL{
+		PasswordLinkBaseURL: &url.URL{
 			Scheme: "https",
 			Host:   "resetpassword.example.com",
 			Path:   "/reset-password",
@@ -24,7 +24,7 @@ func TestVerifyWelcomeUserURL(t *testing.T) {
 
 func TestVerifyResetPasswordURL(t *testing.T) {
 	invite := emails.ResetPasswordEmailData{
-		BaseURL: &url.URL{
+		PasswordLinkBaseURL: &url.URL{
 			Scheme: "https",
 			Host:   "resetpassword.example.com",
 			Path:   "/reset-password",

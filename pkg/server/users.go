@@ -563,9 +563,11 @@ func (s *Server) sendResetPasswordEmail(c *gin.Context, emailOrUserID any) (err 
 	}
 
 	// Create the ResetPasswordEmailData for the email builder
+	resetURL := s.conf.Auth.GetResetPasswordURL()
+	resetURL.Host = s.conf.App.BaseURL().Host
 	emailData := emails.ResetPasswordEmailData{
-		ContactName: user.Name.String,
-		BaseURL:     s.conf.App.BaseURL(),
+		ContactName:         user.Name.String,
+		PasswordLinkBaseURL: resetURL,
 		EmailBaseData: emails.EmailBaseData{
 			AppName:        s.conf.App.Name,
 			AppLogoURL:     s.conf.App.LogoURL(),
@@ -800,9 +802,11 @@ func (s *Server) sendWelcomeEmail(c *gin.Context, user *models.User) (err error)
 	}
 
 	// Create the WelcomeUserEmailData for the email builder
+	resetURL := s.conf.Auth.GetResetPasswordURL()
+	resetURL.Host = s.conf.App.BaseURL().Host
 	emailData := emails.WelcomeUserEmailData{
 		ContactName:          user.Name.String,
-		BaseURL:              s.conf.App.BaseURL(),
+		PasswordLinkBaseURL:  resetURL,
 		WelcomeEmailBodyText: s.conf.App.WelcomeEmailBody.Text,
 		WelcomeEmailBodyHTML: s.conf.App.WelcomeEmailBody.HTML,
 		EmailBaseData: emails.EmailBaseData{
