@@ -1,7 +1,6 @@
 package config_test
 
 import (
-	"bytes"
 	"net/mail"
 	"os"
 	"testing"
@@ -61,10 +60,19 @@ var testEnv = map[string]string{
 	"QD_EMAIL_BACKOFF_INITIAL_INTERVAL":                        "1s",
 	"QD_EMAIL_BACKOFF_MAX_INTERVAL":                            "1s",
 	"QD_EMAIL_BACKOFF_MAX_ELAPSED_TIME":                        "1s",
+	"QD_APP_NAME":                                              "AppName",
+	"QD_APP_LOGO_URI":                                          "http://localhost:8000/logo.png",
+	"QD_APP_BASE_URI":                                          "http://localhost:8000",
+	"QD_APP_WELCOME_EMAIL_BODY_TEXT":                           "Email Body Text",
+	"QD_APP_WELCOME_EMAIL_BODY_HTML":                           "Email Body HTML",
 	"QD_APP_WEBHOOK_URI":                                       "http://localhost:8000/api/v1/users/sync",
+	"QD_ORG_NAME":                                              "OrgName",
+	"QD_ORG_STREET_ADDRESS":                                    "Org Street Address",
+	"QD_ORG_HOMEPAGE_URI":                                      "http://example.com",
+	"QD_ORG_SUPPORT_EMAIL":                                     "support@example.com",
 }
 
-func TestConfig(t *testing.T) {
+func TestConfigImport(t *testing.T) {
 	// Set the required environment variables and cleanup after.
 	prevEnv := curEnv()
 	t.Cleanup(func() {
@@ -136,10 +144,19 @@ func TestConfig(t *testing.T) {
 	dur, err = time.ParseDuration(testEnv["QD_EMAIL_BACKOFF_MAX_ELAPSED_TIME"])
 	require.NoError(t, err)
 	require.Equal(t, dur, conf.Email.Backoff.MaxElapsedTime)
+	require.Equal(t, testEnv["QD_APP_NAME"], "AppName")
+	require.Equal(t, testEnv["QD_APP_LOGO_URI"], "http://localhost:8000/logo.png")
+	require.Equal(t, testEnv["QD_APP_BASE_URI"], "http://localhost:8000")
+	require.Equal(t, testEnv["QD_APP_WELCOME_EMAIL_BODY_TEXT"], "Email Body Text")
+	require.Equal(t, testEnv["QD_APP_WELCOME_EMAIL_BODY_HTML"], "Email Body HTML")
 	require.Equal(t, testEnv["QD_APP_WEBHOOK_URI"], conf.App.WebhookURI)
+	require.Equal(t, testEnv["QD_ORG_NAME"], "OrgName")
+	require.Equal(t, testEnv["QD_ORG_STREET_ADDRESS"], "Org Street Address")
+	require.Equal(t, testEnv["QD_ORG_HOMEPAGE_URI"], "http://example.com")
+	require.Equal(t, testEnv["QD_ORG_SUPPORT_EMAIL"], "support@example.com")
 }
 
-func TestValidation(t *testing.T) {
+func TestConfigValidation(t *testing.T) {
 	t.Run("Default", func(t *testing.T) {
 		// Ensure the default config is valid
 		conf, err := config.New()
@@ -276,7 +293,12 @@ func TestIsZero(t *testing.T) {
 					},
 				},
 				App: config.AppConfig{
+					LogoURI:    "https://www.example.com/logo.png",
+					BaseURI:    "https://www.example.com",
 					WebhookURI: "https://www.example.com/api/v1/sync",
+				},
+				Org: config.OrgConfig{
+					HomepageURI: "https://www.example.com",
 				},
 			}
 
@@ -344,488 +366,6 @@ func TestCookieDomains(t *testing.T) {
 			require.Contains(t, cookieDomains, domain, "expected cookie domains to contain %q for test case %d", domain, i)
 		}
 	}
-}
-
-func TestAuthConfigValidate(t *testing.T) {
-	t.Run("Valid", func(t *testing.T) {
-		tests := []config.AuthConfig{
-			{
-				Audience:        []string{"https://example.com"},
-				Issuer:          "https://auth.example.com",
-				AccessTokenTTL:  5 * time.Minute,
-				RefreshTokenTTL: 10 * time.Minute,
-				TokenOverlap:    -2 * time.Minute,
-			},
-			{
-				Keys:            map[string]string{},
-				Audience:        []string{"https://example.com"},
-				Issuer:          "https://example.com",
-				AccessTokenTTL:  24 * time.Hour,
-				RefreshTokenTTL: 48 * time.Hour,
-				TokenOverlap:    -12 * time.Hour,
-			},
-			{
-				Keys:            map[string]string{},
-				Audience:        []string{"https://example.com", "https://sub.example.com"},
-				Issuer:          "https://example.com",
-				AccessTokenTTL:  24 * time.Hour,
-				RefreshTokenTTL: 48 * time.Hour,
-				TokenOverlap:    -12 * time.Hour,
-			},
-			{
-				Keys:            map[string]string{},
-				Audience:        []string{"https://example.com", "https://sub.example.com"},
-				Issuer:          "https://example.com",
-				LoginURL:        "https://sub.example.com/login",
-				AccessTokenTTL:  24 * time.Hour,
-				RefreshTokenTTL: 48 * time.Hour,
-				TokenOverlap:    -12 * time.Hour,
-			},
-			{
-				Keys:            map[string]string{},
-				Audience:        []string{"https://example.com", "https://sub.example.com"},
-				Issuer:          "https://example.com",
-				LogoutRedirect:  "https://sub.example.com/logout",
-				AccessTokenTTL:  24 * time.Hour,
-				RefreshTokenTTL: 48 * time.Hour,
-				TokenOverlap:    -12 * time.Hour,
-			},
-			{
-				Keys:                   map[string]string{},
-				Audience:               []string{"https://example.com", "https://sub.example.com"},
-				Issuer:                 "https://example.com",
-				LoginRedirect:          "https://sub.example.com/login",
-				AuthenticateRedirect:   "https://sub.example.com/authenticate",
-				ReauthenticateRedirect: "https://sub.example.com/reauthenticate",
-				AccessTokenTTL:         24 * time.Hour,
-				RefreshTokenTTL:        48 * time.Hour,
-				TokenOverlap:           -12 * time.Hour,
-			},
-		}
-
-		for i, conf := range tests {
-			require.NoError(t, conf.Validate(), "expected auth config validation to pass on test case %d", i)
-		}
-	})
-
-	t.Run("Invalid", func(t *testing.T) {
-		tests := []struct {
-			conf config.AuthConfig
-			errs string
-		}{
-			{
-				conf: config.AuthConfig{
-					Audience:        nil,
-					Issuer:          "https://auth.example.com",
-					LoginURL:        "https://auth.example.com/login",
-					AccessTokenTTL:  5 * time.Minute,
-					RefreshTokenTTL: 10 * time.Minute,
-					TokenOverlap:    -2 * time.Minute,
-				},
-				errs: "invalid configuration: auth.audience is required but not set",
-			},
-			{
-				conf: config.AuthConfig{
-					Audience:        []string{"\x00"},
-					Issuer:          "https://auth.example.com",
-					LoginURL:        "https://auth.example.com/login",
-					AccessTokenTTL:  5 * time.Minute,
-					RefreshTokenTTL: 10 * time.Minute,
-					TokenOverlap:    -2 * time.Minute,
-				},
-				errs: "invalid configuration: auth.audience could not parse audience: parse \"\\x00\": net/url: invalid control character in URL",
-			},
-			{
-				conf: config.AuthConfig{
-					Audience:        []string{"https://example.com"},
-					Issuer:          "",
-					LoginURL:        "https://auth.example.com/login",
-					AccessTokenTTL:  5 * time.Minute,
-					RefreshTokenTTL: 10 * time.Minute,
-					TokenOverlap:    -2 * time.Minute,
-				},
-				errs: "invalid configuration: auth.issuer is required but not set",
-			},
-			{
-				conf: config.AuthConfig{
-					Audience:        []string{"https://example.com"},
-					Issuer:          "\x00",
-					LoginURL:        "https://auth.example.com/login",
-					AccessTokenTTL:  5 * time.Minute,
-					RefreshTokenTTL: 10 * time.Minute,
-					TokenOverlap:    -2 * time.Minute,
-				},
-				errs: "invalid configuration: auth.issuer cannot be used as a login url: parse \"\\x00\": net/url: invalid control character in URL",
-			},
-			{
-				conf: config.AuthConfig{
-					Audience:        []string{"https://example.com"},
-					Issuer:          "//auth.example.com",
-					LoginURL:        "https://auth.example.com/login",
-					AccessTokenTTL:  5 * time.Minute,
-					RefreshTokenTTL: 10 * time.Minute,
-					TokenOverlap:    -2 * time.Minute,
-				},
-				errs: "invalid configuration: auth.issuer cannot be used as a login url: invalid login url: \"//auth.example.com\"",
-			},
-			{
-				conf: config.AuthConfig{
-					Audience:        []string{"https://example.com"},
-					Issuer:          "https://",
-					LoginURL:        "https://auth.example.com/login",
-					AccessTokenTTL:  5 * time.Minute,
-					RefreshTokenTTL: 10 * time.Minute,
-					TokenOverlap:    -2 * time.Minute,
-				},
-				errs: "invalid configuration: auth.issuer cannot be used as a login url: invalid login url: \"https://\"",
-			},
-			{
-				conf: config.AuthConfig{
-					Audience:        []string{"https://example.com"},
-					Issuer:          "https://example.com",
-					LoginURL:        "\x00",
-					LogoutRedirect:  "/logout",
-					AccessTokenTTL:  5 * time.Minute,
-					RefreshTokenTTL: 10 * time.Minute,
-					TokenOverlap:    -2 * time.Minute,
-				},
-				errs: "invalid configuration: auth.loginURL could not parse loginURL: parse \"\\x00\": net/url: invalid control character in URL",
-			},
-			{
-				conf: config.AuthConfig{
-					Audience:        []string{"https://example.com"},
-					Issuer:          "https://example.com",
-					LoginURL:        "/login",
-					AccessTokenTTL:  5 * time.Minute,
-					RefreshTokenTTL: 10 * time.Minute,
-					TokenOverlap:    -2 * time.Minute,
-				},
-				errs: "invalid configuration: auth.loginURL could not parse loginURL: invalid login url: \"/login\"",
-			},
-			{
-				conf: config.AuthConfig{
-					Audience:        []string{"https://example.com"},
-					Issuer:          "https://example.com",
-					LogoutRedirect:  "\x00",
-					AccessTokenTTL:  5 * time.Minute,
-					RefreshTokenTTL: 10 * time.Minute,
-					TokenOverlap:    -2 * time.Minute,
-				},
-				errs: "invalid configuration: auth.logoutRedirect could not parse logoutRedirect: parse \"\\x00\": net/url: invalid control character in URL",
-			},
-			{
-				conf: config.AuthConfig{
-					Audience:        []string{"https://example.com"},
-					Issuer:          "https://example.com",
-					LoginRedirect:   "\x00",
-					AccessTokenTTL:  5 * time.Minute,
-					RefreshTokenTTL: 10 * time.Minute,
-					TokenOverlap:    -2 * time.Minute,
-				},
-				errs: "invalid configuration: auth.loginRedirect could not parse loginRedirect: parse \"\\x00\": net/url: invalid control character in URL",
-			},
-			{
-				conf: config.AuthConfig{
-					Audience:             []string{"https://example.com"},
-					Issuer:               "https://example.com",
-					AuthenticateRedirect: "\x00",
-					AccessTokenTTL:       5 * time.Minute,
-					RefreshTokenTTL:      10 * time.Minute,
-					TokenOverlap:         -2 * time.Minute,
-				},
-				errs: "invalid configuration: auth.authenticateRedirect could not parse authenticateRedirect: parse \"\\x00\": net/url: invalid control character in URL",
-			},
-			{
-				conf: config.AuthConfig{
-					Audience:               []string{"https://example.com"},
-					Issuer:                 "https://example.com",
-					ReauthenticateRedirect: "\x00",
-					AccessTokenTTL:         5 * time.Minute,
-					RefreshTokenTTL:        10 * time.Minute,
-					TokenOverlap:           -2 * time.Minute,
-				},
-				errs: "invalid configuration: auth.reauthenticateRedirect could not parse reauthenticateRedirect: parse \"\\x00\": net/url: invalid control character in URL",
-			},
-			{
-				conf: config.AuthConfig{
-					Audience:        []string{"https://example.com"},
-					Issuer:          "https://auth.example.com",
-					AccessTokenTTL:  0 * time.Minute,
-					RefreshTokenTTL: 10 * time.Minute,
-					TokenOverlap:    0 * time.Minute,
-				},
-				errs: "invalid configuration: auth.accessTokenTTL is required but not set",
-			},
-			{
-				conf: config.AuthConfig{
-					Audience:        []string{"https://example.com"},
-					Issuer:          "https://auth.example.com",
-					AccessTokenTTL:  20 * time.Minute,
-					RefreshTokenTTL: -10 * time.Minute,
-					TokenOverlap:    -5 * time.Minute,
-				},
-				errs: "invalid configuration: auth.refreshTokenTTL is required but not set",
-			},
-			{
-				conf: config.AuthConfig{
-					Audience:        []string{"https://example.com"},
-					Issuer:          "https://auth.example.com",
-					AccessTokenTTL:  20 * time.Minute,
-					RefreshTokenTTL: 10 * time.Minute,
-					TokenOverlap:    2 * time.Minute,
-				},
-				errs: "invalid configuration: auth.tokenOverlap must be negative and not exceed the access duration",
-			},
-			{
-				conf: config.AuthConfig{
-					Audience:        []string{"https://example.com"},
-					Issuer:          "https://auth.example.com",
-					AccessTokenTTL:  20 * time.Minute,
-					RefreshTokenTTL: 10 * time.Minute,
-					TokenOverlap:    -24 * time.Minute,
-				},
-				errs: "invalid configuration: auth.tokenOverlap must be negative and not exceed the access duration",
-			},
-		}
-
-		for i, test := range tests {
-			err := test.conf.Validate()
-			require.EqualError(t, err, test.errs, "expected auth config validation error on test case %d", i)
-		}
-	})
-}
-
-func TestAuthConfigDefaults(t *testing.T) {
-	config := config.AuthConfig{
-		Audience:        []string{"https://example.com"},
-		Issuer:          "https://example.com",
-		AccessTokenTTL:  5 * time.Minute,
-		RefreshTokenTTL: 10 * time.Minute,
-		TokenOverlap:    -2 * time.Minute,
-	}
-
-	resetConfig := func() {
-		config.Issuer = "https://example.com"
-		config.LoginURL = ""
-		config.LogoutRedirect = ""
-		config.LoginRedirect = ""
-		config.AuthenticateRedirect = ""
-		config.ReauthenticateRedirect = ""
-	}
-
-	t.Run("Defaults", func(t *testing.T) {
-		t.Run("WithoutTrailingSlash", func(t *testing.T) {
-			defer resetConfig()
-
-			config.Issuer = "https://example.com"
-			require.Empty(t, config.LoginURL, "expected login URL to be empty before validation")
-			require.Empty(t, config.LogoutRedirect, "expected logout URL to be empty before validation")
-			require.Empty(t, config.LoginRedirect, "expected login redirect to be empty before validation")
-			require.Empty(t, config.AuthenticateRedirect, "expected authenticate redirect to be empty before validation")
-			require.Empty(t, config.ReauthenticateRedirect, "expected reauthenticate redirect to be empty before validation")
-
-			// Validation sets the defaults
-			require.NoError(t, config.Validate(), "expected auth config validation to pass with default values")
-
-			require.Equal(t, "https://example.com", config.Issuer, "expected issuer to be set without trailing slash")
-			require.Equal(t, "https://example.com/login", config.LoginURL)
-			require.Equal(t, "https://example.com/login", config.LogoutRedirect)
-			require.Equal(t, "https://example.com/", config.LoginRedirect)
-			require.Equal(t, "https://example.com/", config.AuthenticateRedirect)
-			require.Equal(t, "https://example.com/", config.ReauthenticateRedirect)
-		})
-
-		t.Run("WithTrailingSlash", func(t *testing.T) {
-			defer resetConfig()
-
-			config.Issuer = "https://example.com/"
-			require.Empty(t, config.LoginURL, "expected login URL to be empty before validation")
-			require.Empty(t, config.LogoutRedirect, "expected logout URL to be empty before validation")
-			require.Empty(t, config.LoginRedirect, "expected login redirect to be empty before validation")
-
-			// Validation sets the defaults
-			require.NoError(t, config.Validate(), "expected auth config validation to pass with default values")
-
-			require.Equal(t, "https://example.com", config.Issuer, "expected issuer to be set without trailing slash")
-			require.Equal(t, "https://example.com/login", config.LoginURL)
-			require.Equal(t, "https://example.com/login", config.LogoutRedirect)
-			require.Equal(t, "https://example.com/", config.LoginRedirect)
-			require.Equal(t, "https://example.com/", config.AuthenticateRedirect)
-			require.Equal(t, "https://example.com/", config.ReauthenticateRedirect)
-		})
-	})
-
-	t.Run("Override", func(t *testing.T) {
-		t.Run("All", func(t *testing.T) {
-			defer resetConfig()
-
-			config.LoginURL = "https://testing.com/login"
-			config.LogoutRedirect = "https://testing.com/logout"
-			config.LoginRedirect = "https://testing.com/"
-			config.AuthenticateRedirect = "https://testing.com/authenticate"
-			config.ReauthenticateRedirect = "https://testing.com/reauthenticate"
-
-			require.NoError(t, config.Validate(), "expected auth config validation to pass with overridden values")
-
-			require.Equal(t, "https://example.com", config.Issuer, "expected issuer to be set without trailing slash")
-			require.Equal(t, "https://testing.com/login", config.LoginURL)
-			require.Equal(t, "https://testing.com/logout", config.LogoutRedirect)
-			require.Equal(t, "https://testing.com/", config.LoginRedirect)
-			require.Equal(t, "https://testing.com/authenticate", config.AuthenticateRedirect)
-			require.Equal(t, "https://testing.com/reauthenticate", config.ReauthenticateRedirect)
-		})
-
-		t.Run("LoginURL", func(t *testing.T) {
-			defer resetConfig()
-
-			config.LoginURL = "https://testing.com/login"
-			require.NoError(t, config.Validate(), "expected auth config validation to pass with overridden login URL")
-
-			require.Equal(t, "https://example.com", config.Issuer, "expected issuer to be set without trailing slash")
-			require.Equal(t, "https://testing.com/login", config.LoginURL)
-			require.Equal(t, "https://testing.com/login", config.LogoutRedirect)
-			require.Equal(t, "https://example.com/", config.LoginRedirect)
-			require.Equal(t, "https://example.com/", config.AuthenticateRedirect)
-			require.Equal(t, "https://example.com/", config.ReauthenticateRedirect)
-		})
-
-		t.Run("LogoutURL", func(t *testing.T) {
-			defer resetConfig()
-
-			config.LogoutRedirect = "https://testing.com/logout"
-			require.NoError(t, config.Validate(), "expected auth config validation to pass with overridden logout URL")
-
-			require.Equal(t, "https://example.com", config.Issuer, "expected issuer to be set without trailing slash")
-			require.Equal(t, "https://example.com/login", config.LoginURL)
-			require.Equal(t, "https://testing.com/logout", config.LogoutRedirect)
-			require.Equal(t, "https://example.com/", config.LoginRedirect)
-			require.Equal(t, "https://example.com/", config.AuthenticateRedirect)
-			require.Equal(t, "https://example.com/", config.ReauthenticateRedirect)
-		})
-
-		t.Run("LoginRedirect", func(t *testing.T) {
-			defer resetConfig()
-
-			config.LoginRedirect = "https://testing.com/"
-			require.NoError(t, config.Validate(), "expected auth config validation to pass with overridden login redirect")
-
-			require.Equal(t, "https://example.com", config.Issuer, "expected issuer to be set without trailing slash")
-			require.Equal(t, "https://example.com/login", config.LoginURL)
-			require.Equal(t, "https://example.com/login", config.LogoutRedirect)
-			require.Equal(t, "https://testing.com/", config.LoginRedirect)
-			require.Equal(t, "https://example.com/", config.AuthenticateRedirect)
-			require.Equal(t, "https://example.com/", config.ReauthenticateRedirect)
-		})
-
-		t.Run("Some", func(t *testing.T) {
-			defer resetConfig()
-
-			config.LoginURL = "https://testing.com/login"
-			config.LoginRedirect = "https://testing.com/"
-			require.NoError(t, config.Validate(), "expected auth config validation to pass with overridden login redirect")
-
-			require.Equal(t, "https://example.com", config.Issuer, "expected issuer to be set without trailing slash")
-			require.Equal(t, "https://testing.com/login", config.LoginURL)
-			require.Equal(t, "https://testing.com/login", config.LogoutRedirect)
-			require.Equal(t, "https://testing.com/", config.LoginRedirect)
-			require.Equal(t, "https://example.com/", config.AuthenticateRedirect)
-			require.Equal(t, "https://example.com/", config.ReauthenticateRedirect)
-		})
-	})
-
-	t.Run("AudienceStripSlashes", func(t *testing.T) {
-		defer resetConfig()
-		config.Audience = []string{
-			"https://example.com/",
-			"https://sub.example.com",
-			"https://another.example.com/",
-			"https://specific.example.com/endpoint",
-			"https://specific.example.com/endpoint/slash/",
-		}
-
-		require.NoError(t, config.Validate(), "expected auth config validation to pass with overridden login redirect")
-		require.Equal(t, []string{
-			"https://example.com",
-			"https://sub.example.com",
-			"https://another.example.com",
-			"https://specific.example.com/endpoint",
-			"https://specific.example.com/endpoint/slash/",
-		}, config.Audience)
-
-	})
-}
-
-func TestCSRFConfigValidate(t *testing.T) {
-	t.Run("Valid", func(t *testing.T) {
-		tests := []config.CSRFConfig{
-			{
-				CookieTTL: 20 * time.Minute,
-				Secret:    "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
-			},
-			{
-				CookieTTL: 30 * time.Minute,
-				Secret:    "",
-			},
-		}
-
-		for i, conf := range tests {
-			require.NoError(t, conf.Validate(), "expected csrf config validation to pass on test case %d", i)
-		}
-	})
-
-	t.Run("Invalid", func(t *testing.T) {
-		tests := []struct {
-			conf config.CSRFConfig
-			errs string
-		}{
-			{
-				conf: config.CSRFConfig{
-					CookieTTL: 0,
-					Secret:    "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
-				},
-				errs: "invalid configuration: csrf.cookieTTL is required but not set",
-			},
-			{
-				conf: config.CSRFConfig{
-					CookieTTL: 20 * time.Minute,
-					Secret:    "invalidhexstring",
-				},
-				errs: "invalid configuration: csrf.secret could not parse secret: encoding/hex: invalid byte: U+0069 'i'",
-			},
-		}
-
-		for i, test := range tests {
-			err := test.conf.Validate()
-			require.EqualError(t, err, test.errs, "expected csrf config validation error on test case %d", i)
-		}
-	})
-}
-
-func TestCSRFGetSecret(t *testing.T) {
-	t.Run("WithSecret", func(t *testing.T) {
-		conf := config.CSRFConfig{
-			CookieTTL: 20 * time.Minute,
-			Secret:    "000102030405060708090a0b0c0d0e0f",
-		}
-		require.NoError(t, conf.Validate(), "should be able to validate the csrf config with a secret")
-		require.Equal(t, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}, conf.GetSecret())
-	})
-
-	t.Run("WithoutSecret", func(t *testing.T) {
-		conf := config.CSRFConfig{
-			CookieTTL: 20 * time.Minute,
-			Secret:    "",
-		}
-		require.NoError(t, conf.Validate(), "should be able to validate the csrf config without a secret")
-
-		// Require secret is 65 characters that aren't all zeros
-		secret := conf.GetSecret()
-		require.Len(t, secret, 65)
-		require.NotEqual(t, bytes.Repeat([]byte{0}, 65), secret)
-
-		// Require generating a new secret doesn't return the original
-		require.NotEqual(t, secret, conf.GetSecret())
-	})
 }
 
 // Returns the current environment for the specified keys, or if no keys are specified
