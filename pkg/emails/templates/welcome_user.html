@@ -1,7 +1,6 @@
 {{ template "base" . }}
 
-<!--FIXME: app name below-->
-{{ define "title" }}Welcome to Endeavor!{{ end }}
+{{ define "title" }}Welcome to {{ .AppName }}!{{ end }}
 {{ define "preheader" }}Here is a link to set your password.{{ end }}
 
 {{ define "content" }}
@@ -12,10 +11,14 @@
         <td style="padding: 20px; font-family: sans-serif; font-size: 16px; line-height: 20px; color: #000000;">
 
           <p style="margin: 0 0 16px;">Hello{{ if .ContactName }} {{ .ContactName }},{{ end }}</p>
-          <!--FIXME: replace text below with the app's "welcome email body" template-->
+
+          {{ if .WelcomeEmailBodyText }}
+          {{ .WelcomeEmailBodyText }}
+          {{ else }}
           <p style="padding: 12px 0; margin: 0;">
-            You have been invited to join a team in Endeavor.
+            You have been invited to join a team in {{ .AppName }}.
           </p>
+          {{ end }}
           <p style="padding: 12px 0; margin: 0;">
             Accept the invitation by clicking the button below.
           </p>
@@ -32,8 +35,7 @@
               <td class="button-td button-td-primary" style="border-radius: 4px; background: #55ACD8;">
                 <a class="button-a button-a-primary" href="{{ .VerifyURL }}"
                   style="background: #55ACD8; font-family: sans-serif; font-size: 16px; line-height: 20px; text-decoration: none; padding: 13px 17px; color: #ffffff; display: block; border-radius: 4px;">
-                  Join Endeavor
-                  <!--FIXME: app name above-->
+                  Join {{ .AppName }}
                 </a>
               </td>
             </tr>
@@ -59,9 +61,8 @@
       </tr>
       <tr>
         <td style="padding: 20px; font-family: sans-serif; font-size: 16px; line-height: 20px; color: #000000;">
-          <!--FIXME: app and org names below-->
-          <p style="margin: 0 0 16px;">This is an automated message sent by the <a href="https://rotational.ai">Endeavor
-              Team</a>
+          <p style="margin: 0 0 16px;">This is an automated message sent by
+            <a href="{{ .OrgHomepageURL }}">{{ .OrgName }}</a>
           </p>
         </td>
       </tr>

@@ -1,6 +1,7 @@
 package emails
 
 import (
+	"fmt"
 	"net/url"
 
 	"go.rtnl.ai/commo"
@@ -8,27 +9,37 @@ import (
 )
 
 // ===========================================================================
-// New User Email
+// Email Base Data
 // ===========================================================================
 
-const (
-	// TODO: when we add organizations, use the org name here and in the
-	// templates instead of hard-coding "Endeavor"
-	WelcomeUserRE       = "Welcome to Endeavor"
-	WelcomeUserTemplate = "welcome_user"
-)
+// EmailBaseData covers app and org data for email templates.
+type EmailBaseData struct {
+	AppName        string   // Descriptive name for the application
+	AppLogoURL     *url.URL // Application's logo URL
+	OrgName        string   // Descriptive name for the organization
+	OrgAddress     string   // Organization's street address
+	OrgHomepageURL *url.URL // Organization's homepage URL
+	SupportEmail   string   // the support email address
+}
+
+// ===========================================================================
+// Welcome New User Email
+// ===========================================================================
 
 // WelcomeUserEmailData is used to complete the welcome_user template.
 type WelcomeUserEmailData struct {
-	ContactName  string                 // the user's name, if available
-	BaseURL      *url.URL               // the Quarterdeck node's url
-	Token        vero.VerificationToken // verification token for reset password link record
-	SupportEmail string                 // the Quarterdeck node's support email address
-	// FIXME: add required new app/org info here
+	EmailBaseData
+	ContactName          string                 // the user's name, if available
+	BaseURL              *url.URL               // the app url
+	Token                vero.VerificationToken // verification token for reset password link record
+	WelcomeEmailBodyText string                 // the body of the email in text format
+	WelcomeEmailBodyHTML string                 // the body of the email in html format
 }
 
 func NewWelcomeUserEmail(recipient string, data WelcomeUserEmailData) (*commo.Email, error) {
-	return commo.New(recipient, WelcomeUserRE, WelcomeUserTemplate, data)
+	// "Join ORGNAME in APPNAME"
+	subject := fmt.Sprintf("Join %s in %s", data.OrgName, data.AppName)
+	return commo.New(recipient, subject, "welcome_user", data)
 }
 
 func (s WelcomeUserEmailData) VerifyURL() string {
@@ -47,22 +58,18 @@ func (s WelcomeUserEmailData) VerifyURL() string {
 // Reset Password Email
 // ===========================================================================
 
-const (
-	ResetPasswordRE       = "Quarterdeck password reset request"
-	ResetPasswordTemplate = "reset_password"
-)
-
 // ResetPasswordEmailData is used to complete the reset_password template.
 type ResetPasswordEmailData struct {
-	ContactName  string                 // the user's name, if available
-	BaseURL      *url.URL               // the Quarterdeck node's url
-	Token        vero.VerificationToken // verification token for reset password link record
-	SupportEmail string                 // the Quarterdeck node's support email address
-	// FIXME: add required new app/org info here
+	EmailBaseData
+	ContactName string                 // the user's name, if available
+	BaseURL     *url.URL               // the app url
+	Token       vero.VerificationToken // verification token for reset password link record
 }
 
 func NewResetPasswordEmail(recipient string, data ResetPasswordEmailData) (*commo.Email, error) {
-	return commo.New(recipient, ResetPasswordRE, ResetPasswordTemplate, data)
+	// "APPNAME password reset request"
+	subject := fmt.Sprintf("%s password reset request", data.AppName)
+	return commo.New(recipient, subject, "reset_password", data)
 }
 
 func (s ResetPasswordEmailData) VerifyURL() string {

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"net/mail"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -62,7 +61,7 @@ var testEnv = map[string]string{
 	"QD_EMAIL_BACKOFF_INITIAL_INTERVAL":                        "1s",
 	"QD_EMAIL_BACKOFF_MAX_INTERVAL":                            "1s",
 	"QD_EMAIL_BACKOFF_MAX_ELAPSED_TIME":                        "1s",
-	"QD_USER_SYNC_WEBHOOK_ENDPOINTS":                           "http://localhost:8000/api/v1/users/sync,https://api.example.com/syncUsers",
+	"QD_APP_WEBHOOK_URI":                                       "http://localhost:8000/api/v1/users/sync",
 }
 
 func TestConfig(t *testing.T) {
@@ -137,8 +136,7 @@ func TestConfig(t *testing.T) {
 	dur, err = time.ParseDuration(testEnv["QD_EMAIL_BACKOFF_MAX_ELAPSED_TIME"])
 	require.NoError(t, err)
 	require.Equal(t, dur, conf.Email.Backoff.MaxElapsedTime)
-	require.Len(t, conf.UserSync.WebhookEndpoints, 2)
-	require.ElementsMatch(t, strings.Split(testEnv["QD_USER_SYNC_WEBHOOK_ENDPOINTS"], ","), conf.UserSync.WebhookEndpoints)
+	require.Equal(t, testEnv["QD_APP_WEBHOOK_URI"], conf.App.WebhookURI)
 }
 
 func TestValidation(t *testing.T) {
@@ -277,8 +275,8 @@ func TestIsZero(t *testing.T) {
 						MaxElapsedTime:  1 * time.Second,
 					},
 				},
-				UserSync: config.UserSyncConfig{
-					WebhookEndpoints: []string{"http://localhost:8000/sync", "https://www.example.com/api/v1/sync"},
+				App: config.AppConfig{
+					WebhookURI: "https://www.example.com/api/v1/sync",
 				},
 			}
 
