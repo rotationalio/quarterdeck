@@ -12,8 +12,8 @@
 
           <p style="margin: 0 0 16px;">Hello{{ if .ContactName }} {{ .ContactName }},{{ end }}</p>
 
-          {{ if .WelcomeEmailBodyText }}
-          {{ .WelcomeEmailBodyText }}
+          {{ if .WelcomeEmailBodyHTML }}
+          {{ .WelcomeEmailBodyHTML }}
           {{ else }}
           <p style="padding: 12px 0; margin: 0;">
             You have been invited to join a team in {{ .AppName }}.
