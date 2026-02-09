@@ -31,9 +31,11 @@ type Config struct {
 	LogLevel     logger.LevelDecoder `split_words:"true" default:"info" desc:"specify the verbosity of logging (trace, debug, info, warn, error, fatal panic)"`
 	ConsoleLog   bool                `split_words:"true" default:"false" desc:"if true logs colorized human readable output instead of json"`
 	AllowOrigins []string            `split_words:"true" default:"http://localhost:8000" desc:"a list of allowed origins (domains including port) for CORS requests"`
-	RateLimit    ratelimit.Config    `split_words:"true"`
 	DocsName     string              `split_words:"true" default:"quarterdeck" desc:"the display name for the API docs server in the Swagger app"`
 	SupportEmail string              `split_words:"true" default:"" desc:"an email address that a user may email for technical support, by default support@ISSUER.TLD"`
+	ServiceName  string              `split_words:"true" env:"OTEL_SERVICE_NAME" desc:"override the default name of the service, used for logging and telemetry"`
+	ServiceAddr  string              `split_words:"true" env:"GIMLET_OTEL_SERVICE_ADDR" desc:"the primary server name if it is known. E.g. the server name directive in an Nginx config. Should include host identifier and port if it is used; empty if not known."`
+	RateLimit    ratelimit.Config    `split_words:"true"`
 	Database     DatabaseConfig      `split_words:"true"`
 	Auth         AuthConfig          `split_words:"true"`
 	CSRF         CSRFConfig          `split_words:"true"`

@@ -31,12 +31,15 @@ func (s *Server) setupRoutes() (err error) {
 	// Application Middleware
 	// NOTE: ordering is important to how middleware is handled
 	middlewares := []gin.HandlerFunc{
-		// Logging should be on the outside so we can record the correct latency of requests
-		// NOTE: logging panics will not recover
-		logger.Logger(ServiceName, pkg.Version(true), true),
+		// o11y should be on the outside so we can record the correct latency of requests
+		// NOTE: o11y panics will not recover
+		o11y.Middleware(ServiceName, o11y.WithFilter(o11y.FilterHeartbeats)),
 
 		// Panic recovery middleware
 		gin.Recovery(),
+
+		// Optional logging middleware
+		logger.Logger(ServiceName, pkg.Version(true)),
 
 		// Security middleware sets security policy headers
 		secure.Secure(&s.conf.Secure),
@@ -55,10 +58,6 @@ func (s *Server) setupRoutes() (err error) {
 	s.router.GET("/healthz", s.Healthz)
 	s.router.GET("/livez", s.Healthz)
 	s.router.GET("/readyz", s.Readyz)
-
-	// Prometheus metrics handler added before middleware.
-	// Note metrics will be served at /metrics
-	o11y.Routes(s.router)
 
 	// Add the middleware to the router
 	for _, middleware := range middlewares {

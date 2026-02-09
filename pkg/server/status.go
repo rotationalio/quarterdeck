@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog"
+	"go.rtnl.ai/gimlet/logger"
 	"go.rtnl.ai/quarterdeck/pkg"
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
 	"go.rtnl.ai/quarterdeck/pkg/store"
@@ -19,6 +21,9 @@ const (
 
 // Status reports the version and uptime of the server
 func (s *Server) Status(c *gin.Context) {
+	// Reduce logging verbosity for the status endpoint
+	c.Set(logger.LogLevelKey, zerolog.DebugLevel)
+
 	var state string
 	s.RLock()
 	switch {
@@ -43,6 +48,10 @@ func (s *Server) Status(c *gin.Context) {
 // DBInfo reports the database connection status and information if available,
 // otherwise returns a 501 Not Implemented http error.
 func (s *Server) DBInfo(c *gin.Context) {
+	// Reduce logging verbosity for the dbinfo endpoint
+	c.Set(logger.LogLevelKey, zerolog.DebugLevel)
+
+	// Reduce logging verbosity for the db info endpoint
 	db, ok := s.store.(store.Stats)
 	if !ok {
 		c.JSON(http.StatusNotImplemented, api.Error("store does not implement stats"))
@@ -66,6 +75,9 @@ func (s *Server) DBInfo(c *gin.Context) {
 
 // Healthz is used to alert k8s to the health/liveness status of the server.
 func (s *Server) Healthz(c *gin.Context) {
+	// Reduce logging verbosity for probe endpoints
+	c.Set(logger.LogLevelKey, zerolog.TraceLevel)
+
 	s.RLock()
 	healthy := s.healthy
 	s.RUnlock()
@@ -80,6 +92,9 @@ func (s *Server) Healthz(c *gin.Context) {
 
 // Readyz is used to alert k8s to the readiness status of the server.
 func (s *Server) Readyz(c *gin.Context) {
+	// Reduce logging verbosity for probe endpoints
+	c.Set(logger.LogLevelKey, zerolog.TraceLevel)
+
 	s.RLock()
 	ready := s.ready
 	s.RUnlock()
