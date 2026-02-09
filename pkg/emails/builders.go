@@ -2,6 +2,7 @@ package emails
 
 import (
 	"fmt"
+	"html/template"
 	"net/url"
 
 	"go.rtnl.ai/commo"
@@ -33,7 +34,7 @@ type WelcomeUserEmailData struct {
 	PasswordLinkBaseURL  *url.URL               // the app url
 	Token                vero.VerificationToken // verification token for reset password link record
 	WelcomeEmailBodyText string                 // the body of the email in text format
-	WelcomeEmailBodyHTML string                 // the body of the email in html format
+	WelcomeEmailBodyHTML template.HTML          // the body of the email in html format
 }
 
 func NewWelcomeUserEmail(recipient string, data WelcomeUserEmailData) (*commo.Email, error) {
