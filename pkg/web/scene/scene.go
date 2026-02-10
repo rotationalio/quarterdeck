@@ -7,6 +7,7 @@ package scene
 
 import (
 	"net/url"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"go.rtnl.ai/gimlet/auth"
@@ -17,6 +18,9 @@ import (
 )
 
 var (
+	// One time configuration of the scene package from the global config.
+	configure sync.Once
+
 	// Compute the version of the package at runtime so it is static for all contexts.
 	version      = pkg.Version(false)
 	shortVersion = pkg.Version(true)
@@ -54,6 +58,11 @@ func New(c *gin.Context) Scene {
 			BuildDate:    buildDate,
 		}
 	}
+
+	// Ensure the scene is configured
+	configure.Do(func() {
+		Configure(nil)
+	})
 
 	// Create the basic context
 	context := Scene{
@@ -162,7 +171,19 @@ func (s Scene) APIKey() *api.APIKey {
 // Set Global Scene for Context
 //===========================================================================
 
-func WithConf(conf config.Config) {
+// Configure the scene package using a specific config for testing or the global config
+// if nil is provided. Configure can be called multiple times, but is not thread safe.
+func Configure(conf *config.Config) {
+	if conf == nil {
+		if globalConf, err := config.Get(); err == nil {
+			conf = &globalConf
+		}
+
+		if conf == nil {
+			return
+		}
+	}
+
 	issuer, _ = url.Parse(conf.Auth.Issuer)
 	loginURL = issuer.ResolveReference(&url.URL{Path: "/v1/login"})
 	issuerForgotPasswordURL = issuer.ResolveReference(&url.URL{Path: "/forgot-password"})

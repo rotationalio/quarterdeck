@@ -1,5 +1,7 @@
 package telemetry
 
+import "go.rtnl.ai/quarterdeck/pkg/config"
+
 const (
 	DefaultServiceName = "quarterdeck"
 )
@@ -9,7 +11,9 @@ const (
 // is used to ensure the service name is consistent across all components including
 // logging (which might use a separate resource).
 func ServiceName() string {
-	conf := config.Get()
-
-	return DefaultServiceName
+	conf, err := config.Get()
+	if err != nil {
+		return DefaultServiceName
+	}
+	return conf.ServiceName
 }

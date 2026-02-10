@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"math/rand/v2"
 	"net/http"
 	"net/url"
@@ -562,28 +563,20 @@ func (s *Server) sendResetPasswordEmail(c *gin.Context, emailOrUserID any) (err 
 		return err
 	}
 
-	// Change the host for validated forwarded requests, defaulting to using the
-	// Quarderdeck base URL if the 'forwarded host' is not one of the hosts in
-	// [config.Config.AllowOrigins]
-	resetURL := s.conf.Auth.GetResetPasswordURL()
-	if forwardedHost := c.Request.Header.Get("X-Forwarded-Host"); forwardedHost != "" {
-		log.Info().Str("x_forwarded_host", forwardedHost).Strs("allow_origins", s.conf.AllowOrigins).Msg("found 'X-Forwarded-Host' header")
-		// Validate the forwarded host against Quarderdeck's allowed origins
-		for _, origin := range s.conf.AllowOrigins {
-			if originURL, err := url.Parse(origin); err == nil { // No error
-				if originURL.Host == forwardedHost {
-					// The forwarded host is a valid origin in the config
-					resetURL.Host = forwardedHost
-				}
-			}
-		}
-	}
-
 	// Create the ResetPasswordEmailData for the email builder
+	resetURL := s.conf.Auth.GetResetPasswordURL()
+	resetURL.Host = s.conf.App.BaseURL().Host
 	emailData := emails.ResetPasswordEmailData{
-		ContactName:  user.Name.String,
-		BaseURL:      resetURL,
-		SupportEmail: s.conf.SupportEmail,
+		ContactName:         user.Name.String,
+		PasswordLinkBaseURL: resetURL,
+		EmailBaseData: emails.EmailBaseData{
+			AppName:        s.conf.App.Name,
+			AppLogoURL:     s.conf.App.LogoURL(),
+			OrgName:        s.conf.Org.Name,
+			OrgAddress:     s.conf.Org.StreetAddress,
+			OrgHomepageURL: s.conf.Org.HomepageURL(),
+			SupportEmail:   s.conf.Org.SupportEmail,
+		},
 	}
 
 	// Create the HMAC verification token for the VeroToken
@@ -660,98 +653,98 @@ func SlowDown() {
 	time.Sleep(delay)
 }
 
-// Syncs user create/update events with each configured webhook endpoint using a
+// Syncs user create/update events with the configured webhook endpoint using a
 // HTTP POST request with the created/modified [api.User] as the JSON body. This
 // reuses the access token in the [gin.Context] to authenticate the request to
 // the endpoint. It will log all errors, but will not handle the errors. Takes
 // an optional access token to authorize the request in case it's not available
 // from another source.
 func (s *Server) syncUserPost(c *gin.Context, user *api.User, accessToken *string) {
-	for idx, u := range s.conf.UserSync.WebhookURLs() {
-		var (
-			req       *http.Request
-			bodyBytes []byte
-			token     string
-			resp      *http.Response
-			err       error
-		)
+	var (
+		req       *http.Request
+		bodyBytes []byte
+		token     string
+		resp      *http.Response
+		err       error
+	)
 
-		// Marshal the user into JSON bytes
-		if bodyBytes, err = json.Marshal(user); err != nil {
-			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msg("user sync post: could not marshal user to json")
-			return
-		}
+	u := s.conf.App.WebhookURL()
 
-		// Create a POST request for JSON
-		if req, err = http.NewRequestWithContext(c.Request.Context(), http.MethodPost, u.String(), bytes.NewReader(bodyBytes)); err != nil {
-			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msg("user sync post: could not create new post request")
-			return
-		}
-		req.Header.Set("Content-Type", "application/json")
-
-		// Add authorization token
-		if accessToken == nil {
-			if token, err = gimauth.GetAccessToken(c); err != nil || token == "" {
-				log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msg("user sync post: could not attain an access token from context")
-				return
-			}
-			accessToken = &token
-		}
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", *accessToken))
-
-		// Do request
-		if resp, err = http.DefaultClient.Do(req); err != nil {
-			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msg("user sync post: could not complete http post request")
-			return
-		}
-		resp.Body.Close()
-
-		log.Debug().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msgf("user sync post: endpoint %d successful", idx)
+	// Marshal the user into JSON bytes
+	if bodyBytes, err = json.Marshal(user); err != nil {
+		log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msg("user sync post: could not marshal user to json")
+		return
 	}
+
+	// Create a POST request for JSON
+	if req, err = http.NewRequestWithContext(c.Request.Context(), http.MethodPost, u.String(), bytes.NewReader(bodyBytes)); err != nil {
+		log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msg("user sync post: could not create new post request")
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	// Add authorization token
+	if accessToken == nil {
+		if token, err = gimauth.GetAccessToken(c); err != nil || token == "" {
+			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msg("user sync post: could not attain an access token from context")
+			return
+		}
+		accessToken = &token
+	}
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", *accessToken))
+
+	// Do request
+	if resp, err = http.DefaultClient.Do(req); err != nil {
+		log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msg("user sync post: could not complete http post request")
+		return
+	}
+	resp.Body.Close()
+
+	log.Debug().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msgf("user sync post successful")
 }
 
-// Syncs user delete events with each configured webhook endpoint using a
+// Syncs user delete events with the configured webhook endpoint using a
 // HTTP DELETE request with the deleted user's ID as a URL param. This reuses
 // the access token in the [gin.Context] to authenticate the request to the
 // endpoint. It will log all errors, but will not handle the errors.
 func (s *Server) syncUserDelete(c *gin.Context, userID ulid.ULID) {
-	for idx, u := range s.conf.UserSync.WebhookURLs() {
-		var (
-			req   *http.Request
-			idURL string
-			token string
-			resp  *http.Response
-			err   error
-		)
+	var (
+		req   *http.Request
+		idURL string
+		token string
+		resp  *http.Response
+		err   error
+	)
 
-		// Create the URL by appending the userID onto the sync webhook url path
-		if idURL, err = url.JoinPath(u.String(), userID.String()); err != nil {
-			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msg("user sync delete: could not create sync url")
-			return
-		}
+	u := s.conf.App.WebhookURL()
 
-		// Create a DELETE request
-		if req, err = http.NewRequestWithContext(c.Request.Context(), http.MethodDelete, idURL, nil); err != nil {
-			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msg("user sync delete: could not create new delete request")
-			return
-		}
-
-		// Add authorization token
-		if token, err = gimauth.GetAccessToken(c); err != nil || token == "" {
-			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msg("user sync delete: could not attain an access token from context")
-			return
-		}
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
-
-		// Do request
-		if resp, err = http.DefaultClient.Do(req); err != nil {
-			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msg("user sync delete: could not complete http post request")
-			return
-		}
-		resp.Body.Close()
-
-		log.Debug().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msgf("user sync delete: endpoint %d successful", idx)
+	// Create the URL by appending the userID onto the sync webhook url path
+	if idURL, err = url.JoinPath(u.String(), userID.String()); err != nil {
+		log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msg("user sync delete: could not create sync url")
+		return
 	}
+
+	// Create a DELETE request
+	if req, err = http.NewRequestWithContext(c.Request.Context(), http.MethodDelete, idURL, nil); err != nil {
+		log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msg("user sync delete: could not create new delete request")
+		return
+	}
+
+	// Add authorization token
+	if token, err = gimauth.GetAccessToken(c); err != nil || token == "" {
+		log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msg("user sync delete: could not attain an access token from context")
+		return
+	}
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+
+	// Do request
+	if resp, err = http.DefaultClient.Do(req); err != nil {
+		log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msg("user sync delete: could not complete http post request")
+		return
+	}
+	resp.Body.Close()
+
+	log.Debug().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msgf("user sync delete successful")
 }
 
 // Re-syncs the user with the email provided.
@@ -809,28 +802,25 @@ func (s *Server) sendWelcomeEmail(c *gin.Context, user *models.User) (err error)
 		return err
 	}
 
-	// Change the host for validated forwarded requests, defaulting to using the
-	// Quarderdeck base URL if the 'forwarded host' is not one of the hosts in
-	// [config.Config.AllowOrigins]
-	resetURL := s.conf.Auth.GetResetPasswordURL()
-	if forwardedHost := c.Request.Header.Get("X-Forwarded-Host"); forwardedHost != "" {
-		log.Info().Str("x_forwarded_host", forwardedHost).Strs("allow_origins", s.conf.AllowOrigins).Msg("found 'X-Forwarded-Host' header")
-		// Validate the forwarded host against Quarderdeck's allowed origins
-		for _, origin := range s.conf.AllowOrigins {
-			if originURL, err := url.Parse(origin); err == nil { // No error
-				if originURL.Host == forwardedHost {
-					// The forwarded host is a valid origin in the config
-					resetURL.Host = forwardedHost
-				}
-			}
-		}
-	}
-
 	// Create the WelcomeUserEmailData for the email builder
+	resetURL := s.conf.Auth.GetResetPasswordURL()
+	resetURL.Host = s.conf.App.BaseURL().Host
 	emailData := emails.WelcomeUserEmailData{
-		ContactName:  user.Name.String,
-		BaseURL:      resetURL,
-		SupportEmail: s.conf.SupportEmail,
+		ContactName:          user.Name.String,
+		PasswordResetURL:     resetURL,
+		WelcomeEmailBodyText: s.conf.App.WelcomeEmail.Text,
+		// NOTE: the config can be considered trusted here but if this changes
+		// in the future to use user-supplied values we should reconsider using
+		// the template.HTML(...) due to security concerns.
+		WelcomeEmailBodyHTML: template.HTML(s.conf.App.WelcomeEmail.HTML),
+		EmailBaseData: emails.EmailBaseData{
+			AppName:        s.conf.App.Name,
+			AppLogoURL:     s.conf.App.LogoURL(),
+			OrgName:        s.conf.Org.Name,
+			OrgAddress:     s.conf.Org.StreetAddress,
+			OrgHomepageURL: s.conf.Org.HomepageURL(),
+			SupportEmail:   s.conf.Org.SupportEmail,
+		},
 	}
 
 	// Create the HMAC verification token for the VeroToken
