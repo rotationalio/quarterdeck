@@ -64,11 +64,14 @@ type Server struct {
 }
 
 func New(conf config.Config) (s *Server, err error) {
-	// Load the default configuration from the environment
 	if conf.IsZero() {
-		if conf, err = config.New(); err != nil {
+		// Load the default configuration from the environment if it is not set.
+		if conf, err = config.Get(); err != nil {
 			return nil, err
 		}
+	} else {
+		// Set the global configuration from the user-specificed config.
+		config.Set(conf)
 	}
 
 	// Set the global level
@@ -81,6 +84,7 @@ func New(conf config.Config) (s *Server, err error) {
 	}
 
 	// Configure the scene for handling templates
+	// TODO: the scene should use the global config.
 	scene.WithConf(conf)
 
 	// Initialize commo for email sending

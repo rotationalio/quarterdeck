@@ -2,6 +2,7 @@ package config
 
 import (
 	"net/url"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rotationalio/confire"
@@ -15,6 +16,12 @@ import (
 
 const (
 	Prefix = "QD"
+)
+
+var (
+	conf    *Config
+	confErr error
+	once    sync.Once
 )
 
 type Config struct {
@@ -37,6 +44,67 @@ type Config struct {
 	processed    bool
 }
 
+// Get the configuration being used globally by the codebase. In normal operation, the
+// config is set by [server.New] and then used by other modules and packages.
+func Get() (Config, error) {
+	once.Do(func() {
+		var config Config
+		if config, confErr = New(); confErr != nil {
+			return
+		}
+
+		if confErr = config.Validate(); confErr != nil {
+			return
+		}
+
+		conf = &config
+	})
+
+	if conf == nil {
+		return Config{}, confErr
+	}
+	return *conf, confErr
+}
+
+// Set the configuration being used globally by the codebase. In normal operation, the
+// config is set by [server.New] but it can be set manually by testing code as well.
+func Set(config Config) {
+	// Mark the once block as done
+	once.Do(func() {})
+
+	// Do not allow setting a zero-valued config.
+	if config.IsZero() {
+		confErr = errors.ConfigError(confErr, errors.InvalidConfig("", "config", "cannot set a zero-valued config"))
+		return
+	}
+
+	// If you try to set an invalid config then the config will not be set and the error
+	// will be returned when you try to get the config.
+	if confErr = config.Validate(); confErr != nil {
+		return
+	}
+
+	// Set the config and error
+	conf = &config
+	confErr = nil
+}
+
+// Force a reload of the configuration from the environment.
+func Reload() (conf Config, err error) {
+	once = sync.Once{}
+	return Get()
+}
+
+// Resets the config module (only used by tests).
+func reset() {
+	once = sync.Once{}
+	conf = nil
+	confErr = nil
+}
+
+// New processes the configuration from the environment and marks it as ready for use.
+// It is used by external callers to create a new config to pass to the server. Internal
+// code should use [Get] to ensure the config is properly initialized.
 func New() (conf Config, err error) {
 	if err = confire.Process(Prefix, &conf); err != nil {
 		return Config{}, err
