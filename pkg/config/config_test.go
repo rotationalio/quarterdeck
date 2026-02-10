@@ -75,15 +75,7 @@ var testEnv = map[string]string{
 func TestConfigImport(t *testing.T) {
 	// Set the required environment variables and cleanup after.
 	prevEnv := curEnv()
-	t.Cleanup(func() {
-		for key, val := range prevEnv {
-			if val != "" {
-				os.Setenv(key, val)
-			} else {
-				os.Unsetenv(key)
-			}
-		}
-	})
+	t.Cleanup(cleanup(prevEnv))
 	setEnv()
 
 	// At this point in the test, the environment should contain testEnv
@@ -156,7 +148,171 @@ func TestConfigImport(t *testing.T) {
 	require.Equal(t, testEnv["QD_ORG_SUPPORT_EMAIL"], "support@example.com")
 }
 
-func TestConfigValidation(t *testing.T) {
+func TestGlobal(t *testing.T) {
+	// Set the required environment variables and cleanup after.// Set the required environment variables and cleanup after.
+	prevEnv := curEnv()
+	t.Cleanup(cleanup(prevEnv))
+	setEnv()
+
+	t.Run("Get", func(t *testing.T) {
+		t.Cleanup(func() {
+			config.Reset()
+			setEnv()
+		})
+
+		require.Nil(t, config.GlobalConf(), "expected config to be nil before test")
+		require.Nil(t, config.GlobalConfErr(), "expected error to be nil before test")
+
+		conf, err := config.Get()
+		require.NoError(t, err, "could not get the config")
+		require.False(t, conf.IsZero(), "config should be processed")
+
+		// Changing the environment should not change the config created above.
+		os.Setenv("QD_BIND_ADDR", ":4444")
+
+		require.NotNil(t, config.GlobalConf(), "expected config to be non-nil after the Get loaded it")
+		require.Nil(t, config.GlobalConfErr(), "expected error to be nil since the config is valid")
+
+		conf2, err := config.Get()
+		require.NoError(t, err, "could not get the config")
+		require.Equal(t, conf, conf2, "expected config to be the same because of sync.Once")
+	})
+
+	t.Run("GetError", func(t *testing.T) {
+		t.Cleanup(func() {
+			config.Reset()
+			setEnv()
+		})
+
+		require.Nil(t, config.GlobalConf(), "expected config to be nil before test")
+		require.Nil(t, config.GlobalConfErr(), "expected error to be nil before test")
+
+		// Add a bad value to the environment for an invalid configuration.
+		os.Setenv("QD_MODE", "invalid")
+
+		conf, err := config.Get()
+		require.True(t, conf.IsZero())
+		require.Error(t, err, "expecting an invalid configuration")
+
+		// Get should return the same error even if the environment is changed.
+		os.Setenv("QD_MODE", gin.TestMode)
+
+		require.Nil(t, config.GlobalConf(), "expected config to be nil after getting invalid configuration")
+		require.Error(t, config.GlobalConfErr(), "expected error to be the invalid configuration error")
+
+		conf, err2 := config.Get()
+		require.Equal(t, err, err2, "expected error to be the same because of sync.Once")
+		require.True(t, conf.IsZero())
+	})
+
+	t.Run("Set", func(t *testing.T) {
+		t.Cleanup(func() {
+			config.Reset()
+			setEnv()
+		})
+
+		require.Nil(t, config.GlobalConf(), "expected config to be nil before test")
+		require.Nil(t, config.GlobalConfErr(), "expected error to be nil before test")
+
+		conf, err := config.New()
+		require.NoError(t, err, "could not create a new config")
+
+		require.Nil(t, config.GlobalConf(), "global config should not be modified by New()")
+		require.Nil(t, config.GlobalConfErr(), "global config error should not be modified by New()")
+
+		// Modify the config to ensure it is not set by New()
+		conf.BindAddr = ":4444"
+		conf.DocsName = "bad bunny superbowl"
+
+		// Set the config globally
+		config.Set(conf)
+
+		require.NotNil(t, config.GlobalConf(), "expected config to be non-nil after being Set()")
+		require.Nil(t, config.GlobalConfErr(), "expected error to be nil after being Set()")
+
+		// Once Set, the config should be the same as the one that was Set()
+		conf2, err := config.Get()
+		require.NoError(t, err, "could not get the config")
+		require.Equal(t, conf, conf2, "expected config to be the same because of sync.Once")
+	})
+
+	t.Run("SetZero", func(t *testing.T) {
+		t.Cleanup(func() {
+			config.Reset()
+			setEnv()
+		})
+
+		require.Nil(t, config.GlobalConf(), "expected config to be nil before test")
+		require.Nil(t, config.GlobalConfErr(), "expected error to be nil before test")
+
+		conf := config.Config{}
+		config.Set(conf)
+
+		require.Nil(t, config.GlobalConf(), "expected config to be nil after being Set()")
+		require.Error(t, config.GlobalConfErr(), "expected error to be the invalid configuration error")
+
+		conf2, err := config.Get()
+		require.Error(t, err, "expected error to be the same because of sync.Once")
+		require.True(t, conf2.IsZero())
+	})
+
+	t.Run("SetInvalid", func(t *testing.T) {
+		t.Cleanup(func() {
+			config.Reset()
+			setEnv()
+		})
+
+		require.Nil(t, config.GlobalConf(), "expected config to be nil before test")
+		require.Nil(t, config.GlobalConfErr(), "expected error to be nil before test")
+
+		conf, err := config.New()
+		require.NoError(t, err, "could not create a new config")
+
+		// Modify the config to ensure it is invalid
+		conf.Mode = "invalid"
+
+		// Set the config globally
+		config.Set(conf)
+
+		require.Nil(t, config.GlobalConf(), "expected config to be nil after being Set()")
+		require.Error(t, config.GlobalConfErr(), "expected error to be the invalid configuration error")
+
+		conf2, err := config.Get()
+		require.EqualError(t, err, "invalid configuration: mode \"invalid\" is not a valid gin mode", "expected validation error, not is zero error")
+		require.True(t, conf2.IsZero())
+	})
+
+	t.Run("Reload", func(t *testing.T) {
+		t.Cleanup(func() {
+			config.Reset()
+			setEnv()
+		})
+
+		require.Nil(t, config.GlobalConf(), "expected config to be nil before test")
+		require.Nil(t, config.GlobalConfErr(), "expected error to be nil before test")
+
+		conf, err := config.Get()
+		require.NoError(t, err, "could not get the config")
+		require.False(t, conf.IsZero(), "config should be processed")
+
+		// Modify the environment to change the config when reloaded
+		os.Setenv("QD_BIND_ADDR", ":4444")
+
+		// Reload the config
+		config.Reload()
+
+		require.NotNil(t, config.GlobalConf(), "expected config to be non-nil after being Set()")
+		require.Nil(t, config.GlobalConfErr(), "expected error to be nil after being Set()")
+
+		// Once Reloaded, the config should contain the new values
+		conf2, err := config.Get()
+		require.NoError(t, err, "could not get the config")
+		require.NotEqual(t, conf, conf2, "expected config to be modified by Reload()")
+		require.Equal(t, ":4444", conf2.BindAddr, "expected bind addr to be the same")
+	})
+}
+
+func TestValidation(t *testing.T) {
 	t.Run("Default", func(t *testing.T) {
 		// Ensure the default config is valid
 		conf, err := config.New()
@@ -402,6 +558,18 @@ func setEnv(keys ...string) {
 	} else {
 		for key, val := range testEnv {
 			os.Setenv(key, val)
+		}
+	}
+}
+
+func cleanup(prevEnv map[string]string) func() {
+	return func() {
+		for key, val := range prevEnv {
+			if val != "" {
+				os.Setenv(key, val)
+			} else {
+				os.Unsetenv(key)
+			}
 		}
 	}
 }
