@@ -68,25 +68,26 @@ func Get() (Config, error) {
 
 // Set the configuration being used globally by the codebase. In normal operation, the
 // config is set by [server.New] but it can be set manually by testing code as well.
-func Set(config Config) {
+func Set(config Config) error {
 	// Mark the once block as done
 	once.Do(func() {})
 
 	// Do not allow setting a zero-valued config.
 	if config.IsZero() {
 		confErr = errors.ConfigError(confErr, errors.InvalidConfig("", "config", "cannot set a zero-valued config"))
-		return
+		return confErr
 	}
 
 	// If you try to set an invalid config then the config will not be set and the error
 	// will be returned when you try to get the config.
 	if confErr = config.Validate(); confErr != nil {
-		return
+		return confErr
 	}
 
 	// Set the config and error
 	conf = &config
 	confErr = nil
+	return nil
 }
 
 // Force a reload of the configuration from the environment.

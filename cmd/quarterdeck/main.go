@@ -139,12 +139,8 @@ func main() {
 //===========================================================================
 
 func serve(c *cli.Context) (err error) {
-	if conf, err = config.New(); err != nil {
-		return cli.Exit(err, 1)
-	}
-
 	var srv *server.Server
-	if srv, err = server.New(conf); err != nil {
+	if srv, err = server.New(nil); err != nil {
 		return cli.Exit(err, 1)
 	}
 
@@ -162,7 +158,7 @@ func usage(c *cli.Context) (err error) {
 	}
 
 	var conf config.Config
-	if err := confire.Usagef("quarterdeck", &conf, tabs, format); err != nil {
+	if err := confire.Usagef(config.Prefix, &conf, tabs, format); err != nil {
 		return cli.Exit(err, 1)
 	}
 	tabs.Flush()

@@ -63,15 +63,24 @@ type Server struct {
 	ready   bool
 }
 
-func New(conf config.Config) (s *Server, err error) {
-	if conf.IsZero() {
+func New(conf *config.Config) (s *Server, err error) {
+	// Create a new server instance and prepare to serve.
+	s = &Server{
+		errc: make(chan error, 1),
+	}
+
+	if conf == nil {
 		// Load the default configuration from the environment if it is not set.
-		if conf, err = config.Get(); err != nil {
+		// Ensure that the global config is set when loading from the environment.
+		if s.conf, err = config.Get(); err != nil {
 			return nil, err
 		}
 	} else {
 		// Set the global configuration from the user-specificed config.
-		config.Set(conf)
+		s.conf = *conf
+		if err = config.Set(s.conf); err != nil {
+			return nil, err
+		}
 	}
 
 	// Set the global level
@@ -85,15 +94,11 @@ func New(conf config.Config) (s *Server, err error) {
 
 	// Configure the scene for handling templates
 	// TODO: the scene should use the global config.
-	scene.WithConf(conf)
+	scene.WithConf(s.conf)
 
-	// Initialize commo for email sending
-	commo.Initialize(conf.Email, emails.LoadTemplates())
-
-	// Create a new server instance and prepare to serve.
-	s = &Server{
-		conf: conf,
-		errc: make(chan error, 1),
+	// Initialize the commo module for email sending
+	if err = commo.Initialize(s.conf.Email, emails.LoadTemplates()); err != nil {
+		return nil, err
 	}
 
 	// Connect to the configured database store.
@@ -139,7 +144,7 @@ func New(conf config.Config) (s *Server, err error) {
 
 // Debug returns a server that uses the specified http server instead of creating one.
 // This is primarily used to create test servers that can be used in unit tests.
-func Debug(conf config.Config, srv *http.Server) (s *Server, err error) {
+func Debug(conf *config.Config, srv *http.Server) (s *Server, err error) {
 	if s, err = New(conf); err != nil {
 		return nil, err
 	}
