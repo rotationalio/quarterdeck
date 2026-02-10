@@ -23,7 +23,6 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/emails"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store"
-	"go.rtnl.ai/quarterdeck/pkg/web/scene"
 )
 
 func init() {
@@ -91,10 +90,6 @@ func New(conf *config.Config) (s *Server, err error) {
 		console := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 		log.Logger = zerolog.New(console).With().Timestamp().Logger()
 	}
-
-	// Configure the scene for handling templates
-	// TODO: the scene should use the global config.
-	scene.WithConf(s.conf)
 
 	// Initialize the commo module for email sending
 	if err = commo.Initialize(s.conf.Email, emails.LoadTemplates()); err != nil {
