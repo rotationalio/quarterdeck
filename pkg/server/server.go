@@ -91,8 +91,13 @@ func New(conf *config.Config) (s *Server, err error) {
 		log.Logger = zerolog.New(console).With().Timestamp().Logger()
 	}
 
-	// Initialize the commo module for email sending
+	// Initialize the commo module for email sending and load welcome email
+	// template content from filesystem
 	if err = commo.Initialize(s.conf.Email, emails.LoadTemplates()); err != nil {
+		return nil, err
+	}
+
+	if err = s.conf.App.WelcomeEmail.LoadTemplateContent(); err != nil {
 		return nil, err
 	}
 

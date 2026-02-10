@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"math/rand/v2"
 	"net/http"
 	"net/url"
@@ -808,11 +807,8 @@ func (s *Server) sendWelcomeEmail(c *gin.Context, user *models.User) (err error)
 	emailData := emails.WelcomeUserEmailData{
 		ContactName:          user.Name.String,
 		PasswordResetURL:     resetURL,
-		WelcomeEmailBodyText: s.conf.App.WelcomeEmail.Text,
-		// NOTE: the config can be considered trusted here but if this changes
-		// in the future to use user-supplied values we should reconsider using
-		// the template.HTML(...) due to security concerns.
-		WelcomeEmailBodyHTML: template.HTML(s.conf.App.WelcomeEmail.HTML),
+		WelcomeEmailBodyText: s.conf.App.WelcomeEmail.TextContent(),
+		WelcomeEmailBodyHTML: s.conf.App.WelcomeEmail.HTMLContent(),
 		EmailBaseData: emails.EmailBaseData{
 			AppName:        s.conf.App.Name,
 			AppLogoURL:     s.conf.App.LogoURL(),
