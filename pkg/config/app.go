@@ -4,7 +4,6 @@ import (
 	"html/template"
 	"net/url"
 	"os"
-	"sync"
 
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 )
@@ -13,7 +12,7 @@ import (
 type AppConfig struct {
 	Name         string        `split_words:"true" default:"Quarterdeck"  desc:"the descriptive name of the application"`
 	LogoURI      string        `split_words:"true" default:"https://rotational.ai/hs-fs/hubfs/Rotational%20Logo%20Hor%201073x280.png"  desc:"the logo for the application"`
-	BaseURI      string        `split_words:"true" env:"QD_AUTH_AUDIENCE" desc:"base URL for the application"`
+	BaseURI      string        `split_words:"true" desc:"base URL for the application"`
 	WelcomeEmail EmailTemplate `split_words:"true"`
 
 	// Configures user syncing. Quarterdeck will attempt to post any new or modified
@@ -71,10 +70,9 @@ func (c AppConfig) WebhookURL() *url.URL {
 // the template content into memory and then use [EmailTemplate.HTMLContent] and
 // [EmailTemplate.TextContent] to get the content that was loaded from the files.
 type EmailTemplate struct {
-	HTMLPath string `default:"" desc:"specify the file path to a custom html template for the given email"`
-	TextPath string `default:"" desc:"specify the file path to a custom text template for the given email"`
+	HTMLPath string `split_words:"true" default:"" desc:"specify the file path to a custom html template for the given email"`
+	TextPath string `split_words:"true" default:"" desc:"specify the file path to a custom text template for the given email"`
 
-	loaded      *sync.Once
 	htmlContent string
 	textContent string
 }
@@ -96,30 +94,20 @@ func (p *EmailTemplate) TextContent() string {
 // Loads the welcome email template content from the provided paths. Can be used
 // concurrently.
 func (p *EmailTemplate) LoadTemplateContent() (err error) {
-	if p.loaded == nil {
-		p.loaded = &sync.Once{}
+	if p.HTMLPath != "" {
+		var data []byte
+		if data, err = os.ReadFile(p.HTMLPath); err != nil {
+			return err
+		}
+		p.htmlContent = string(data)
 	}
 
-	p.loaded.Do(func() {
-		if p.HTMLPath != "" {
-			var data []byte
-			if data, err = os.ReadFile(p.HTMLPath); err != nil {
-				return
-			}
-			p.htmlContent = string(data)
+	if p.TextPath != "" {
+		var data []byte
+		if data, err = os.ReadFile(p.TextPath); err != nil {
+			return err
 		}
-
-		if p.TextPath != "" {
-			var data []byte
-			if data, err = os.ReadFile(p.TextPath); err != nil {
-				return
-			}
-			p.textContent = string(data)
-		}
-	})
-
-	if err != nil {
-		return err
+		p.textContent = string(data)
 	}
 
 	return nil
