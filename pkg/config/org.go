@@ -8,10 +8,10 @@ import (
 
 // Configures the details of the organization that is utilizing Quarterdeck for auth.
 type OrgConfig struct {
-	Name          string `split_words:"true" default:"Rotational Labs" desc:"the name of the organization (default: 'Rotational Labs')"`
-	StreetAddress string `split_words:"true" default:"202 N Cedar Ave, Suite #1, Owatonna, MN 55060, USA" desc:"the street address for the organization (default: Rotational Labs address)"`
-	HomepageURI   string `split_words:"true" default:"https://www.rotational.io" desc:"the homepage URI for the organization (default: 'https://www.rotational.io')"`
-	SupportEmail  string `split_words:"true" default:"support@rotational.io" desc:"an email address that a user may email for technical support (default: 'support@rotational.io')"`
+	Name          string `split_words:"true" default:"Rotational Labs" desc:"the name of the organization"`
+	StreetAddress string `split_words:"true" default:"202 N Cedar Ave, Suite #1, Owatonna, MN 55060, USA" desc:"the street address for the organization"`
+	HomepageURI   string `split_words:"true" default:"https://www.rotational.io" desc:"the homepage URI for the organization"`
+	SupportEmail  string `split_words:"true" default:"support@rotational.io" desc:"an email address that a user may email for technical support"`
 }
 
 func (c OrgConfig) Validate() (err error) {

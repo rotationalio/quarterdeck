@@ -31,7 +31,7 @@ type EmailBaseData struct {
 type WelcomeUserEmailData struct {
 	EmailBaseData
 	ContactName          string                 // the user's name, if available
-	PasswordLinkBaseURL  *url.URL               // the app url
+	PasswordResetURL     *url.URL               // the app url
 	Token                vero.VerificationToken // verification token for reset password link record
 	WelcomeEmailBodyText string                 // the body of the email in text format
 	WelcomeEmailBodyHTML template.HTML          // the body of the email in html format
@@ -44,15 +44,15 @@ func NewWelcomeUserEmail(recipient string, data WelcomeUserEmailData) (*commo.Em
 }
 
 func (s WelcomeUserEmailData) VerifyURL() string {
-	if s.PasswordLinkBaseURL == nil {
+	if s.PasswordResetURL == nil {
 		return ""
 	}
 
 	params := make(url.Values, 1)
 	params.Set("token", s.Token.String())
 
-	s.PasswordLinkBaseURL.RawQuery = params.Encode()
-	return s.PasswordLinkBaseURL.String()
+	s.PasswordResetURL.RawQuery = params.Encode()
+	return s.PasswordResetURL.String()
 }
 
 // ===========================================================================

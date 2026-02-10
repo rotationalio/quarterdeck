@@ -807,7 +807,7 @@ func (s *Server) sendWelcomeEmail(c *gin.Context, user *models.User) (err error)
 	resetURL.Host = s.conf.App.BaseURL().Host
 	emailData := emails.WelcomeUserEmailData{
 		ContactName:          user.Name.String,
-		PasswordLinkBaseURL:  resetURL,
+		PasswordResetURL:     resetURL,
 		WelcomeEmailBodyText: s.conf.App.WelcomeEmailBody.Text,
 		// NOTE: the config can be considered trusted here but if this changes
 		// in the future to use user-supplied values we should reconsider using
