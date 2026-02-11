@@ -24,10 +24,6 @@ var testEnv = map[string]string{
 	"QD_LOG_LEVEL":                                  "error",
 	"QD_CONSOLE_LOG":                                "true",
 	"QD_ALLOW_ORIGINS":                              "https://example.com,https://auth.example.com,https://db.example.com",
-	"QD_RATE_LIMIT_TYPE":                            "ipaddr",
-	"QD_RATE_LIMIT_PER_SECOND":                      "20",
-	"QD_RATE_LIMIT_BURST":                           "100",
-	"QD_RATE_LIMIT_CACHE_TTL":                       "1h",
 	"QD_DATABASE_URL":                               "sqlite3:///test.db",
 	"QD_DATABASE_READ_ONLY":                         "true",
 	"QD_AUTH_KEYS":                                  "01GECSDK5WJ7XWASQ0PMH6K41K:testdata/01GECSDK5WJ7XWASQ0PMH6K41K.pem,01GECSJGDCDN368D0EENX23C7R:testdata/01GECSJGDCDN368D0EENX23C7R.pem",
@@ -70,6 +66,13 @@ var testEnv = map[string]string{
 	"QD_ORG_STREET_ADDRESS":                                    "Org Street Address",
 	"QD_ORG_HOMEPAGE_URI":                                      "http://example.com",
 	"QD_ORG_SUPPORT_EMAIL":                                     "support@example.com",
+	"QD_RATE_LIMIT_TYPE":                                       "ipaddr",
+	"QD_RATE_LIMIT_PER_SECOND":                                 "20",
+	"QD_RATE_LIMIT_BURST":                                      "100",
+	"QD_RATE_LIMIT_CACHE_TTL":                                  "1h",
+	"QD_TELEMETRY_ENABLED":                                     "false",
+	"OTEL_SERVICE_NAME":                                        "bosun",
+	"GIMLET_OTEL_SERVICE_ADDR":                                 "bosun.example.com:8080",
 }
 
 func TestConfigImport(t *testing.T) {
@@ -103,10 +106,6 @@ func TestConfigImport(t *testing.T) {
 	require.Equal(t, 5*time.Minute, conf.Auth.AccessTokenTTL)
 	require.Equal(t, 10*time.Minute, conf.Auth.RefreshTokenTTL)
 	require.Equal(t, -2*time.Minute, conf.Auth.TokenOverlap)
-	require.Equal(t, testEnv["QD_RATE_LIMIT_TYPE"], conf.RateLimit.Type)
-	require.Equal(t, 20.00, conf.RateLimit.PerSecond)
-	require.Equal(t, 100, conf.RateLimit.Burst)
-	require.Equal(t, 60*time.Minute, conf.RateLimit.CacheTTL)
 	require.Equal(t, 20*time.Minute, conf.CSRF.CookieTTL)
 	require.Equal(t, testEnv["QD_CSRF_SECRET"], conf.CSRF.Secret)
 	require.False(t, conf.Secure.ContentTypeNosniff)
@@ -146,6 +145,13 @@ func TestConfigImport(t *testing.T) {
 	require.Equal(t, testEnv["QD_ORG_STREET_ADDRESS"], "Org Street Address")
 	require.Equal(t, testEnv["QD_ORG_HOMEPAGE_URI"], "http://example.com")
 	require.Equal(t, testEnv["QD_ORG_SUPPORT_EMAIL"], "support@example.com")
+	require.Equal(t, testEnv["QD_RATE_LIMIT_TYPE"], conf.RateLimit.Type)
+	require.Equal(t, 20.00, conf.RateLimit.PerSecond)
+	require.Equal(t, 100, conf.RateLimit.Burst)
+	require.Equal(t, 60*time.Minute, conf.RateLimit.CacheTTL)
+	require.False(t, conf.Telemetry.Enabled)
+	require.Equal(t, testEnv["OTEL_SERVICE_NAME"], conf.Telemetry.ServiceName)
+	require.Equal(t, testEnv["GIMLET_OTEL_SERVICE_ADDR"], conf.Telemetry.ServiceAddr)
 }
 
 func TestGlobal(t *testing.T) {

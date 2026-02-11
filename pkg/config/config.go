@@ -32,9 +32,6 @@ type Config struct {
 	ConsoleLog   bool                `split_words:"true" default:"false" desc:"if true logs colorized human readable output instead of json"`
 	AllowOrigins []string            `split_words:"true" default:"http://localhost:8000" desc:"a list of allowed origins (domains including port) for CORS requests"`
 	DocsName     string              `split_words:"true" default:"quarterdeck" desc:"the display name for the API docs server in the Swagger app"`
-	ServiceName  string              `split_words:"true" env:"OTEL_SERVICE_NAME" desc:"override the default name of the service, used for logging and telemetry"`
-	ServiceAddr  string              `split_words:"true" env:"GIMLET_OTEL_SERVICE_ADDR" desc:"the primary server name if it is known. E.g. the server name directive in an Nginx config. Should include host identifier and port if it is used; empty if not known."`
-	RateLimit    ratelimit.Config    `split_words:"true"`
 	Org          OrgConfig           `split_words:"true"`
 	App          AppConfig           `split_words:"true"`
 	Database     DatabaseConfig      `split_words:"true"`
@@ -43,6 +40,8 @@ type Config struct {
 	Secure       secure.Config       `split_words:"true"`
 	Security     SecurityConfig      `split_words:"true"`
 	Email        commo.Config        `split_words:"true"`
+	RateLimit    ratelimit.Config    `split_words:"true"`
+	Telemetry    TelemetryConfig     `split_words:"true"`
 	processed    bool
 }
 

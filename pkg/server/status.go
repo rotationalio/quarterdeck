@@ -51,7 +51,6 @@ func (s *Server) DBInfo(c *gin.Context) {
 	// Reduce logging verbosity for the dbinfo endpoint
 	c.Set(logger.LogLevelKey, zerolog.DebugLevel)
 
-	// Reduce logging verbosity for the db info endpoint
 	db, ok := s.store.(store.Stats)
 	if !ok {
 		c.JSON(http.StatusNotImplemented, api.Error("store does not implement stats"))
@@ -75,9 +74,6 @@ func (s *Server) DBInfo(c *gin.Context) {
 
 // Healthz is used to alert k8s to the health/liveness status of the server.
 func (s *Server) Healthz(c *gin.Context) {
-	// Reduce logging verbosity for probe endpoints
-	c.Set(logger.LogLevelKey, zerolog.TraceLevel)
-
 	s.RLock()
 	healthy := s.healthy
 	s.RUnlock()
@@ -92,9 +88,6 @@ func (s *Server) Healthz(c *gin.Context) {
 
 // Readyz is used to alert k8s to the readiness status of the server.
 func (s *Server) Readyz(c *gin.Context) {
-	// Reduce logging verbosity for probe endpoints
-	c.Set(logger.LogLevelKey, zerolog.TraceLevel)
-
 	s.RLock()
 	ready := s.ready
 	s.RUnlock()
