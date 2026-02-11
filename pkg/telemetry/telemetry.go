@@ -8,6 +8,8 @@ import (
 	"os"
 	"sync"
 
+	"github.com/gin-gonic/gin"
+	"go.rtnl.ai/gimlet/o11y"
 	"go.rtnl.ai/quarterdeck/pkg/config"
 
 	"go.opentelemetry.io/otel"
@@ -26,6 +28,7 @@ const (
 type shutdownFn func(ctx context.Context) error
 
 var (
+	disabled bool
 	shutdown []shutdownFn
 	initmu   sync.Once
 	initerr  error
@@ -38,6 +41,30 @@ var (
 	qdMeterProvider  *metric.MeterProvider
 	qdLoggerProvider *log.LoggerProvider
 )
+
+// Middleware returns the gimlet o11y middleware configured using the setup function.
+func Middleware() (middleware gin.HandlerFunc, err error) {
+	// NOTE: setup is thread safe and can be called multiple times.
+	if err = Setup(context.Background()); err != nil {
+		return nil, err
+	}
+
+	// If telemetry is disabled then do not activate the o11y middleware.
+	// NOTE: the setupRoutes() method must filter nil handlers.
+	if disabled {
+		return nil, nil
+	}
+
+	opts := []o11y.Option{
+		o11y.WithFilter(o11y.FilterStatus),
+		o11y.WithPropagators(qdPropagator),
+		o11y.WithTracerProvider(qdTracerProvider),
+		o11y.WithMeterProvider(qdMeterProvider),
+	}
+
+	// Return the gimlet o11y middleware configured using the setup function.
+	return o11y.Middleware(ServiceAddr(), opts...), nil
+}
 
 // Setup initializes the opentelemetry sdk components and sets them as the global
 // providers. In general, the setup is primarily configured via the standard OTEL_*
@@ -59,6 +86,23 @@ func setup(ctx context.Context) {
 	initerr = nil
 	closeerr = nil
 
+	// If telemetry is disabled then setup no-op handlers for opentelemetry sdk
+	// components. NOTE: this will override any OTEL_* environment variables.
+	var (
+		err  error
+		conf config.Config
+	)
+
+	if conf, err = config.Get(); err != nil {
+		initerr = err
+		return
+	}
+
+	if !conf.Telemetry.Enabled {
+		disableTelemetry(ctx)
+		return
+	}
+
 	// Cleanup is only called if there is an error during setup; shutting down any
 	// open telemetry sdk objects that have been created before the error occurred.
 	cleanup := func(ctx context.Context) error {
@@ -70,7 +114,6 @@ func setup(ctx context.Context) {
 		return closeerr
 	}
 
-	var err error
 	if qdResource, err = newResource(ctx); err != nil {
 		initerr = errors.Join(err, cleanup(ctx))
 		return
@@ -123,6 +166,10 @@ func Shutdown(ctx context.Context) error {
 	closemu.Unlock()
 
 	return closeerr
+}
+
+func Disabled() bool {
+	return disabled
 }
 
 func Propagator() propagation.TextMapPropagator {
