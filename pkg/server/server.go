@@ -82,26 +82,31 @@ func New(conf *config.Config) (s *Server, err error) {
 	}
 
 	// Set the global level
-	zerolog.SetGlobalLevel(conf.GetLogLevel())
+	zerolog.SetGlobalLevel(s.conf.GetLogLevel())
 
 	// Set human readable logging if configured
-	if conf.ConsoleLog {
+	if s.conf.ConsoleLog {
 		console := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 		log.Logger = zerolog.New(console).With().Timestamp().Logger()
 	}
 
-	// Initialize the commo module for email sending
+	// Initialize the commo module for email sending and load welcome email
+	// template content from filesystem
 	if err = commo.Initialize(s.conf.Email, emails.LoadTemplates()); err != nil {
 		return nil, err
 	}
 
+	if err = s.conf.App.WelcomeEmail.LoadTemplateContent(); err != nil {
+		return nil, err
+	}
+
 	// Connect to the configured database store.
-	if s.store, err = store.Open(conf.Database); err != nil {
+	if s.store, err = store.Open(s.conf.Database); err != nil {
 		return nil, err
 	}
 
 	// Initialize the claims issuer for JWT tokens.
-	if s.issuer, err = auth.NewIssuer(conf.Auth); err != nil {
+	if s.issuer, err = auth.NewIssuer(s.conf.Auth); err != nil {
 		return nil, err
 	}
 
@@ -111,7 +116,7 @@ func New(conf *config.Config) (s *Server, err error) {
 	}
 
 	// Configure the gin router
-	gin.SetMode(conf.Mode)
+	gin.SetMode(s.conf.Mode)
 	s.router = gin.New()
 	s.router.RedirectTrailingSlash = true
 	s.router.RedirectFixedPath = false

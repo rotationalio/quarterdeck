@@ -1,17 +1,19 @@
 package config
 
 import (
+	"html/template"
 	"net/url"
+	"os"
 
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 )
 
 // Configures the details of the application that is utilizing Quarterdeck for auth.
 type AppConfig struct {
-	Name         string             `split_words:"true" default:"Quarterdeck"  desc:"the descriptive name of the application"`
-	LogoURI      string             `split_words:"true" default:"https://rotational.ai/hs-fs/hubfs/Rotational%20Logo%20Hor%201073x280.png"  desc:"the logo for the application"`
-	BaseURI      string             `split_words:"true" env:"QD_AUTH_AUDIENCE" desc:"base URL for the application"`
-	WelcomeEmail EmailTemplatePaths `split_words:"true"`
+	Name         string        `split_words:"true" default:"Quarterdeck"  desc:"the descriptive name of the application"`
+	LogoURI      string        `split_words:"true" default:"https://rotational.ai/hs-fs/hubfs/Rotational%20Logo%20Hor%201073x280.png"  desc:"the logo for the application"`
+	BaseURI      string        `split_words:"true" desc:"base URL for the application"`
+	WelcomeEmail EmailTemplate `split_words:"true"`
 
 	// Configures user syncing. Quarterdeck will attempt to post any new or modified
 	// users to each of the endpoints provided. A create/update for a user will be
@@ -23,11 +25,6 @@ type AppConfig struct {
 	// TODO: this endpoint config and callback code can be removed in favor of the
 	// OIDC callback method in the future once OIDC is implemented more completely.
 	WebhookURI string `split_words:"true" required:"false" desc:"webhook endpoint for the application to recieve user sync events"`
-}
-
-type EmailTemplatePaths struct {
-	HTML string `default:"" desc:"specify a custom html template for the given email"`
-	Text string `default:"" desc:"specify a custom text template for the given email"`
 }
 
 func (c AppConfig) Validate() (err error) {
@@ -62,4 +59,56 @@ func (c AppConfig) WebhookURL() *url.URL {
 	// Ignore errors because we have already validated the config
 	u, _ := url.Parse(c.WebhookURI)
 	return u
+}
+
+// ############################################################################
+// EmailTemplate
+// ############################################################################
+
+// EmailTemplate allows for custom HTML and Text email template content to be
+// loaded from the filesystem. Use [EmailTemplate.LoadTemplateContent] to load
+// the template content into memory and then use [EmailTemplate.HTMLContent] and
+// [EmailTemplate.TextContent] to get the content that was loaded from the files.
+type EmailTemplate struct {
+	HTMLPath string `split_words:"true" default:"" desc:"specify the file path to a custom html template for the given email"`
+	TextPath string `split_words:"true" default:"" desc:"specify the file path to a custom text template for the given email"`
+
+	htmlContent string
+	textContent string
+}
+
+// Returns the HTML template content loaded from the template files. Use
+// [EmailTemplate.LoadTemplateContent] to load the template content into memory
+// first.
+func (p *EmailTemplate) HTMLContent() template.HTML {
+	return template.HTML(p.htmlContent)
+}
+
+// Returns the Text template content loaded from the template files. Use
+// [EmailTemplate.LoadTemplateContent] to load the template content into memory
+// first.
+func (p *EmailTemplate) TextContent() string {
+	return p.textContent
+}
+
+// Loads the welcome email template content from the provided paths. Can be used
+// concurrently.
+func (p *EmailTemplate) LoadTemplateContent() (err error) {
+	if p.HTMLPath != "" {
+		var data []byte
+		if data, err = os.ReadFile(p.HTMLPath); err != nil {
+			return err
+		}
+		p.htmlContent = string(data)
+	}
+
+	if p.TextPath != "" {
+		var data []byte
+		if data, err = os.ReadFile(p.TextPath); err != nil {
+			return err
+		}
+		p.textContent = string(data)
+	}
+
+	return nil
 }
