@@ -151,11 +151,6 @@ func Debug(conf *config.Config, srv *http.Server) (s *Server, err error) {
 }
 
 func (s *Server) Serve() (err error) {
-	// If we're not in maintenance mode; connect to database and prepare the service.
-	if !s.conf.Maintenance {
-		// Register observability handlers
-	}
-
 	// Create a socket to listen on and infer the final URL.
 	// NOTE: if the bindaddr is 127.0.0.1:0 for testing, a random port will be assigned,
 	// manually creating the listener will allow us to determine which port.

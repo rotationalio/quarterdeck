@@ -219,11 +219,6 @@ func ServiceAddr() string {
 
 	// If the configuration is not available then return an empty string.
 	if conf, err = config.Get(); err == nil && conf.Telemetry.ServiceAddr != "" {
-		return ""
-	}
-
-	// If the service address is set in the configuration then return it.
-	if conf.Telemetry.ServiceAddr != "" {
 		return conf.Telemetry.ServiceAddr
 	}
 
