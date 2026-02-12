@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog"
+	"go.rtnl.ai/gimlet/logger"
 	"go.rtnl.ai/quarterdeck/pkg"
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
 	"go.rtnl.ai/quarterdeck/pkg/store"
@@ -19,6 +21,9 @@ const (
 
 // Status reports the version and uptime of the server
 func (s *Server) Status(c *gin.Context) {
+	// Reduce logging verbosity for the status endpoint
+	c.Set(logger.LogLevelKey, zerolog.DebugLevel)
+
 	var state string
 	s.RLock()
 	switch {
@@ -43,6 +48,9 @@ func (s *Server) Status(c *gin.Context) {
 // DBInfo reports the database connection status and information if available,
 // otherwise returns a 501 Not Implemented http error.
 func (s *Server) DBInfo(c *gin.Context) {
+	// Reduce logging verbosity for the dbinfo endpoint
+	c.Set(logger.LogLevelKey, zerolog.DebugLevel)
+
 	db, ok := s.store.(store.Stats)
 	if !ok {
 		c.JSON(http.StatusNotImplemented, api.Error("store does not implement stats"))

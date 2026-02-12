@@ -7,18 +7,24 @@ import (
 	"go.rtnl.ai/gimlet/cache"
 	"go.rtnl.ai/gimlet/csrf"
 	"go.rtnl.ai/gimlet/logger"
-	"go.rtnl.ai/gimlet/o11y"
 	"go.rtnl.ai/gimlet/ratelimit"
 	"go.rtnl.ai/gimlet/secure"
 	"go.rtnl.ai/quarterdeck/pkg"
 	"go.rtnl.ai/quarterdeck/pkg/auth/permissions"
 	"go.rtnl.ai/quarterdeck/pkg/docs"
+	"go.rtnl.ai/quarterdeck/pkg/telemetry"
 	"go.rtnl.ai/quarterdeck/pkg/web"
 )
 
 func (s *Server) setupRoutes() (err error) {
 	// Setup HTML template renderer
 	if s.router.HTMLRender, err = web.HTMLRender(web.Templates()); err != nil {
+		return err
+	}
+
+	// Create observability middleware
+	var observability gin.HandlerFunc
+	if observability, err = telemetry.Middleware(); err != nil {
 		return err
 	}
 
@@ -31,12 +37,15 @@ func (s *Server) setupRoutes() (err error) {
 	// Application Middleware
 	// NOTE: ordering is important to how middleware is handled
 	middlewares := []gin.HandlerFunc{
-		// Logging should be on the outside so we can record the correct latency of requests
-		// NOTE: logging panics will not recover
-		logger.Logger(ServiceName, pkg.Version(true), true),
+		// o11y should be on the outside so we can record the correct latency of requests
+		// NOTE: o11y panics will not recover due to middleware ordering.
+		observability,
 
 		// Panic recovery middleware
 		gin.Recovery(),
+
+		// Optional logging middleware
+		logger.Logger(ServiceName, pkg.Version(true)),
 
 		// Security middleware sets security policy headers
 		secure.Secure(&s.conf.Secure),
@@ -55,10 +64,6 @@ func (s *Server) setupRoutes() (err error) {
 	s.router.GET("/healthz", s.Healthz)
 	s.router.GET("/livez", s.Healthz)
 	s.router.GET("/readyz", s.Readyz)
-
-	// Prometheus metrics handler added before middleware.
-	// Note metrics will be served at /metrics
-	o11y.Routes(s.router)
 
 	// Add the middleware to the router
 	for _, middleware := range middlewares {
