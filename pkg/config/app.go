@@ -11,7 +11,7 @@ import (
 // Configures the details of the application that is utilizing Quarterdeck for auth.
 type AppConfig struct {
 	Name         string        `split_words:"true" default:"Quarterdeck"  desc:"the descriptive name of the application"`
-	LogoURI      string        `split_words:"true" default:"https://rotational.ai/hs-fs/hubfs/Rotational%20Logo%20Hor%201073x280.png"  desc:"the logo for the application"`
+	LogoURI      string        `split_words:"true" default:"https://rotational.io/img/apps/quarterdeck/rl_email_header.png"  desc:"the logo for the application"`
 	BaseURI      string        `split_words:"true" desc:"base URL for the application"`
 	WelcomeEmail EmailTemplate `split_words:"true"`
 
