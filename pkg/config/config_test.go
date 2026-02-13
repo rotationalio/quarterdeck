@@ -59,8 +59,8 @@ var testEnv = map[string]string{
 	"QD_APP_NAME":                                              "AppName",
 	"QD_APP_LOGO_URI":                                          "http://localhost:8000/logo.png",
 	"QD_APP_BASE_URI":                                          "http://localhost:8000",
-	"QD_APP_WELCOME_EMAIL_BODY_TEXT":                           "Email Body Text",
-	"QD_APP_WELCOME_EMAIL_BODY_HTML":                           "Email Body HTML",
+	"QD_APP_WELCOME_EMAIL_TEXT_PATH":                           "/data/email_body.txt",
+	"QD_APP_WELCOME_EMAIL_HTML_PATH":                           "/data/email_body.txt",
 	"QD_APP_WEBHOOK_URI":                                       "http://localhost:8000/api/v1/users/sync",
 	"QD_ORG_NAME":                                              "OrgName",
 	"QD_ORG_STREET_ADDRESS":                                    "Org Street Address",
@@ -136,15 +136,15 @@ func TestConfigImport(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, dur, conf.Email.Backoff.MaxElapsedTime)
 	require.Equal(t, testEnv["QD_APP_NAME"], "AppName")
-	require.Equal(t, testEnv["QD_APP_LOGO_URI"], "http://localhost:8000/logo.png")
-	require.Equal(t, testEnv["QD_APP_BASE_URI"], "http://localhost:8000")
-	require.Equal(t, testEnv["QD_APP_WELCOME_EMAIL_BODY_TEXT"], "Email Body Text")
-	require.Equal(t, testEnv["QD_APP_WELCOME_EMAIL_BODY_HTML"], "Email Body HTML")
+	require.Equal(t, testEnv["QD_APP_LOGO_URI"], conf.App.LogoURI)
+	require.Equal(t, testEnv["QD_APP_BASE_URI"], conf.App.BaseURI)
+	require.Equal(t, testEnv["QD_APP_WELCOME_EMAIL_TEXT_PATH"], conf.App.WelcomeEmail.TextPath)
+	require.Equal(t, testEnv["QD_APP_WELCOME_EMAIL_HTML_PATH"], conf.App.WelcomeEmail.HTMLPath)
 	require.Equal(t, testEnv["QD_APP_WEBHOOK_URI"], conf.App.WebhookURI)
-	require.Equal(t, testEnv["QD_ORG_NAME"], "OrgName")
-	require.Equal(t, testEnv["QD_ORG_STREET_ADDRESS"], "Org Street Address")
-	require.Equal(t, testEnv["QD_ORG_HOMEPAGE_URI"], "http://example.com")
-	require.Equal(t, testEnv["QD_ORG_SUPPORT_EMAIL"], "support@example.com")
+	require.Equal(t, testEnv["QD_ORG_NAME"], conf.Org.Name)
+	require.Equal(t, testEnv["QD_ORG_STREET_ADDRESS"], conf.Org.StreetAddress)
+	require.Equal(t, testEnv["QD_ORG_HOMEPAGE_URI"], conf.Org.HomepageURI)
+	require.Equal(t, testEnv["QD_ORG_SUPPORT_EMAIL"], conf.Org.SupportEmail)
 	require.Equal(t, testEnv["QD_RATE_LIMIT_TYPE"], conf.RateLimit.Type)
 	require.Equal(t, 20.00, conf.RateLimit.PerSecond)
 	require.Equal(t, 100, conf.RateLimit.Burst)
