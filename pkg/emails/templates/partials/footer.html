@@ -3,11 +3,17 @@
   class="footer">
   <tr>
     <td style="padding: 20px; font-family: sans-serif; font-size: 14px; line-height: 16px; text-align: center">
-      This email was sent by {{ .AppName }} by {{ .OrgName }}
-      <br />
-      <a href="{{ .OrgHomepageURL }}" target="_blank">{{ .OrgHomepageURL }}</a>
-      <br />
-      <span class="unstyle-auto-detected-links">{{ .OrgAddress }}</span>
+      This email was sent for {{ .OrgName }} via {{ .AppName }} by <a href="https://www.rotational.io"
+        target="_blank">Rotational Labs</a>
+    </td>
+  </tr>
+  <!-- Anti-spam: physical address for CAN-SPAM compliance; keep machine-readable for filters, do not make visible -->
+  <tr>
+    <!-- Text color matches background color of email from base.html -->
+    <td style="color: #ffffff">
+      <span class="unstyle-auto-detected-links">
+        Rotational Labs, Inc. 202 N Cedar Ave, Suite #1, Owatonna, MN 55060, USA
+      </span>
     </td>
   </tr>
 </table>
