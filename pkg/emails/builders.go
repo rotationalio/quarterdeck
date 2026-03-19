@@ -18,7 +18,6 @@ type EmailBaseData struct {
 	AppName        string   // Descriptive name for the application
 	AppLogoURL     *url.URL // Application's logo URL
 	OrgName        string   // Descriptive name for the organization
-	OrgAddress     string   // Organization's street address
 	OrgHomepageURL *url.URL // Organization's homepage URL
 	SupportEmail   string   // the support email address
 }
