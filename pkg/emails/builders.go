@@ -1,6 +1,7 @@
 package emails
 
 import (
+	"bytes"
 	"fmt"
 	"html/template"
 	"net/url"
@@ -52,6 +53,22 @@ func (s WelcomeUserEmailData) VerifyURL() string {
 
 	s.PasswordResetURL.RawQuery = params.Encode()
 	return s.PasswordResetURL.String()
+}
+
+// RenderedWelcomeBodyHTML evaluates WelcomeEmailBodyHTML as nested html/template with the same data.
+func (d WelcomeUserEmailData) RenderedWelcomeBodyHTML() (template.HTML, error) {
+	if len(d.WelcomeEmailBodyHTML) == 0 {
+		return "", nil
+	}
+	t, err := template.New("welcome_body").Parse(string(d.WelcomeEmailBodyHTML))
+	if err != nil {
+		return "", err
+	}
+	var buf bytes.Buffer
+	if err := t.Execute(&buf, d); err != nil {
+		return "", err
+	}
+	return template.HTML(buf.String()), nil
 }
 
 // ===========================================================================

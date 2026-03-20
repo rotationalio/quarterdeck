@@ -43,7 +43,7 @@ func TestWelcomeUserEmailBodyHTML(t *testing.T) {
 				Path:   "/reset-password",
 			},
 			Token:                vero.VerificationToken("abc123"),
-			WelcomeEmailBodyHTML: template.HTML("<p>Custom <strong>body</strong> content</p>"),
+			WelcomeEmailBodyHTML: template.HTML("<p>{{ .OrgName }} <strong>{{ .AppName }}</strong> {{ .OrgHomepageURL }}</p>"),
 		}
 
 		var buf bytes.Buffer
@@ -51,8 +51,11 @@ func TestWelcomeUserEmailBodyHTML(t *testing.T) {
 		require.NoError(t, err)
 
 		html := buf.String()
-		require.Contains(t, html, "<p>Custom <strong>body</strong> content</p>", "HTML in WelcomeEmailBodyHTML must be rendered as markup")
-		require.NotContains(t, html, "&lt;p&gt;Custom &lt;strong&gt;body&lt;/strong&gt; content&lt;/p&gt;", "HTML must not be escaped")
+		require.NotContains(t, html, "{{ .OrgName }}", "OrgName must not be rendered as text")
+		require.NotContains(t, html, "{{ .AppName }}", "AppName must not be rendered as text")
+		require.NotContains(t, html, "{{ .OrgHomepageURL }}", "OrgHomepageURL must not be rendered as text")
+		require.NotContains(t, html, "&lt;p&gt;TestOrg &lt;strong&gt;TestApp&lt;/strong&gt; https://example.com&lt;/p&gt;", "HTML must not be escaped")
+		require.Contains(t, html, "<p>TestOrg <strong>TestApp</strong> https://example.com</p>", "HTML in WelcomeEmailBodyHTML must be rendered as markup")
 	})
 
 	t.Run("EmptyRendersDefaultMessage", func(t *testing.T) {
