@@ -1,6 +1,6 @@
 module go.rtnl.ai/quarterdeck
 
-go 1.25.3
+go 1.25.8
 
 require (
 	github.com/gin-contrib/cors v1.7.6
@@ -10,7 +10,6 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/mattn/go-sqlite3 v1.14.33
 	github.com/rotationalio/confire v1.1.0
-	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli/v2 v2.27.7
 	go.opentelemetry.io/contrib/exporters/autoexport v0.65.0
@@ -25,9 +24,9 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.40.0
 	go.opentelemetry.io/otel/trace v1.40.0
 	go.rtnl.ai/commo v0.2.0
-	go.rtnl.ai/gimlet v1.5.0
+	go.rtnl.ai/gimlet v1.6.1
 	go.rtnl.ai/ulid v1.2.0
-	go.rtnl.ai/x v1.10.0
+	go.rtnl.ai/x v1.12.1
 	golang.org/x/crypto v0.47.0
 	golang.org/x/term v0.39.0
 	golang.org/x/text v0.33.0
@@ -58,7 +57,6 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
-	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect

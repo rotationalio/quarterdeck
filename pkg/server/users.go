@@ -6,13 +6,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"math/rand/v2"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog/log"
 	"go.rtnl.ai/commo"
 	gimauth "go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
@@ -27,6 +27,7 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/web/scene"
 	"go.rtnl.ai/ulid"
 	"go.rtnl.ai/x/randstr"
+	"go.rtnl.ai/x/rlog"
 	"go.rtnl.ai/x/vero"
 )
 
@@ -132,7 +133,7 @@ func (s *Server) CreateUser(c *gin.Context) {
 
 	// Send welcome/verification email
 	if err = s.sendWelcomeEmail(c, model); err != nil {
-		log.Error().Err(err).Str("user_id", user.ID.String()).Msg("could not send user a welcome email")
+		rlog.ErrorAttrs(c.Request.Context(), "could not send user a welcome email", slog.Any("err", err), slog.String("user_id", user.ID.String()))
 	}
 
 	// Convert the model back to an API response
@@ -408,7 +409,7 @@ func (s *Server) ForgotPassword(c *gin.Context) {
 				return
 			}
 
-			log.Warn().Err(err).Str("email", in.Email).Msg("non-user email address provided for reset password request")
+			rlog.WarnAttrs(c.Request.Context(), "non-user email address provided for reset password request", slog.Any("err", err), slog.String("email", in.Email))
 		}
 	}
 
@@ -513,7 +514,7 @@ func (s *Server) ResetPassword(c *gin.Context) {
 	// clear its cookie
 	if err = tx.DeleteVeroToken(veroToken.ID); err != nil {
 		// Do not return an error if we could not delete the record, just log it.
-		log.Error().Err(err).Str("link_id", veroToken.ID.String()).Msg("could not delete reset password link record")
+		rlog.ErrorAttrs(c.Request.Context(), "could not delete reset password link record", slog.Any("err", err), slog.String("link_id", veroToken.ID.String()))
 	}
 	auth.ClearResetPasswordTokenCookie(c, s.conf.Auth.GetResetPasswordURL().Hostname())
 
@@ -625,20 +626,20 @@ func (s *Server) verifyVeroToken(ctx context.Context, verification *api.URLVerif
 
 	// Get the VeroToken record from the database
 	if token, err = s.store.RetrieveVeroToken(ctx, verification.RecordULID()); err != nil {
-		log.Debug().Err(err).Str("vero_token_id", verification.RecordULID().String()).Msg("could not retrieve vero token record")
+		rlog.DebugAttrs(ctx, "could not retrieve vero token record", slog.Any("err", err), slog.String("vero_token_id", verification.RecordULID().String()))
 		return nil, err
 	}
 
 	// Check that the token is valid
 	if secure, err := token.Signature.Verify(verification.VerificationToken()); err != nil || !secure {
 		// If the token is not secure or verifiable, be freaked out and warn admins
-		log.Warn().Err(err).Str("vero_token_id", token.ID.String()).Bool("secure", secure).Msg("a vero token request hmac verification failed")
+		rlog.WarnAttrs(ctx, "a vero token request hmac verification failed", slog.Any("err", err), slog.String("vero_token_id", token.ID.String()), slog.Bool("secure", secure))
 		return nil, errors.ErrNotAllowed
 	}
 
 	// Check that the token and link have both not expired
 	if token.Signature.Token.IsExpired() || token.IsExpired() {
-		log.Debug().Str("vero_token_id", token.ID.String()).Msg("received a request with an expired verification token")
+		rlog.DebugAttrs(ctx, "received a request with an expired verification token", slog.String("vero_token_id", token.ID.String()))
 		return nil, errors.ErrExpiredToken
 	}
 
@@ -670,13 +671,13 @@ func (s *Server) syncUserPost(c *gin.Context, user *api.User, accessToken *strin
 
 	// Marshal the user into JSON bytes
 	if bodyBytes, err = json.Marshal(user); err != nil {
-		log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msg("user sync post: could not marshal user to json")
+		rlog.WarnAttrs(c.Request.Context(), "user sync post: could not marshal user to json", slog.Any("err", err), slog.String("endpoint_url", u.String()), slog.String("user_id", user.ID.String()))
 		return
 	}
 
 	// Create a POST request for JSON
 	if req, err = http.NewRequestWithContext(c.Request.Context(), http.MethodPost, u.String(), bytes.NewReader(bodyBytes)); err != nil {
-		log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msg("user sync post: could not create new post request")
+		rlog.WarnAttrs(c.Request.Context(), "user sync post: could not create new post request", slog.Any("err", err), slog.String("endpoint_url", u.String()), slog.String("user_id", user.ID.String()))
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -684,7 +685,7 @@ func (s *Server) syncUserPost(c *gin.Context, user *api.User, accessToken *strin
 	// Add authorization token
 	if accessToken == nil {
 		if token, err = gimauth.GetAccessToken(c); err != nil || token == "" {
-			log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msg("user sync post: could not attain an access token from context")
+			rlog.WarnAttrs(c.Request.Context(), "user sync post: could not attain an access token from context", slog.Any("err", err), slog.String("endpoint_url", u.String()), slog.String("user_id", user.ID.String()))
 			return
 		}
 		accessToken = &token
@@ -693,12 +694,12 @@ func (s *Server) syncUserPost(c *gin.Context, user *api.User, accessToken *strin
 
 	// Do request
 	if resp, err = http.DefaultClient.Do(req); err != nil {
-		log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msg("user sync post: could not complete http post request")
+		rlog.WarnAttrs(c.Request.Context(), "user sync post: could not complete http post request", slog.Any("err", err), slog.String("endpoint_url", u.String()), slog.String("user_id", user.ID.String()))
 		return
 	}
 	resp.Body.Close()
 
-	log.Debug().Err(err).Str("endpoint_url", u.String()).Str("user_id", user.ID.String()).Msgf("user sync post successful")
+	rlog.DebugAttrs(c.Request.Context(), "user sync post successful", slog.String("endpoint_url", u.String()), slog.String("user_id", user.ID.String()))
 }
 
 // Syncs user delete events with the configured webhook endpoint using a
@@ -718,31 +719,31 @@ func (s *Server) syncUserDelete(c *gin.Context, userID ulid.ULID) {
 
 	// Create the URL by appending the userID onto the sync webhook url path
 	if idURL, err = url.JoinPath(u.String(), userID.String()); err != nil {
-		log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msg("user sync delete: could not create sync url")
+		rlog.WarnAttrs(c.Request.Context(), "user sync delete: could not create sync url", slog.Any("err", err), slog.String("endpoint_url", u.String()), slog.String("user_id", userID.String()))
 		return
 	}
 
 	// Create a DELETE request
 	if req, err = http.NewRequestWithContext(c.Request.Context(), http.MethodDelete, idURL, nil); err != nil {
-		log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msg("user sync delete: could not create new delete request")
+		rlog.WarnAttrs(c.Request.Context(), "user sync delete: could not create new delete request", slog.Any("err", err), slog.String("endpoint_url", u.String()), slog.String("user_id", userID.String()))
 		return
 	}
 
 	// Add authorization token
 	if token, err = gimauth.GetAccessToken(c); err != nil || token == "" {
-		log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msg("user sync delete: could not attain an access token from context")
+		rlog.WarnAttrs(c.Request.Context(), "user sync delete: could not attain an access token from context", slog.Any("err", err), slog.String("endpoint_url", u.String()), slog.String("user_id", userID.String()))
 		return
 	}
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 
 	// Do request
 	if resp, err = http.DefaultClient.Do(req); err != nil {
-		log.Warn().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msg("user sync delete: could not complete http post request")
+		rlog.WarnAttrs(c.Request.Context(), "user sync delete: could not complete http post request", slog.Any("err", err), slog.String("endpoint_url", u.String()), slog.String("user_id", userID.String()))
 		return
 	}
 	resp.Body.Close()
 
-	log.Debug().Err(err).Str("endpoint_url", u.String()).Str("user_id", userID.String()).Msgf("user sync delete successful")
+	rlog.DebugAttrs(c.Request.Context(), "user sync delete successful", slog.String("endpoint_url", u.String()), slog.String("user_id", userID.String()))
 }
 
 // Re-syncs the user with the email provided.
@@ -754,12 +755,12 @@ func (s *Server) resyncUser(c *gin.Context, email string) {
 	)
 
 	if model, err = s.store.RetrieveUser(c.Request.Context(), email); err != nil {
-		log.Warn().Err(err).Str("email", email).Msg("could not retrieve user for syncing")
+		rlog.WarnAttrs(c.Request.Context(), "could not retrieve user for syncing", slog.Any("err", err), slog.String("email", email))
 		return
 	}
 
 	if user, err = api.NewUser(model); err != nil {
-		log.Warn().Err(err).Str("email", email).Msg("could not convert model user to api user for syncing")
+		rlog.WarnAttrs(c.Request.Context(), "could not convert model user to api user for syncing", slog.Any("err", err), slog.String("email", email))
 		return
 	}
 

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -11,29 +12,16 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"go.rtnl.ai/commo"
 	"go.rtnl.ai/gimlet/csrf"
-	"go.rtnl.ai/gimlet/logger"
 	"go.rtnl.ai/quarterdeck/pkg"
 	"go.rtnl.ai/quarterdeck/pkg/auth"
 	"go.rtnl.ai/quarterdeck/pkg/config"
 	"go.rtnl.ai/quarterdeck/pkg/emails"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store"
+	"go.rtnl.ai/x/rlog"
 )
-
-func init() {
-	// Initializes zerolog with our default logging requirements
-	zerolog.TimeFieldFormat = time.RFC3339
-	zerolog.TimestampFieldName = logger.GCPFieldKeyTime
-	zerolog.MessageFieldName = logger.GCPFieldKeyMsg
-
-	// Add the severity hook for GCP logging
-	var gcpHook logger.SeverityHook
-	log.Logger = zerolog.New(os.Stdout).Hook(gcpHook).With().Timestamp().Logger()
-}
 
 const (
 	ServiceName       = "quarterdeck"
@@ -81,14 +69,15 @@ func New(conf *config.Config) (s *Server, err error) {
 		}
 	}
 
-	// Set the global level
-	zerolog.SetGlobalLevel(s.conf.GetLogLevel())
-
-	// Set human readable logging if configured
+	// Configure the process-wide default logger.
+	opts := &slog.HandlerOptions{Level: s.conf.GetLogLevel()}
+	var handler slog.Handler
 	if s.conf.ConsoleLog {
-		console := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
-		log.Logger = zerolog.New(console).With().Timestamp().Logger()
+		handler = slog.NewTextHandler(os.Stdout, opts)
+	} else {
+		handler = slog.NewJSONHandler(os.Stdout, opts)
 	}
+	rlog.SetDefault(rlog.New(slog.New(handler)))
 
 	// Initialize the commo module for email sending and load welcome email
 	// template content from filesystem
@@ -178,13 +167,13 @@ func (s *Server) Serve() (err error) {
 		}
 	}()
 
-	log.Info().
-		Str("url", s.URL()).
-		Bool("maintenance", s.conf.Maintenance).
-		Str("version", pkg.Version(false)).
-		Str("issuer", s.conf.Auth.Issuer).
-		Strs("audience", s.conf.Auth.Audience).
-		Msg("quarterdeck server started")
+	rlog.InfoAttrs(context.Background(), "quarterdeck server started",
+		slog.String("url", s.URL()),
+		slog.Bool("maintenance", s.conf.Maintenance),
+		slog.String("version", pkg.Version(false)),
+		slog.String("issuer", s.conf.Auth.Issuer),
+		slog.Any("audience", s.conf.Auth.Audience),
+	)
 	return <-s.errc
 }
 
@@ -198,7 +187,7 @@ func (s *Server) serve(sock net.Listener) error {
 
 // Shutdown the web server gracefully.
 func (s *Server) Shutdown() (err error) {
-	log.Info().Msg("gracefully shutting down quarterdeck server")
+	rlog.InfoAttrs(context.Background(), "gracefully shutting down quarterdeck server")
 	s.SetStatus(false, false)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 35*time.Second)
@@ -219,7 +208,10 @@ func (s *Server) SetStatus(health, ready bool) {
 	s.healthy = health
 	s.ready = ready
 	s.Unlock()
-	log.Debug().Bool("health", health).Bool("ready", ready).Msg("server status set")
+	rlog.DebugAttrs(context.Background(), "server status set",
+		slog.Bool("health", health),
+		slog.Bool("ready", ready),
+	)
 }
 
 // URL returns the endpoint of the server as determined by the configuration and the

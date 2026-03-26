@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"crypto"
 	"crypto/rand"
 	"fmt"
@@ -8,14 +9,16 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	jose "github.com/go-jose/go-jose/v4"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/rs/zerolog/log"
 	"go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/quarterdeck/pkg/config"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/redirect"
 	"go.rtnl.ai/ulid"
+	"go.rtnl.ai/x/rlog"
 )
 
 // Global variables that should not be changed except between major versions.
@@ -80,7 +83,7 @@ func NewIssuer(conf config.AuthConfig) (_ *Issuer, err error) {
 			return nil, errors.Fmt("could not add generated key: %w", err)
 		}
 
-		log.Warn().Str("keyID", issuer.keyID.String()).Msg("generated volatile claims issuer rsa key")
+		rlog.WarnAttrs(context.Background(), "generated volatile claims issuer rsa key", slog.String("keyID", issuer.keyID.String()))
 	}
 
 	return issuer, nil
@@ -249,8 +252,7 @@ func (tm *Issuer) GetKey(token *jwt.Token) (key interface{}, err error) {
 
 	// If we have multiple keys, return the first one; this should not happen
 	if len(keys) > 1 {
-		log.Warn().Str("keyID", keyID.String()).
-			Msg("multiple signing keys found for kid")
+		rlog.WarnAttrs(context.Background(), "multiple signing keys found for kid", slog.String("keyID", keyID.String()))
 	}
 
 	return keys[0].Key, nil

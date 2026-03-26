@@ -1,14 +1,15 @@
 package server
 
 import (
+	"log/slog"
 	"net/http"
 	"net/url"
 
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog/log"
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
 	"go.rtnl.ai/quarterdeck/pkg/auth"
 	"go.rtnl.ai/quarterdeck/pkg/web/scene"
+	"go.rtnl.ai/x/rlog"
 )
 
 //===========================================================================
@@ -54,7 +55,7 @@ func (s *Server) ResetPasswordPage(c *gin.Context) {
 	if err := c.BindQuery(in); err != nil {
 		// Debug an error here but don't worry about erroring; the token will be
 		// blank and will cause a validation error when the form is submitted.
-		log.Debug().Err(err).Msg("could not parse query string")
+		rlog.DebugAttrs(c.Request.Context(), "could not parse query string", slog.Any("err", err))
 	}
 
 	// Set the token into a cookie so that it can be parsed when the form is submitted.

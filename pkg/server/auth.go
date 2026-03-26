@@ -4,14 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
-	"github.com/rs/zerolog/log"
 	gimlet "go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/ulid"
+	"go.rtnl.ai/x/rlog"
 
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
 	"go.rtnl.ai/quarterdeck/pkg/auth"
@@ -147,7 +148,7 @@ func (s *Server) Login(c *gin.Context) {
 	// Sync user
 	if apiUser, err := api.NewUser(user); err != nil {
 		// Only log this error
-		log.Warn().Err(err).Str("user_id", user.ID.String()).Msg("user login sync: could not convert model user to api user for sync")
+		rlog.WarnAttrs(c.Request.Context(), "user login sync: could not convert model user to api user for sync", slog.Any("err", err), slog.String("user_id", user.ID.String()))
 	} else {
 		s.syncUserPost(c, apiUser, &out.AccessToken)
 	}

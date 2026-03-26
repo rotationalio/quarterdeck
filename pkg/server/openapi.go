@@ -1,20 +1,23 @@
 package server
 
 import (
+	"context"
 	"io/fs"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"log/slog"
 	"sync"
 	"text/template"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
-	"github.com/rs/zerolog/log"
 	"go.rtnl.ai/quarterdeck/pkg"
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/web"
+	"go.rtnl.ai/x/rlog"
 )
 
 const (
@@ -60,12 +63,12 @@ func (s *Server) OpenAPI() gin.HandlerFunc {
 
 		var files fs.FS
 		if files, err = fs.Sub(web.Templates(), "docs/openapi"); err != nil {
-			log.Error().Err(err).Msg("could not load openapi templates")
+			rlog.ErrorAttrs(context.Background(), "could not load openapi templates", slog.Any("err", err))
 			return
 		}
 
 		if templates, err = template.ParseFS(files, "*.json", "*.yaml"); err != nil {
-			log.Error().Err(err).Msg("could not parse openapi templates from fs")
+			rlog.ErrorAttrs(context.Background(), "could not parse openapi templates from fs", slog.Any("err", err))
 			return
 		}
 	})
