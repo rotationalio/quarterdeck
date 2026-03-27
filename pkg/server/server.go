@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"sync"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/emails"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store"
+	"go.rtnl.ai/x/probez"
 )
 
 func init() {
@@ -39,7 +41,8 @@ const (
 	ServiceName       = "quarterdeck"
 	ReadHeaderTimeout = 20 * time.Second
 	WriteTimeout      = 20 * time.Second
-	IdleTimeout       = 120 * time.Second
+	IdleTimeout       = 180 * time.Second
+	ShutdownTimeout   = 45 * time.Second
 )
 
 // The Quarterdeck server implements both a web based UI and a REST API for managing
@@ -48,6 +51,7 @@ const (
 // entry point for the Quarterdeck application.
 type Server struct {
 	sync.RWMutex
+	probez.Handler
 	conf    config.Config
 	store   store.Store
 	srv     *http.Server
@@ -57,8 +61,6 @@ type Server struct {
 	url     *url.URL
 	started time.Time
 	errc    chan error
-	healthy bool
-	ready   bool
 }
 
 func New(conf *config.Config) (s *Server, err error) {
@@ -156,6 +158,14 @@ func Debug(conf *config.Config, srv *http.Server) (s *Server, err error) {
 }
 
 func (s *Server) Serve() (err error) {
+	// Catch OS signals for graceful shutdowns
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt)
+	go func() {
+		<-quit
+		s.errc <- s.Shutdown()
+	}()
+
 	// Create a socket to listen on and infer the final URL.
 	// NOTE: if the bindaddr is 127.0.0.1:0 for testing, a random port will be assigned,
 	// manually creating the listener will allow us to determine which port.
@@ -167,7 +177,7 @@ func (s *Server) Serve() (err error) {
 	}
 
 	s.setURL(sock.Addr())
-	s.SetStatus(true, true)
+	s.Healthy()
 	s.started = time.Now()
 
 	// Listen for HTTP requests and handle them.
@@ -178,6 +188,7 @@ func (s *Server) Serve() (err error) {
 		}
 	}()
 
+	s.Ready()
 	log.Info().
 		Str("url", s.URL()).
 		Bool("maintenance", s.conf.Maintenance).
@@ -199,27 +210,19 @@ func (s *Server) serve(sock net.Listener) error {
 // Shutdown the web server gracefully.
 func (s *Server) Shutdown() (err error) {
 	log.Info().Msg("gracefully shutting down quarterdeck server")
-	s.SetStatus(false, false)
+	s.NotReady()
+	defer s.Unhealthy()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 35*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
 	defer cancel()
 
 	s.srv.SetKeepAlivesEnabled(false)
-	if err = s.srv.Shutdown(ctx); err != nil {
-		return err
+	if serr := s.srv.Shutdown(ctx); serr != nil {
+		err = errors.Join(err, fmt.Errorf("could not shutdown http server: %w", serr))
 	}
 
-	return nil
-}
-
-// SetStatus sets the health and ready status on the server, modifying the behavior of
-// the kubernetes probe responses.
-func (s *Server) SetStatus(health, ready bool) {
-	s.Lock()
-	s.healthy = health
-	s.ready = ready
-	s.Unlock()
-	log.Debug().Bool("health", health).Bool("ready", ready).Msg("server status set")
+	log.Debug().Err(err).Msg("quarterdeck server shutdown complete")
+	return err
 }
 
 // URL returns the endpoint of the server as determined by the configuration and the

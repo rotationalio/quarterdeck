@@ -59,8 +59,9 @@ var (
 
 // Reduce namespacing conflicts by adding error functions from the errors package.
 var (
-	New = errors.New
-	Fmt = fmt.Errorf
-	Is  = errors.Is
-	As  = errors.As
+	New  = errors.New
+	Fmt  = fmt.Errorf
+	Is   = errors.Is
+	As   = errors.As
+	Join = errors.Join
 )
