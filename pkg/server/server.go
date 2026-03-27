@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -160,7 +161,7 @@ func Debug(conf *config.Config, srv *http.Server) (s *Server, err error) {
 func (s *Server) Serve() (err error) {
 	// Catch OS signals for graceful shutdowns
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-quit
 		s.errc <- s.Shutdown()
