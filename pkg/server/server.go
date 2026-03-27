@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog/log"
 	"go.rtnl.ai/commo"
 	"go.rtnl.ai/gimlet/csrf"
 	"go.rtnl.ai/quarterdeck/pkg"
