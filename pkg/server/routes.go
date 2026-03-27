@@ -61,9 +61,9 @@ func (s *Server) setupRoutes() (err error) {
 	}
 
 	// Kubernetes liveness probes added before middleware.
-	s.router.GET("/healthz", s.Healthz)
-	s.router.GET("/livez", s.Healthz)
-	s.router.GET("/readyz", s.Readyz)
+	s.router.GET("/healthz", gin.WrapF(s.Healthz))
+	s.router.GET("/livez", gin.WrapF(s.Healthz))
+	s.router.GET("/readyz", gin.WrapF(s.Readyz))
 
 	// Add the middleware to the router
 	for _, middleware := range middlewares {
