@@ -1,17 +1,17 @@
 package config
 
 import (
+	"log/slog"
 	"net/url"
 	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rotationalio/confire"
-	"github.com/rs/zerolog"
 	"go.rtnl.ai/commo"
-	"go.rtnl.ai/gimlet/logger"
 	"go.rtnl.ai/gimlet/ratelimit"
 	"go.rtnl.ai/gimlet/secure"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/x/rlog"
 )
 
 const (
@@ -25,23 +25,23 @@ var (
 )
 
 type Config struct {
-	Maintenance  bool                `default:"false" desc:"if true, quarterdeck will start in maintenance mode"`
-	BindAddr     string              `split_words:"true" default:":8888" desc:"the ip address and port to bind the quarterdeck server on"`
-	Mode         string              `default:"release" desc:"specify verbosity of logging and error detail (release, debug, test)"`
-	LogLevel     logger.LevelDecoder `split_words:"true" default:"info" desc:"specify the verbosity of logging (trace, debug, info, warn, error, fatal panic)"`
-	ConsoleLog   bool                `split_words:"true" default:"false" desc:"if true logs colorized human readable output instead of json"`
-	AllowOrigins []string            `split_words:"true" default:"http://localhost:8000" desc:"a list of allowed origins (domains including port) for CORS requests"`
-	DocsName     string              `split_words:"true" default:"quarterdeck" desc:"the display name for the API docs server in the Swagger app"`
-	Org          OrgConfig           `split_words:"true"`
-	App          AppConfig           `split_words:"true"`
-	Database     DatabaseConfig      `split_words:"true"`
-	Auth         AuthConfig          `split_words:"true"`
-	CSRF         CSRFConfig          `split_words:"true"`
-	Secure       secure.Config       `split_words:"true"`
-	Security     SecurityConfig      `split_words:"true"`
-	Email        commo.Config        `split_words:"true"`
-	RateLimit    ratelimit.Config    `split_words:"true"`
-	Telemetry    TelemetryConfig     `split_words:"true"`
+	Maintenance  bool              `default:"false" desc:"if true, quarterdeck will start in maintenance mode"`
+	BindAddr     string            `split_words:"true" default:":8888" desc:"the ip address and port to bind the quarterdeck server on"`
+	Mode         string            `default:"release" desc:"specify verbosity of logging and error detail (release, debug, test)"`
+	LogLevel     rlog.LevelDecoder `split_words:"true" default:"info" desc:"specify the verbosity of logging (trace, debug, info, warn, error, fatal panic)"`
+	ConsoleLog   bool              `split_words:"true" default:"false" desc:"if true logs colorized human readable output instead of json"`
+	AllowOrigins []string          `split_words:"true" default:"http://localhost:8000" desc:"a list of allowed origins (domains including port) for CORS requests"`
+	DocsName     string            `split_words:"true" default:"quarterdeck" desc:"the display name for the API docs server in the Swagger app"`
+	Org          OrgConfig         `split_words:"true"`
+	App          AppConfig         `split_words:"true"`
+	Database     DatabaseConfig    `split_words:"true"`
+	Auth         AuthConfig        `split_words:"true"`
+	CSRF         CSRFConfig        `split_words:"true"`
+	Secure       secure.Config     `split_words:"true"`
+	Security     SecurityConfig    `split_words:"true"`
+	Email        commo.Config      `split_words:"true"`
+	RateLimit    ratelimit.Config  `split_words:"true"`
+	Telemetry    TelemetryConfig   `split_words:"true"`
 	processed    bool
 }
 
@@ -168,8 +168,8 @@ func (c Config) Validate() (err error) {
 	return err
 }
 
-func (c Config) GetLogLevel() zerolog.Level {
-	return zerolog.Level(c.LogLevel)
+func (c Config) GetLogLevel() slog.Level {
+	return c.LogLevel.Level()
 }
 
 func (c Config) CookieDomains() []string {
