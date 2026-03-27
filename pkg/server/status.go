@@ -1,11 +1,11 @@
 package server
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog"
 	"go.rtnl.ai/gimlet/logger"
 	"go.rtnl.ai/quarterdeck/pkg"
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
@@ -22,7 +22,7 @@ const (
 // Status reports the version and uptime of the server
 func (s *Server) Status(c *gin.Context) {
 	// Reduce logging verbosity for the status endpoint
-	c.Set(logger.LogLevelKey, zerolog.DebugLevel)
+	c.Set(logger.LogLevelKey, slog.LevelDebug)
 
 	healthy := s.IsHealthy()
 	ready := s.IsReady()
@@ -50,7 +50,7 @@ func (s *Server) Status(c *gin.Context) {
 // otherwise returns a 501 Not Implemented http error.
 func (s *Server) DBInfo(c *gin.Context) {
 	// Reduce logging verbosity for the dbinfo endpoint
-	c.Set(logger.LogLevelKey, zerolog.DebugLevel)
+	c.Set(logger.LogLevelKey, slog.LevelDebug)
 
 	db, ok := s.store.(store.Stats)
 	if !ok {

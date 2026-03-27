@@ -1,18 +1,20 @@
 package web
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"html/template"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin/render"
-	"github.com/rs/zerolog/log"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/x/rlog"
 	"go.rtnl.ai/x/typecase"
 )
 
@@ -135,7 +137,8 @@ func (r *Render) AddPattern(fsys fs.FS, pattern string, includes ...string) (err
 			return err
 		}
 
-		log.Trace().Str("template", name).Strs("patterns", patterns).Msg("parsed template")
+		rlog.TraceAttrs(context.Background(), "parsed template",
+			slog.String("template", name), slog.Any("patterns", patterns))
 	}
 	return nil
 }

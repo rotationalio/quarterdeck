@@ -3,39 +3,31 @@ package server
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"go.rtnl.ai/commo"
 	"go.rtnl.ai/gimlet/csrf"
-	"go.rtnl.ai/gimlet/logger"
 	"go.rtnl.ai/quarterdeck/pkg"
 	"go.rtnl.ai/quarterdeck/pkg/auth"
 	"go.rtnl.ai/quarterdeck/pkg/config"
 	"go.rtnl.ai/quarterdeck/pkg/emails"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store"
+	"go.rtnl.ai/quarterdeck/pkg/telemetry"
 	"go.rtnl.ai/x/probez"
+	"go.rtnl.ai/x/rlog"
+
+	"go.opentelemetry.io/contrib/bridges/otelslog"
 )
-
-func init() {
-	// Initializes zerolog with our default logging requirements
-	zerolog.TimeFieldFormat = time.RFC3339
-	zerolog.TimestampFieldName = logger.GCPFieldKeyTime
-	zerolog.MessageFieldName = logger.GCPFieldKeyMsg
-
-	// Add the severity hook for GCP logging
-	var gcpHook logger.SeverityHook
-	log.Logger = zerolog.New(os.Stdout).Hook(gcpHook).With().Timestamp().Logger()
-}
 
 const (
 	ServiceName       = "quarterdeck"
@@ -83,14 +75,13 @@ func New(conf *config.Config) (s *Server, err error) {
 		}
 	}
 
-	// Set the global level
-	zerolog.SetGlobalLevel(s.conf.GetLogLevel())
-
-	// Set human readable logging if configured
-	if s.conf.ConsoleLog {
-		console := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
-		log.Logger = zerolog.New(console).With().Timestamp().Logger()
+	// Initialize telemetry and logging before any other initialization.
+	if err = telemetry.Setup(context.Background()); err != nil {
+		return nil, err
 	}
+	// NOTE: telemetry must be initialized before logging to ensure the otelslog
+	// handler is bound to the real (or noop) LoggerProvider.
+	ConfigureLogging(&s.conf)
 
 	// Initialize the commo module for email sending and load welcome email
 	// template content from filesystem
@@ -140,6 +131,16 @@ func New(conf *config.Config) (s *Server, err error) {
 		IdleTimeout:       IdleTimeout,
 	}
 
+	// Set a fatal hook after the server is created to ensure the server is
+	// shutdown when a fatal error occurs.
+	rlog.SetFatalHook(func() {
+		// Runs after rlog.Fatal output; hook replaces os.Exit(1), so we must exit.
+		if s.srv != nil {
+			_ = s.Shutdown()
+		}
+		os.Exit(1)
+	})
+
 	return s, nil
 }
 
@@ -160,7 +161,7 @@ func Debug(conf *config.Config, srv *http.Server) (s *Server, err error) {
 func (s *Server) Serve() (err error) {
 	// Catch OS signals for graceful shutdowns
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-quit
 		s.errc <- s.Shutdown()
@@ -189,13 +190,13 @@ func (s *Server) Serve() (err error) {
 	}()
 
 	s.Ready()
-	log.Info().
-		Str("url", s.URL()).
-		Bool("maintenance", s.conf.Maintenance).
-		Str("version", pkg.Version(false)).
-		Str("issuer", s.conf.Auth.Issuer).
-		Strs("audience", s.conf.Auth.Audience).
-		Msg("quarterdeck server started")
+	rlog.InfoAttrs(context.Background(), "quarterdeck server started",
+		slog.String("url", s.URL()),
+		slog.Bool("maintenance", s.conf.Maintenance),
+		slog.String("version", pkg.Version(false)),
+		slog.String("issuer", s.conf.Auth.Issuer),
+		slog.Any("audience", s.conf.Auth.Audience),
+	)
 	return <-s.errc
 }
 
@@ -209,7 +210,7 @@ func (s *Server) serve(sock net.Listener) error {
 
 // Shutdown the web server gracefully.
 func (s *Server) Shutdown() (err error) {
-	log.Info().Msg("gracefully shutting down quarterdeck server")
+	rlog.InfoAttrs(context.Background(), "gracefully shutting down quarterdeck server")
 	s.NotReady()
 	defer s.Unhealthy()
 
@@ -221,7 +222,11 @@ func (s *Server) Shutdown() (err error) {
 		err = errors.Join(err, fmt.Errorf("could not shutdown http server: %w", serr))
 	}
 
-	log.Debug().Err(err).Msg("quarterdeck server shutdown complete")
+	if telErr := telemetry.Shutdown(ctx); telErr != nil {
+		err = errors.Join(err, fmt.Errorf("could not shutdown telemetry: %w", telErr))
+	}
+
+	rlog.DebugAttrs(context.Background(), "quarterdeck server shutdown complete", slog.Any("error", err))
 	return err
 }
 
@@ -252,4 +257,28 @@ func (s *Server) setURL(addr net.Addr) {
 	if tcp, ok := addr.(*net.TCPAddr); ok && tcp.IP.IsUnspecified() && s.url.Host == "" {
 		s.url.Host = fmt.Sprintf("127.0.0.1:%d", tcp.Port)
 	}
+}
+
+// ConfigureLogging sets the default global logger and log level based on the
+// configuration. If telemetry is enabled, the logger will be configured to fan-out
+// to the OpenTelemetry logger. Can be called multiple times to reconfigure the
+// logger.
+func ConfigureLogging(conf *config.Config) {
+	rlog.SetLevel(conf.GetLogLevel())
+
+	opts := rlog.MergeWithCustomLevels(rlog.WithGlobalLevel(nil))
+	var console slog.Handler
+	if conf.ConsoleLog {
+		console = slog.NewTextHandler(os.Stdout, opts)
+	} else {
+		console = slog.NewJSONHandler(os.Stdout, opts)
+	}
+
+	var handler slog.Handler = console
+	if conf.Telemetry.Enabled {
+		otelHandler := otelslog.NewHandler(ServiceName, otelslog.WithLoggerProvider(telemetry.LoggerProvider()))
+		handler = slog.NewMultiHandler(console, otelHandler)
+	}
+
+	rlog.SetDefault(rlog.New(slog.New(handler)))
 }

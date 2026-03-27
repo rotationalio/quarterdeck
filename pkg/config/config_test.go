@@ -1,19 +1,19 @@
 package config_test
 
 import (
+	"log/slog"
 	"net/mail"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"go.rtnl.ai/commo"
-	"go.rtnl.ai/gimlet/logger"
 	"go.rtnl.ai/gimlet/ratelimit"
 	"go.rtnl.ai/gimlet/secure"
 	"go.rtnl.ai/quarterdeck/pkg/config"
+	"go.rtnl.ai/x/rlog"
 )
 
 // The test environment for all config tests, manipulated using curEnv and setEnv
@@ -90,7 +90,7 @@ func TestConfigImport(t *testing.T) {
 	require.False(t, conf.Maintenance)
 	require.Equal(t, testEnv["QD_BIND_ADDR"], conf.BindAddr)
 	require.Equal(t, testEnv["QD_MODE"], conf.Mode)
-	require.Equal(t, zerolog.ErrorLevel, conf.GetLogLevel())
+	require.Equal(t, slog.LevelError, conf.GetLogLevel())
 	require.True(t, conf.ConsoleLog)
 	require.Equal(t, []string{"https://example.com", "https://auth.example.com", "https://db.example.com"}, conf.AllowOrigins)
 	require.Equal(t, testEnv["QD_DATABASE_URL"], conf.Database.URL)
@@ -331,7 +331,7 @@ func TestValidation(t *testing.T) {
 			{
 				Maintenance:  false,
 				BindAddr:     ":3333",
-				LogLevel:     logger.LevelDecoder(zerolog.InfoLevel),
+				LogLevel:     rlog.LevelDecoder(slog.LevelInfo),
 				Mode:         gin.ReleaseMode,
 				ConsoleLog:   true,
 				AllowOrigins: []string{"*"},
@@ -339,7 +339,7 @@ func TestValidation(t *testing.T) {
 			{
 				Maintenance:  false,
 				BindAddr:     ":3333",
-				LogLevel:     logger.LevelDecoder(zerolog.InfoLevel),
+				LogLevel:     rlog.LevelDecoder(slog.LevelInfo),
 				Mode:         gin.DebugMode,
 				ConsoleLog:   true,
 				AllowOrigins: []string{"*"},
@@ -347,7 +347,7 @@ func TestValidation(t *testing.T) {
 			{
 				Maintenance:  false,
 				BindAddr:     ":3333",
-				LogLevel:     logger.LevelDecoder(zerolog.InfoLevel),
+				LogLevel:     rlog.LevelDecoder(slog.LevelInfo),
 				Mode:         gin.TestMode,
 				ConsoleLog:   true,
 				AllowOrigins: []string{"*"},
@@ -368,7 +368,7 @@ func TestValidation(t *testing.T) {
 				conf: config.Config{
 					Maintenance:  false,
 					BindAddr:     ":3333",
-					LogLevel:     logger.LevelDecoder(zerolog.InfoLevel),
+					LogLevel:     rlog.LevelDecoder(slog.LevelInfo),
 					Mode:         "invalid",
 					ConsoleLog:   true,
 					AllowOrigins: []string{"*"},
@@ -402,7 +402,7 @@ func TestIsZero(t *testing.T) {
 		conf := config.Config{
 			Maintenance: false,
 			BindAddr:    "127.0.0.1:0",
-			LogLevel:    logger.LevelDecoder(zerolog.TraceLevel),
+			LogLevel:    rlog.LevelDecoder(rlog.LevelTrace),
 			Mode:        "invalid",
 		}
 		require.True(t, conf.IsZero(), "a non-empty config that isn't marked will be zero valued")
@@ -413,7 +413,7 @@ func TestIsZero(t *testing.T) {
 			conf := config.Config{
 				Maintenance: false,
 				BindAddr:    "127.0.0.1:0",
-				LogLevel:    logger.LevelDecoder(zerolog.TraceLevel),
+				LogLevel:    rlog.LevelDecoder(rlog.LevelTrace),
 				Mode:        gin.ReleaseMode,
 				RateLimit:   ratelimit.DefaultConfig,
 				Auth: config.AuthConfig{
@@ -473,7 +473,7 @@ func TestIsZero(t *testing.T) {
 			conf := config.Config{
 				Maintenance: false,
 				BindAddr:    "127.0.0.1:0",
-				LogLevel:    logger.LevelDecoder(zerolog.TraceLevel),
+				LogLevel:    rlog.LevelDecoder(rlog.LevelTrace),
 				Mode:        "invalid",
 			}
 

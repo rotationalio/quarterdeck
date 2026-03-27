@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
-	"github.com/rs/zerolog/log"
 	gimlet "go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/ulid"
 
@@ -20,6 +20,7 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/quarterdeck/pkg/web/htmx"
 	"go.rtnl.ai/quarterdeck/pkg/web/scene"
+	"go.rtnl.ai/x/rlog"
 )
 
 // PrepareLogin sets CSRF cookies to protect the login form and renders a login form
@@ -147,7 +148,8 @@ func (s *Server) Login(c *gin.Context) {
 	// Sync user
 	if apiUser, err := api.NewUser(user); err != nil {
 		// Only log this error
-		log.Warn().Err(err).Str("user_id", user.ID.String()).Msg("user login sync: could not convert model user to api user for sync")
+		rlog.WarnAttrs(c.Request.Context(), "user login sync: could not convert model user to api user for sync",
+			slog.Any("err", err), slog.String("user_id", user.ID.String()))
 	} else {
 		s.syncUserPost(c, apiUser, &out.AccessToken)
 	}
