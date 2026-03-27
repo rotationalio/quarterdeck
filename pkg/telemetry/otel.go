@@ -6,6 +6,7 @@ import (
 
 	"go.opentelemetry.io/contrib/exporters/autoexport"
 	"go.opentelemetry.io/contrib/propagators/autoprop"
+	"go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
 	"go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
@@ -100,8 +101,11 @@ func newMeterProvider(ctx context.Context, resource *resource.Resource) (meterPr
 // Uses autoexport to automatically create the correct logger exporter based on the
 // environment, defaulting to a console exporter if $OTEL_LOGS_EXPORTER is empty.
 func newLoggerProvider(ctx context.Context, resource *resource.Resource) (loggerProvider *log.LoggerProvider, err error) {
-
-	opts := []autoexport.LogOption{}
+	opts := []autoexport.LogOption{
+		autoexport.WithFallbackLogExporter(func(context.Context) (log.Exporter, error) {
+			return stdoutlog.New(stdoutlog.WithPrettyPrint())
+		}),
+	}
 
 	var loggerExporter log.Exporter
 	if loggerExporter, err = autoexport.NewLogExporter(ctx, opts...); err != nil {

@@ -21,8 +21,11 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/emails"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store"
+	"go.rtnl.ai/quarterdeck/pkg/telemetry"
 	"go.rtnl.ai/x/probez"
 	"go.rtnl.ai/x/rlog"
+
+	"go.opentelemetry.io/contrib/bridges/otelslog"
 )
 
 const (
@@ -71,8 +74,13 @@ func New(conf *config.Config) (s *Server, err error) {
 		}
 	}
 
-	// Set the global logger and log level.
-	configureLogging(&s.conf)
+	// Initialize telemetry and logging before any other initialization.
+	if err = telemetry.Setup(context.Background()); err != nil {
+		return nil, err
+	}
+	// NOTE: telemetry must be initialized before logging to ensure the otelslog
+	// handler is bound to the real (or noop) LoggerProvider.
+	ConfigureLogging(&s.conf)
 
 	// Initialize the commo module for email sending and load welcome email
 	// template content from filesystem
@@ -213,6 +221,10 @@ func (s *Server) Shutdown() (err error) {
 		err = errors.Join(err, fmt.Errorf("could not shutdown http server: %w", serr))
 	}
 
+	if telErr := telemetry.Shutdown(ctx); telErr != nil {
+		err = errors.Join(err, fmt.Errorf("could not shutdown telemetry: %w", telErr))
+	}
+
 	rlog.DebugAttrs(context.Background(), "quarterdeck server shutdown complete", slog.Any("error", err))
 	return err
 }
@@ -246,17 +258,26 @@ func (s *Server) setURL(addr net.Addr) {
 	}
 }
 
-// configureLogging sets the default global logger and log level based on the
-// configuration.
-func configureLogging(conf *config.Config) {
+// ConfigureLogging sets the default global logger and log level based on the
+// configuration. If telemetry is enabled, the logger will be configured to fan-out
+// to the OpenTelemetry logger. Can be called multiple times to reconfigure the
+// logger.
+func ConfigureLogging(conf *config.Config) {
 	rlog.SetLevel(conf.GetLogLevel())
 
 	opts := rlog.MergeWithCustomLevels(rlog.WithGlobalLevel(nil))
-	var handler slog.Handler
+	var console slog.Handler
 	if conf.ConsoleLog {
-		handler = slog.NewTextHandler(os.Stdout, opts)
+		console = slog.NewTextHandler(os.Stdout, opts)
 	} else {
-		handler = slog.NewJSONHandler(os.Stdout, opts)
+		console = slog.NewJSONHandler(os.Stdout, opts)
 	}
+
+	var handler slog.Handler = console
+	if conf.Telemetry.Enabled {
+		otelHandler := otelslog.NewHandler(ServiceName, otelslog.WithLoggerProvider(telemetry.LoggerProvider()))
+		handler = slog.NewMultiHandler(console, otelHandler)
+	}
+
 	rlog.SetDefault(rlog.New(slog.New(handler)))
 }
