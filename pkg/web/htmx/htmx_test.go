@@ -134,6 +134,41 @@ func TestIsWebRequest(t *testing.T) {
 	})
 }
 
+func TestSetResponseTrigger(t *testing.T) {
+	t.Run("HTMX", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request, _ = http.NewRequest("GET", "/test", nil)
+		c.Request.Header.Set(htmx.HXRequest, "true")
+
+		htmx.SetResponseTrigger(c, "user-created")
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+
+		require.Equal(t, http.StatusOK, w.Code)
+		require.Equal(t, "user-created", w.Header().Get(htmx.HXTrigger))
+	})
+
+	t.Run("NotHTMX", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request, _ = http.NewRequest("GET", "/test", nil)
+
+		htmx.SetResponseTrigger(c, "user-created")
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+
+		require.Equal(t, http.StatusOK, w.Code)
+		require.Empty(t, w.Header().Get(htmx.HXTrigger))
+	})
+}
+
+func TestResponseTriggerJSON(t *testing.T) {
+	require.Equal(t, "user-created", htmx.ResponseTriggerJSON("user-created"))
+	require.Equal(t,
+		`{"user-created": null, "invite-welcome-email-failed": null}`,
+		htmx.ResponseTriggerJSON("user-created", "invite-welcome-email-failed"),
+	)
+}
+
 func TestTrigger(t *testing.T) {
 	t.Run("HTMX", func(t *testing.T) {
 		w := httptest.NewRecorder()

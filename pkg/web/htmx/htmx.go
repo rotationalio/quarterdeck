@@ -7,6 +7,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Client events emitted on invite / user create (Endeavor listens for these names).
+const (
+	EventUserCreated              = "user-created"
+	EventInviteWelcomeEmailFailed = "invite-welcome-email-failed"
+)
+
 // HTMX Request Headers
 const (
 	HXBoosted               = "HX-Boosted"                 // indicates that the request is via an element using hx-boost
@@ -69,6 +75,37 @@ func IsWebRequest(c *gin.Context) bool {
 		return true
 	}
 	return IsHTMXRequest(c)
+}
+
+// SetResponseTrigger sets HX-Trigger without writing a response body.
+// Use when the handler still returns JSON or HTML (e.g. CreateUser).
+func SetResponseTrigger(c *gin.Context, value string) {
+	if IsHTMXRequest(c) && value != "" {
+		c.Header(HXTrigger, value)
+	}
+}
+
+// ResponseTriggerJSON builds an HX-Trigger header value that fires multiple client events.
+func ResponseTriggerJSON(events ...string) string {
+	switch len(events) {
+	case 0:
+		return ""
+	case 1:
+		return events[0]
+	default:
+		var b strings.Builder
+		b.WriteString("{")
+		for i, e := range events {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(`"`)
+			b.WriteString(e)
+			b.WriteString(`": null`)
+		}
+		b.WriteString("}")
+		return b.String()
+	}
 }
 
 // Trigger sets the HX-Trigger response header and returns a 204 no content to allow HTMX to handle the trigger.
