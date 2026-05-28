@@ -11,6 +11,7 @@ import (
 	"go.rtnl.ai/x/vero"
 )
 
+// TestVerifyWelcomeUserURL checks the welcome email password-reset link format.
 func TestVerifyWelcomeUserURL(t *testing.T) {
 	invite := emails.WelcomeUserEmailData{
 		PasswordResetURL: &url.URL{
@@ -24,6 +25,7 @@ func TestVerifyWelcomeUserURL(t *testing.T) {
 	require.Equal(t, "https://resetpassword.example.com/reset-password?token=YWJjMTIz", invite.VerifyURL())
 }
 
+// TestWelcomeUserEmailBodyHTML checks nested custom HTML in the welcome template.
 func TestWelcomeUserEmailBodyHTML(t *testing.T) {
 	t.Run("RendersUnescaped", func(t *testing.T) {
 		templates := emails.LoadTemplates()
@@ -88,6 +90,18 @@ func TestWelcomeUserEmailBodyHTML(t *testing.T) {
 	})
 }
 
+// TestRenderedWelcomeBodyTextRole checks Role is rendered in custom text bodies.
+func TestRenderedWelcomeBodyTextRole(t *testing.T) {
+	data := emails.WelcomeUserEmailData{
+		Role:                 "Analyst",
+		WelcomeEmailBodyText: "Your role: {{ if .Role }}{{ .Role }}{{ else }}Team Member{{ end }}",
+	}
+	out, err := data.RenderedWelcomeBodyText()
+	require.NoError(t, err)
+	require.Equal(t, "Your role: Analyst", out)
+}
+
+// TestVerifyResetPasswordURL checks the reset-password email link format.
 func TestVerifyResetPasswordURL(t *testing.T) {
 	invite := emails.ResetPasswordEmailData{
 		PasswordLinkBaseURL: &url.URL{

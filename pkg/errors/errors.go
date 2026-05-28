@@ -55,6 +55,9 @@ var (
 	ErrNoSigningKeys        = errors.New("claims issuer has no signing keys configured")
 	ErrNoLoginURL           = errors.New("no login URL configured to redirect the user to")
 	ErrExpiredToken         = errors.New("verification token is expired")
+
+	// Email errors
+	ErrEmptyWelcomeEmailBody = errors.New("welcome email body text or html is empty")
 )
 
 // Reduce namespacing conflicts by adding error functions from the errors package.

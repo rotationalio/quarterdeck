@@ -80,6 +80,7 @@ type Tx struct {
 	OnDeleteVeroToken              func(ulid.ULID) error
 	OnCreateResetPasswordVeroToken func(*models.VeroToken) error
 	OnCreateTeamInviteVeroToken    func(*models.VeroToken) error
+	OnRetrieveTeamInviteVeroToken  func(ulid.ULID) (*models.VeroToken, error)
 }
 
 //===========================================================================
@@ -519,4 +520,12 @@ func (tx *Tx) CreateTeamInviteVeroToken(in *models.VeroToken) error {
 		return tx.OnCreateTeamInviteVeroToken(in)
 	}
 	panic(errors.Fmt("%s callback is not mocked", CreateResetPasswordVeroToken))
+}
+
+func (tx *Tx) RetrieveTeamInviteVeroToken(userID ulid.ULID) (*models.VeroToken, error) {
+	tx.calls[RetrieveTeamInviteVeroToken]++
+	if tx.OnRetrieveTeamInviteVeroToken != nil {
+		return tx.OnRetrieveTeamInviteVeroToken(userID)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RetrieveTeamInviteVeroToken))
 }

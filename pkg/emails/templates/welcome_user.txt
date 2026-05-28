@@ -1,7 +1,7 @@
 Hello{{ if .ContactName }} {{ .ContactName }}{{ end }},
 
 {{ if .WelcomeEmailBodyText }}
-{{ .WelcomeEmailBodyText }}
+{{ .RenderedWelcomeBodyText }}
 {{ else }}
 You have been invited to join a team in {{ .AppName }}.
 {{ end }}

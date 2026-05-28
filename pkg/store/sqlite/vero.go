@@ -293,3 +293,41 @@ func (tx *Tx) CreateTeamInviteVeroToken(token *models.VeroToken) (err error) {
 
 	return nil
 }
+
+// RetrieveTeamInviteVeroToken returns the current team-invite VeroToken for a user, if any.
+func (s *Store) RetrieveTeamInviteVeroToken(ctx context.Context, userID ulid.ULID) (out *models.VeroToken, err error) {
+	var tx *Tx
+	if tx, err = s.BeginTx(ctx, &sql.TxOptions{ReadOnly: true}); err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	if out, err = tx.RetrieveTeamInviteVeroToken(userID); err != nil {
+		return nil, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RetrieveTeamInviteVeroToken returns the current team-invite VeroToken for a user, if any.
+func (tx *Tx) RetrieveTeamInviteVeroToken(userID ulid.ULID) (out *models.VeroToken, err error) {
+	if userID.IsZero() {
+		return nil, errors.ErrMissingReference
+	}
+
+	out = &models.VeroToken{}
+	if err = out.Scan(tx.QueryRow(
+		retrieveResetPasswordTokenSQL,
+		sql.Named("resourceID", ulid.NullULID{Valid: true, ULID: userID}),
+		sql.Named("tokenType", enum.TokenTypeTeamInvite),
+	)); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errors.ErrNotFound
+		}
+		return nil, dbe(err)
+	}
+	return out, nil
+}

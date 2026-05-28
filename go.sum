@@ -193,6 +193,8 @@ go.opentelemetry.io/proto/otlp v1.10.0 h1:IQRWgT5srOCYfiWnpqUYz9CVmbO8bFmKcwYxpu
 go.opentelemetry.io/proto/otlp v1.10.0/go.mod h1:/CV4QoCR/S9yaPj8utp3lvQPoqMtxXdzn7ozvvozVqk=
 go.rtnl.ai/commo v0.2.0 h1:x8zSs3sSWKVpgg3387kx3kL8Oa2SxfonUFnhWKmD2zM=
 go.rtnl.ai/commo v0.2.0/go.mod h1:Dv5ygqYp7FeAAea3sJQ0VDZr5Ctbk1wYgF9WAdIJRnA=
+go.rtnl.ai/commo v0.3.0 h1:s9JRNOAFfj5l7OQC+8Du+AS5MvtEJpkayCu8hAa0SjI=
+go.rtnl.ai/commo v0.3.0/go.mod h1:Dv5ygqYp7FeAAea3sJQ0VDZr5Ctbk1wYgF9WAdIJRnA=
 go.rtnl.ai/gimlet v1.6.1 h1:fYpn/PONQSrlrnmTw5AbTy7il6az7ri1jSaMVVWLrmw=
 go.rtnl.ai/gimlet v1.6.1/go.mod h1:8G5xAegxJZrdMsjx+dOXHVKF6fQmhgyapqV1evZtIyI=
 go.rtnl.ai/ulid v1.2.0 h1:EwIst7WZVdCmbtbDmIrRB15q03Qe9hmHHbxNej0V/wI=

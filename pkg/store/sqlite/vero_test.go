@@ -368,3 +368,29 @@ func (s *storeTestSuite) TestCreateResetPasswordVeroToken() {
 		require.Equal(tokenCount+1, s.Count("vero_tokens"), "should create a new VeroToken")
 	})
 }
+
+// Ensure that we can retrieve a token that was created, but not one that was not created.
+func (s *storeTestSuite) TestRetrieveTeamInviteVeroToken() {
+	require := s.Require()
+	if s.ReadOnly() {
+		s.T().Skip("skipping team invite retrieve test in read-only mode")
+	}
+
+	userID := ulid.MakeSecure()
+	token := &models.VeroToken{
+		TokenType:  enum.TokenTypeTeamInvite,
+		ResourceID: ulid.NullULID{Valid: true, ULID: userID},
+		Email:      "invite@example.com",
+		Expiration: time.Now().Add(48 * time.Hour),
+	}
+
+	require.NoError(s.db.CreateTeamInviteVeroToken(s.Context(), token))
+
+	got, err := s.db.RetrieveTeamInviteVeroToken(s.Context(), userID)
+	require.NoError(err)
+	require.Equal(token.ID, got.ID)
+	require.Equal(enum.TokenTypeTeamInvite, got.TokenType)
+
+	_, err = s.db.RetrieveTeamInviteVeroToken(s.Context(), ulid.Make())
+	require.ErrorIs(err, errors.ErrNotFound)
+}
