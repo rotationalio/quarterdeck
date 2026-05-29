@@ -320,7 +320,8 @@ func (s *Server) UpdateAPIKey(c *gin.Context) {
 	case binding.MIMEJSON:
 		c.JSON(http.StatusOK, out)
 	case binding.MIMEHTML:
-		htmx.Trigger(c, htmx.APIKeysUpdated)
+		htmx.SetTrigger(c, htmx.APIKeysUpdated)
+		c.Data(http.StatusNoContent, gin.MIMEHTML, nil)
 	}
 }
 
@@ -350,7 +351,8 @@ func (s *Server) DeleteAPIKey(c *gin.Context) {
 	}
 
 	if htmx.IsHTMXRequest(c) {
-		htmx.Trigger(c, htmx.APIKeysUpdated)
+		htmx.SetTrigger(c, htmx.APIKeysUpdated)
+		c.Data(http.StatusNoContent, gin.MIMEHTML, nil)
 		return
 	}
 

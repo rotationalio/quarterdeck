@@ -18,7 +18,7 @@ const (
 //go:embed templates/*.html templates/*.txt templates/partials/*html
 var files embed.FS
 
-// Load templates
+// LoadTemplates parses embedded email templates keyed by filename (e.g. welcome_user.html).
 func LoadTemplates() (templates map[string]*template.Template) {
 	var (
 		err           error

@@ -151,7 +151,7 @@ func (s *Server) Login(c *gin.Context) {
 		rlog.WarnAttrs(c.Request.Context(), "user login sync: could not convert model user to api user for sync",
 			slog.Any("err", err), slog.String("user_id", user.ID.String()))
 	} else {
-		s.syncUserPost(c, apiUser, &out.AccessToken)
+		s.syncUserPost(c, apiUser, &out.AccessToken, false)
 	}
 
 	// Content negotiation and redirection if required.

@@ -117,4 +117,5 @@ type VeroTokenStore interface {
 	DeleteVeroToken(context.Context, ulid.ULID) error
 	CreateResetPasswordVeroToken(context.Context, *models.VeroToken) error
 	CreateTeamInviteVeroToken(context.Context, *models.VeroToken) error
+	RetrieveTeamInviteVeroToken(context.Context, ulid.ULID) (*models.VeroToken, error)
 }

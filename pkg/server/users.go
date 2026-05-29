@@ -13,6 +13,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.rtnl.ai/commo"
 	gimauth "go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
@@ -31,8 +34,14 @@ import (
 	"go.rtnl.ai/x/vero"
 )
 
-// List all users or the users for a specific role. Returns summary information
-// for the users only.
+// usersTracer names OpenTelemetry spans for user lifecycle operations.
+var usersTracer = otel.Tracer("go.rtnl.ai/quarterdeck/pkg/server")
+
+// ============================================================================
+// User resource handlers
+// ============================================================================
+
+// ListUsers returns a page of users, optionally filtered by role.
 func (s *Server) ListUsers(c *gin.Context) {
 	var (
 		err        error
@@ -74,14 +83,19 @@ func (s *Server) ListUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
-// Create a user via the API.
-// NOTE: Does not set a user password; the user must perform the "forgot password"
-// flow to reset their password via email.
+// CreateUser creates a user or idempotently updates one with the same email.
+// Unverified users receive a welcome email; verified users do not. The user
+// must complete the password-reset flow from that email before they can log in.
 func (s *Server) CreateUser(c *gin.Context) {
+	ctx, span := usersTracer.Start(c.Request.Context(), "users.create")
+	defer span.End()
+
 	var (
-		user  *api.User
-		err   error
-		model *models.User
+		user             *api.User
+		err              error
+		model            *models.User
+		welcomeAttempted bool
+		welcomeErr       error
 	)
 
 	// Parse the model from the POST request
@@ -113,49 +127,59 @@ func (s *Server) CreateUser(c *gin.Context) {
 		return
 	}
 
-	// Create the user
-	if err = s.store.CreateUser(c.Request.Context(), model); err != nil {
+	// Create the user, or upsert when the email already exists.
+	if err = s.store.CreateUser(ctx, model); err != nil {
 		if errors.Is(err, errors.ErrAlreadyExists) {
-			s.resyncUser(c, user.Email)
-			// Slow down the request and send back a 400.
-			// The slow down prevents spamming this endpoint to discover users.
-			SlowDown()
-			c.Error(err)
-			c.JSON(http.StatusBadRequest, api.Error("user already exists"))
+			if model, err = s.upsertExistingUser(ctx, user); err != nil {
+				c.Error(errors.Join(err, errors.New("could not upsert existing user")))
+				c.JSON(http.StatusInternalServerError, api.Error("could not process create user request"))
+				return
+			}
+		} else {
+			c.Error(errors.Join(err, errors.New("could not create user")))
+			c.JSON(http.StatusInternalServerError, api.Error("could not process create user request"))
 			return
 		}
+	}
 
-		// Other errors are 500
-		c.Error(errors.Fmt("could not create user: %w", err))
+	span.SetAttributes(attribute.String("user.id", model.ID.String()))
+
+	if !model.EmailVerified {
+		welcomeAttempted = true
+		welcomeErr = s.sendWelcomeEmail(ctx, model)
+		if welcomeErr != nil {
+			span.RecordError(welcomeErr)
+			span.SetStatus(codes.Error, "welcome email failed")
+			rlog.ErrorAttrs(ctx, "could not send user a welcome email",
+				slog.Any("err", welcomeErr), slog.String("user_id", model.ID.String()))
+		}
+	}
+
+	// Reload so roles and associations are current for the API response.
+	if model, err = s.store.RetrieveUser(ctx, model.ID); err != nil {
+		c.Error(err)
 		c.JSON(http.StatusInternalServerError, api.Error("could not process create user request"))
 		return
 	}
 
-	// Send welcome/verification email
-	if err = s.sendWelcomeEmail(c, model); err != nil {
-		rlog.ErrorAttrs(c.Request.Context(), "could not send user a welcome email",
-			slog.Any("err", err), slog.String("user_id", user.ID.String()))
-	}
-
-	// Convert the model back to an API response
 	if user, err = api.NewUser(model); err != nil {
 		c.Error(err)
 		c.JSON(http.StatusInternalServerError, api.Error("could not process create user request"))
 		return
 	}
 
-	// Sync user
-	s.syncUserPost(c, user, nil)
+	s.syncUserPost(c, user, nil, true)
 
-	// Send custom event if request is sent via HTMX.
-	if htmx.IsHTMXRequest(c) {
-		htmx.Trigger(c, "user-created")
+	if welcomeAttempted && welcomeErr != nil {
+		htmx.SetTrigger(c, htmx.EventUserCreated, htmx.EventInviteWelcomeEmailFailed)
+	} else {
+		htmx.SetTrigger(c, htmx.EventUserCreated)
 	}
 
 	c.JSON(http.StatusOK, user)
 }
 
-// Return the full user model for a specific user.
+// UserDetail returns the full user record for a user ID.
 func (s *Server) UserDetail(c *gin.Context) {
 	var (
 		err    error
@@ -194,7 +218,7 @@ func (s *Server) UserDetail(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
-// Updates applicable user fields in the database.
+// UpdateUser updates applicable user fields and syncs the record to endeavor.
 func (s *Server) UpdateUser(c *gin.Context) {
 	var (
 		user   *api.User
@@ -254,12 +278,13 @@ func (s *Server) UpdateUser(c *gin.Context) {
 	}
 
 	// Sync user
-	s.syncUserPost(c, user, nil)
+	s.syncUserPost(c, user, nil, true)
 
 	// TODO: negotiate HTMX response when UI pages are implemented for users
 	c.JSON(http.StatusOK, user)
 }
 
+// DeleteUser removes a user and notifies the endeavor webhook.
 func (s *Server) DeleteUser(c *gin.Context) {
 	var (
 		err    error
@@ -292,7 +317,11 @@ func (s *Server) DeleteUser(c *gin.Context) {
 	c.JSON(http.StatusOK, api.Reply{Success: true})
 }
 
-// Allows a user to change their password if they know their current one.
+// ============================================================================
+// Password and profile handlers
+// ============================================================================
+
+// ChangePassword updates the password when the user knows their current password.
 func (s *Server) ChangePassword(c *gin.Context) {
 	var (
 		err        error
@@ -374,7 +403,7 @@ func (s *Server) ChangePassword(c *gin.Context) {
 	c.JSON(http.StatusOK, &api.Reply{Success: true})
 }
 
-// Looks up a user by email and sends that user a link/token to reset their password.
+// ForgotPassword emails a reset link when the address is known; always redirects to success.
 func (s *Server) ForgotPassword(c *gin.Context) {
 	var (
 		err error
@@ -425,8 +454,7 @@ func (s *Server) ForgotPassword(c *gin.Context) {
 	htmx.Redirect(c, http.StatusSeeOther, "/forgot-password/sent")
 }
 
-// Verifies an incoming password change requested via a verification link, then changes
-// the user's password according to the password form submitted.
+// ResetPassword verifies the emailed link and sets a new password.
 func (s *Server) ResetPassword(c *gin.Context) {
 	var (
 		derivedKey string
@@ -528,10 +556,14 @@ func (s *Server) ResetPassword(c *gin.Context) {
 	c.HTML(http.StatusOK, "auth/reset/success.html", scene.New(c))
 }
 
-// The default amount of time that a reset password token will expire after.
+// ============================================================================
+// Password reset email
+// ============================================================================
+
+// resetPasswordTokenTTL is how long a forgot-password link remains valid.
 const resetPasswordTokenTTL = 15 * time.Minute
 
-// Send a reset password email to the user, also creating a verification token.
+// sendResetPasswordEmail creates a vero token and emails a password-reset link.
 func (s *Server) sendResetPasswordEmail(c *gin.Context, emailOrUserID any) (err error) {
 	ctx := c.Request.Context()
 
@@ -620,7 +652,11 @@ func (s *Server) sendResetPasswordEmail(c *gin.Context, emailOrUserID any) (err 
 	return nil
 }
 
-// Verifies a VeroToken token and returns the VeroToken object.
+// ============================================================================
+// Vero token verification
+// ============================================================================
+
+// verifyVeroToken loads and cryptographically validates an emailed verification link.
 func (s *Server) verifyVeroToken(ctx context.Context, verification *api.URLVerification) (token *models.VeroToken, err error) {
 	// Validate the verification token
 	if err = verification.Validate(); err != nil {
@@ -652,71 +688,77 @@ func (s *Server) verifyVeroToken(ctx context.Context, verification *api.URLVerif
 	return token, nil
 }
 
-// Slow down sleeps the request for a random amount of time between 250ms and 2500ms
+// SlowDown adds a random delay to slow brute-force or enumeration attempts.
 func SlowDown() {
 	delay := time.Duration(rand.Int64N(2000)+2500) * time.Millisecond
 	time.Sleep(delay)
 }
 
-// Syncs user create/update events with the configured webhook endpoint using a
-// HTTP POST request with the created/modified [api.User] as the JSON body. This
-// reuses the access token in the [gin.Context] to authenticate the request to
-// the endpoint. It will log all errors, but will not handle the errors. Takes
-// an optional access token to authorize the request in case it's not available
-// from another source.
-func (s *Server) syncUserPost(c *gin.Context, user *api.User, accessToken *string) {
-	var (
-		req       *http.Request
-		bodyBytes []byte
-		token     string
-		resp      *http.Response
-		err       error
-	)
+// ============================================================================
+// Endeavor webhook sync
+// ============================================================================
+
+// syncUserPost POSTs the user JSON to the endeavor sync webhook.
+// When async is true the request runs in a background goroutine.
+func (s *Server) syncUserPost(c *gin.Context, user *api.User, accessToken *string, async bool) {
+	bearer := syncBearerToken(c, accessToken)
+	ctx := c.Request.Context()
+	if async {
+		ctx = context.WithoutCancel(ctx)
+		u := *user
+		go s.postUserSync(ctx, &u, bearer)
+		return
+	}
+	s.postUserSync(ctx, user, bearer)
+}
+
+// syncBearerToken returns the explicit token or the bearer token from the gin context.
+func syncBearerToken(c *gin.Context, accessToken *string) string {
+	if accessToken != nil && *accessToken != "" {
+		return *accessToken
+	}
+	token, _ := gimauth.GetAccessToken(c)
+	return token
+}
+
+// postUserSync performs the endeavor user sync HTTP POST.
+func (s *Server) postUserSync(ctx context.Context, user *api.User, bearer string) {
+	if bearer == "" {
+		rlog.WarnAttrs(ctx, "user sync post: missing access token",
+			slog.String("user_id", user.ID.String()))
+		return
+	}
 
 	u := s.conf.App.WebhookURL()
-
-	// Marshal the user into JSON bytes
-	if bodyBytes, err = json.Marshal(user); err != nil {
-		rlog.WarnAttrs(c.Request.Context(), "user sync post: could not marshal user to json",
+	bodyBytes, err := json.Marshal(user)
+	if err != nil {
+		rlog.WarnAttrs(ctx, "user sync post: could not marshal user to json",
 			slog.Any("err", err), slog.String("endpoint_url", u.String()), slog.String("user_id", user.ID.String()))
 		return
 	}
 
-	// Create a POST request for JSON
-	if req, err = http.NewRequestWithContext(c.Request.Context(), http.MethodPost, u.String(), bytes.NewReader(bodyBytes)); err != nil {
-		rlog.WarnAttrs(c.Request.Context(), "user sync post: could not create new post request",
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewReader(bodyBytes))
+	if err != nil {
+		rlog.WarnAttrs(ctx, "user sync post: could not create new post request",
 			slog.Any("err", err), slog.String("endpoint_url", u.String()), slog.String("user_id", user.ID.String()))
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+bearer)
 
-	// Add authorization token
-	if accessToken == nil {
-		if token, err = gimauth.GetAccessToken(c); err != nil || token == "" {
-			rlog.WarnAttrs(c.Request.Context(), "user sync post: could not attain an access token from context",
-				slog.Any("err", err), slog.String("endpoint_url", u.String()), slog.String("user_id", user.ID.String()))
-			return
-		}
-		accessToken = &token
-	}
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", *accessToken))
-
-	// Do request
-	if resp, err = http.DefaultClient.Do(req); err != nil {
-		rlog.WarnAttrs(c.Request.Context(), "user sync post: could not complete http post request",
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		rlog.WarnAttrs(ctx, "user sync post: could not complete http post request",
 			slog.Any("err", err), slog.String("endpoint_url", u.String()), slog.String("user_id", user.ID.String()))
 		return
 	}
 	resp.Body.Close()
 
-	rlog.DebugAttrs(c.Request.Context(), "user sync post successful",
+	rlog.DebugAttrs(ctx, "user sync post successful",
 		slog.String("endpoint_url", u.String()), slog.String("user_id", user.ID.String()))
 }
 
-// Syncs user delete events with the configured webhook endpoint using a
-// HTTP DELETE request with the deleted user's ID as a URL param. This reuses
-// the access token in the [gin.Context] to authenticate the request to the
-// endpoint. It will log all errors, but will not handle the errors.
+// syncUserDelete notifies endeavor that a user was deleted.
 func (s *Server) syncUserDelete(c *gin.Context, userID ulid.ULID) {
 	var (
 		req   *http.Request
@@ -762,69 +804,115 @@ func (s *Server) syncUserDelete(c *gin.Context, userID ulid.ULID) {
 		slog.String("endpoint_url", u.String()), slog.String("user_id", userID.String()))
 }
 
-// Re-syncs the user with the email provided.
-func (s *Server) resyncUser(c *gin.Context, email string) {
-	var (
-		model *models.User
-		user  *api.User
-		err   error
-	)
+// ============================================================================
+// Team invite and welcome email
+// ============================================================================
 
-	if model, err = s.store.RetrieveUser(c.Request.Context(), email); err != nil {
-		rlog.WarnAttrs(c.Request.Context(), "could not retrieve user for syncing",
-			slog.Any("err", err), slog.String("email", email))
-		return
-	}
-
-	if user, err = api.NewUser(model); err != nil {
-		rlog.WarnAttrs(c.Request.Context(), "could not convert model user to api user for syncing",
-			slog.Any("err", err), slog.String("email", email))
-		return
-	}
-
-	s.syncUserPost(c, user, nil)
-
-}
-
-// The default amount of time that a welcome email reset password token will
-// expire after.
+// welcomeEmailTokenTTL is how long a team-invite password link remains valid.
 const welcomeEmailTokenTTL = 48 * time.Hour
 
-// Send a welcome email to the user, also creating a verification token.
-func (s *Server) sendWelcomeEmail(c *gin.Context, user *models.User) (err error) {
-	ctx := c.Request.Context()
+// welcomeEmailResendCooldown is the minimum time between welcome email sends.
+const welcomeEmailResendCooldown = 15 * time.Minute
 
-	// Begin a read-write transaction
+// upsertExistingUser updates an existing user when CreateUser is retried.
+func (s *Server) upsertExistingUser(ctx context.Context, in *api.User) (*models.User, error) {
+	existing, err := s.store.RetrieveUser(ctx, in.Email)
+	if err != nil {
+		return nil, err
+	}
+
+	// Only update the name for now.
+	existing.Name = sql.NullString{Valid: in.Name != "", String: in.Name}
+	if err = s.store.UpdateUser(ctx, existing); err != nil {
+		return nil, err
+	}
+
+	return s.store.RetrieveUser(ctx, existing.ID)
+}
+
+// teamInviteTokenValid reports whether a stored team-invite token can still be used.
+func teamInviteTokenValid(record *models.VeroToken) bool {
+	if record == nil || record.ID.IsZero() || record.IsExpired() {
+		// The token is invalid if it is nil, has no ID, or is expired.
+		return false
+	}
+	if record.Signature == nil {
+		// The token is invalid if it has no signature.
+		return false
+	}
+	// The token is valid if the signature is not expired.
+	return !record.Signature.Token.IsExpired()
+}
+
+// welcomeEmailRateLimited reports whether a welcome email was sent too recently.
+func welcomeEmailRateLimited(record *models.VeroToken) bool {
+	if record == nil || !record.SentOn.Valid {
+		return false
+	}
+	return time.Since(record.SentOn.Time) < welcomeEmailResendCooldown
+}
+
+// sendWelcomeEmail creates a team-invite token and emails the welcome message.
+// Verified users are skipped. An existing valid invite may be resent after
+// [welcomeEmailResendCooldown].
+func (s *Server) sendWelcomeEmail(ctx context.Context, user *models.User) (err error) {
+	if user.EmailVerified {
+		return nil
+	}
+
+	ctx, span := usersTracer.Start(ctx, "users.welcome_email")
+	defer span.End()
+	span.SetAttributes(attribute.String("user.id", user.ID.String()))
+
 	var tx txn.Txn
 	if tx, err = s.store.Begin(ctx, &sql.TxOptions{ReadOnly: false}); err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	// Create a VeroToken record for database storage
+	// Create a new token or reuse an existing one.
 	record := &models.VeroToken{
 		TokenType:  enum.TokenTypeTeamInvite,
 		ResourceID: ulid.NullULID{Valid: true, ULID: user.ID},
 		Email:      user.Email,
 		Expiration: time.Now().Add(welcomeEmailTokenTTL),
 	}
-
-	// Create the ID in the database of the VeroToken record.
-	// NOTE: the CreateVeroToken function will return ErrTooSoon if the record
-	// already exists and is not expired; otherwise it will delete any existing
-	// (expired) record for the user and create a new one. ErrTooSoon will
-	// enable rate limiting to make sure the user cannot spam reset password
-	// requests.
 	if err = tx.CreateTeamInviteVeroToken(record); err != nil {
-		return err
+		if !errors.Is(err, errors.ErrTooSoon) {
+			return err
+		}
+
+		existing, err := tx.RetrieveTeamInviteVeroToken(user.ID)
+		if err != nil {
+			return err
+		}
+
+		switch {
+		case teamInviteTokenValid(existing):
+			// If the existing token is valid, check if it was sent too
+			// recently. If it was, do not send a new email.
+			if welcomeEmailRateLimited(existing) {
+				return tx.Commit()
+			}
+			record = existing
+		default:
+			// If the existing token is invalid, delete it and create a new
+			// token.
+			if err = tx.DeleteVeroToken(existing.ID); err != nil {
+				return err
+			}
+			if err = tx.CreateTeamInviteVeroToken(record); err != nil {
+				return err
+			}
+		}
 	}
 
-	// Create the WelcomeUserEmailData for the email builder
-	resetURL := s.conf.Auth.GetResetPasswordURL()
+	resetURL := *s.conf.Auth.GetResetPasswordURL()
 	resetURL.Host = s.conf.App.BaseURL().Host
 	emailData := emails.WelcomeUserEmailData{
 		ContactName:          user.Name.String,
-		PasswordResetURL:     resetURL,
+		Role:                 emails.RoleTitle(user),
+		PasswordResetURL:     &resetURL,
 		WelcomeEmailBodyText: s.conf.App.WelcomeEmail.TextContent(),
 		WelcomeEmailBodyHTML: s.conf.App.WelcomeEmail.HTMLContent(),
 		EmailBaseData: emails.EmailBaseData{
@@ -836,41 +924,36 @@ func (s *Server) sendWelcomeEmail(c *gin.Context, user *models.User) (err error)
 		},
 	}
 
-	// Create the HMAC verification token for the VeroToken
-	var verification *vero.Token
-	if verification, err = vero.New(record.ID[:], record.Expiration); err != nil {
+	verification, err := vero.New(record.ID[:], record.Expiration)
+	if err != nil {
 		return err
 	}
 
-	// Sign the verification token
 	if emailData.Token, record.Signature, err = verification.Sign(); err != nil {
 		return err
 	}
 
-	// Update the VeroToken record in the database with the token
 	if err = tx.UpdateVeroToken(record); err != nil {
 		return err
 	}
 
-	// Build the email
-	var email *commo.Email
-	if email, err = emails.NewWelcomeUserEmail(user.Email, emailData); err != nil {
+	if err = emails.ValidateWelcomeUserEmail(emailData); err != nil {
 		return err
 	}
 
-	// Send the email to the user
+	email, err := emails.NewWelcomeUserEmail(user.Email, emailData)
+	if err != nil {
+		return err
+	}
+
 	if err = email.Send(); err != nil {
 		return err
 	}
 
-	// Update the VeroToken record in the database with a SentOn timestamp
 	record.SentOn = sql.NullTime{Valid: true, Time: time.Now()}
 	if err = tx.UpdateVeroToken(record); err != nil {
 		return err
 	}
 
-	// Commit the successful transaction
-	tx.Commit()
-
-	return nil
+	return tx.Commit()
 }

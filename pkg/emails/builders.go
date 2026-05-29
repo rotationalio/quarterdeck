@@ -5,14 +5,16 @@ import (
 	"fmt"
 	"html/template"
 	"net/url"
+	texttemplate "text/template"
 
 	"go.rtnl.ai/commo"
+	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/x/vero"
 )
 
-// ===========================================================================
-// Email Base Data
-// ===========================================================================
+// ============================================================================
+// Email base data
+// ============================================================================
 
 // EmailBaseData covers app and org data for email templates.
 type EmailBaseData struct {
@@ -23,36 +25,57 @@ type EmailBaseData struct {
 	SupportEmail   string   // the support email address
 }
 
-// ===========================================================================
-// Welcome New User Email
-// ===========================================================================
+// ============================================================================
+// Welcome user email
+// ============================================================================
 
 // WelcomeUserEmailData is used to complete the welcome_user template.
 type WelcomeUserEmailData struct {
 	EmailBaseData
 	ContactName          string                 // the user's name, if available
+	Role                 string                 // role title for custom welcome body templates
 	PasswordResetURL     *url.URL               // the app url
 	Token                vero.VerificationToken // verification token for reset password link record
 	WelcomeEmailBodyText string                 // the body of the email in text format
 	WelcomeEmailBodyHTML template.HTML          // the body of the email in html format
 }
 
-func NewWelcomeUserEmail(recipient string, data WelcomeUserEmailData) (*commo.Email, error) {
-	// "Join ORGNAME in APPNAME"
-	subject := fmt.Sprintf("Join %s in %s", data.OrgName, data.AppName)
-	return commo.New(recipient, subject, "welcome_user", data)
+// RoleTitle returns the first role title for the user, or empty if none.
+func RoleTitle(user *models.User) string {
+	roles, err := user.Roles()
+	if err != nil || len(roles) == 0 {
+		return ""
+	}
+	return roles[0].Title
 }
 
-func (s WelcomeUserEmailData) VerifyURL() string {
-	if s.PasswordResetURL == nil {
+// VerifyURL returns the password-reset URL including the signed verification token.
+func (d WelcomeUserEmailData) VerifyURL() string {
+	if d.PasswordResetURL == nil {
 		return ""
 	}
 
 	params := make(url.Values, 1)
-	params.Set("token", s.Token.String())
+	params.Set("token", d.Token.String())
 
-	s.PasswordResetURL.RawQuery = params.Encode()
-	return s.PasswordResetURL.String()
+	d.PasswordResetURL.RawQuery = params.Encode()
+	return d.PasswordResetURL.String()
+}
+
+// RenderedWelcomeBodyText evaluates WelcomeEmailBodyText as nested text/template.
+func (d WelcomeUserEmailData) RenderedWelcomeBodyText() (string, error) {
+	if d.WelcomeEmailBodyText == "" {
+		return "", nil
+	}
+	t, err := texttemplate.New("welcome_body").Parse(d.WelcomeEmailBodyText)
+	if err != nil {
+		return "", err
+	}
+	var buf bytes.Buffer
+	if err := t.Execute(&buf, d); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }
 
 // RenderedWelcomeBodyHTML evaluates WelcomeEmailBodyHTML as nested html/template with the same data.
@@ -71,9 +94,15 @@ func (d WelcomeUserEmailData) RenderedWelcomeBodyHTML() (template.HTML, error) {
 	return template.HTML(buf.String()), nil
 }
 
-// ===========================================================================
-// Reset Password Email
-// ===========================================================================
+// NewWelcomeUserEmail builds a welcome_user commo email for the recipient.
+func NewWelcomeUserEmail(recipient string, data WelcomeUserEmailData) (*commo.Email, error) {
+	subject := fmt.Sprintf("Join %s in %s", data.OrgName, data.AppName)
+	return commo.New(recipient, subject, "welcome_user", data)
+}
+
+// ============================================================================
+// Reset password email
+// ============================================================================
 
 // ResetPasswordEmailData is used to complete the reset_password template.
 type ResetPasswordEmailData struct {
@@ -83,20 +112,21 @@ type ResetPasswordEmailData struct {
 	Token               vero.VerificationToken // verification token for reset password link record
 }
 
-func NewResetPasswordEmail(recipient string, data ResetPasswordEmailData) (*commo.Email, error) {
-	// "APPNAME password reset request"
-	subject := fmt.Sprintf("%s password reset request", data.AppName)
-	return commo.New(recipient, subject, "reset_password", data)
-}
-
-func (s ResetPasswordEmailData) VerifyURL() string {
-	if s.PasswordLinkBaseURL == nil {
+// VerifyURL returns the password-reset URL including the signed verification token.
+func (d ResetPasswordEmailData) VerifyURL() string {
+	if d.PasswordLinkBaseURL == nil {
 		return ""
 	}
 
 	params := make(url.Values, 1)
-	params.Set("token", s.Token.String())
+	params.Set("token", d.Token.String())
 
-	s.PasswordLinkBaseURL.RawQuery = params.Encode()
-	return s.PasswordLinkBaseURL.String()
+	d.PasswordLinkBaseURL.RawQuery = params.Encode()
+	return d.PasswordLinkBaseURL.String()
+}
+
+// NewResetPasswordEmail builds a reset_password commo email for the recipient.
+func NewResetPasswordEmail(recipient string, data ResetPasswordEmailData) (*commo.Email, error) {
+	subject := fmt.Sprintf("%s password reset request", data.AppName)
+	return commo.New(recipient, subject, "reset_password", data)
 }

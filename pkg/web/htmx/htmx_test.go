@@ -135,26 +135,35 @@ func TestIsWebRequest(t *testing.T) {
 }
 
 func TestTrigger(t *testing.T) {
-	t.Run("HTMX", func(t *testing.T) {
+	t.Run("HTMXSingleEvent", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request, _ = http.NewRequest("GET", "/test", nil)
-		c.Request.Header.Set(htmx.HXRequest, "true") // Simulate an HTMX request
+		c.Request.Header.Set(htmx.HXRequest, "true")
 
-		htmx.Trigger(c, "test-event")
-
-		require.Equal(t, http.StatusNoContent, w.Code)
-		require.Equal(t, "test-event", w.Header().Get(htmx.HXTrigger))
+		htmx.SetTrigger(c, "event1")
+		require.Equal(t, http.StatusOK, w.Code) // default status
+		require.Equal(t, "event1", w.Header().Get(htmx.HXTrigger))
 	})
 
-	t.Run("Web", func(t *testing.T) {
+	t.Run("HTMXMultipleEvents", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request, _ = http.NewRequest("GET", "/test", nil)
+		c.Request.Header.Set(htmx.HXRequest, "true")
+
+		htmx.SetTrigger(c, "event1", "event2")
+		require.Equal(t, http.StatusOK, w.Code) // default status
+		require.Equal(t, "event1, event2", w.Header().Get(htmx.HXTrigger))
+	})
+
+	t.Run("NotHTMX", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request, _ = http.NewRequest("GET", "/test", nil)
 
-		htmx.Trigger(c, "test-event")
-
-		require.Equal(t, http.StatusOK, w.Code)
-		require.Empty(t, w.Header().Get(htmx.HXTrigger))
+		htmx.SetTrigger(c, "test-event")
+		require.Equal(t, http.StatusOK, w.Code)          // default status
+		require.Empty(t, w.Header().Get(htmx.HXTrigger)) // no trigger header
 	})
 }

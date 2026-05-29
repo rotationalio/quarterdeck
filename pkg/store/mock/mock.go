@@ -71,8 +71,8 @@ type Store struct {
 	OnDeleteAPIKey               func(context.Context, ulid.ULID) error
 
 	// OIDCClientStore Callbacks
-	OnListOIDCClients   func(context.Context, *models.Page) (*models.OIDCClientList, error)
-	OnCreateOIDCClient  func(context.Context, *models.OIDCClient) error
+	OnListOIDCClients    func(context.Context, *models.Page) (*models.OIDCClientList, error)
+	OnCreateOIDCClient   func(context.Context, *models.OIDCClient) error
 	OnRetrieveOIDCClient func(context.Context, any) (*models.OIDCClient, error)
 	OnUpdateOIDCClient   func(context.Context, *models.OIDCClient) error
 	OnDeleteOIDCClient   func(context.Context, ulid.ULID) error
@@ -84,6 +84,7 @@ type Store struct {
 	OnDeleteVeroToken              func(context.Context, ulid.ULID) error
 	OnCreateResetPasswordVeroToken func(context.Context, *models.VeroToken) error
 	OnCreateTeamInviteVeroToken    func(context.Context, *models.VeroToken) error
+	OnRetrieveTeamInviteVeroToken  func(context.Context, ulid.ULID) (*models.VeroToken, error)
 }
 
 func Open(uri *dsn.DSN) (*Store, error) {
@@ -452,8 +453,8 @@ func (s *Store) DeleteAPIKey(ctx context.Context, id ulid.ULID) error {
 //===========================================================================
 
 const (
-	ListOIDCClients   = "ListOIDCClients"
-	CreateOIDCClient  = "CreateOIDCClient"
+	ListOIDCClients    = "ListOIDCClients"
+	CreateOIDCClient   = "CreateOIDCClient"
 	RetrieveOIDCClient = "RetrieveOIDCClient"
 	UpdateOIDCClient   = "UpdateOIDCClient"
 	DeleteOIDCClient   = "DeleteOIDCClient"
@@ -510,6 +511,7 @@ const (
 	DeleteVeroToken              = "DeleteVeroToken"
 	CreateResetPasswordVeroToken = "CreateResetPasswordVeroToken"
 	CreateTeamInviteVeroToken    = "CreateTeamInviteVeroToken"
+	RetrieveTeamInviteVeroToken  = "RetrieveTeamInviteVeroToken"
 )
 
 func (s *Store) CreateVeroToken(ctx context.Context, in *models.VeroToken) error {
@@ -558,4 +560,12 @@ func (s *Store) CreateTeamInviteVeroToken(ctx context.Context, in *models.VeroTo
 		return s.OnCreateTeamInviteVeroToken(ctx, in)
 	}
 	panic(errors.Fmt("%s callback is not mocked", CreateVeroToken))
+}
+
+func (s *Store) RetrieveTeamInviteVeroToken(ctx context.Context, userID ulid.ULID) (*models.VeroToken, error) {
+	s.calls[RetrieveTeamInviteVeroToken]++
+	if s.OnRetrieveTeamInviteVeroToken != nil {
+		return s.OnRetrieveTeamInviteVeroToken(ctx, userID)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RetrieveTeamInviteVeroToken))
 }

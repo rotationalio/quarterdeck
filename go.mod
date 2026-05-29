@@ -25,7 +25,7 @@ require (
 	go.opentelemetry.io/otel/sdk/log v0.18.0
 	go.opentelemetry.io/otel/sdk/metric v1.42.0
 	go.opentelemetry.io/otel/trace v1.42.0
-	go.rtnl.ai/commo v0.2.0
+	go.rtnl.ai/commo v0.3.0
 	go.rtnl.ai/gimlet v1.6.1
 	go.rtnl.ai/ulid v1.2.0
 	go.rtnl.ai/x v1.12.1

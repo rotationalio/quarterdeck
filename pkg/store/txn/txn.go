@@ -80,4 +80,5 @@ type VeroTokenTxn interface {
 	DeleteVeroToken(ulid.ULID) error
 	CreateResetPasswordVeroToken(*models.VeroToken) error
 	CreateTeamInviteVeroToken(*models.VeroToken) error
+	RetrieveTeamInviteVeroToken(ulid.ULID) (*models.VeroToken, error)
 }
