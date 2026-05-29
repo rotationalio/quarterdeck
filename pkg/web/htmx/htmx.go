@@ -77,42 +77,11 @@ func IsWebRequest(c *gin.Context) bool {
 	return IsHTMXRequest(c)
 }
 
-// SetResponseTrigger sets HX-Trigger without writing a response body.
-// Use when the handler still returns JSON or HTML (e.g. CreateUser).
-func SetResponseTrigger(c *gin.Context, value string) {
-	if IsHTMXRequest(c) && value != "" {
-		c.Header(HXTrigger, value)
-	}
-}
-
-// ResponseTriggerJSON builds an HX-Trigger header value that fires multiple client events.
-func ResponseTriggerJSON(events ...string) string {
-	switch len(events) {
-	case 0:
-		return ""
-	case 1:
-		return events[0]
-	default:
-		var b strings.Builder
-		b.WriteString("{")
-		for i, e := range events {
-			if i > 0 {
-				b.WriteString(", ")
-			}
-			b.WriteString(`"`)
-			b.WriteString(e)
-			b.WriteString(`": null`)
-		}
-		b.WriteString("}")
-		return b.String()
-	}
-}
-
-// Trigger sets the HX-Trigger response header and returns a 204 no content to allow HTMX to handle the trigger.
-func Trigger(c *gin.Context, event string) {
-	if IsHTMXRequest(c) {
-		c.Header(HXTrigger, event)
-		c.Data(http.StatusNoContent, gin.MIMEHTML, nil)
+// Sets the HX-Trigger response header for HTMX requests. Multiple
+// events are comma-separated (e.g. "HX-Trigger: event1, event2").
+func SetTrigger(c *gin.Context, events ...string) {
+	if !IsHTMXRequest(c) || len(events) == 0 {
 		return
 	}
+	c.Header(HXTrigger, strings.Join(events, ", "))
 }

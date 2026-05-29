@@ -171,12 +171,9 @@ func (s *Server) CreateUser(c *gin.Context) {
 	s.syncUserPost(c, user, nil, true)
 
 	if welcomeAttempted && welcomeErr != nil {
-		htmx.SetResponseTrigger(c, htmx.ResponseTriggerJSON(
-			htmx.EventUserCreated,
-			htmx.EventInviteWelcomeEmailFailed,
-		))
+		htmx.SetTrigger(c, htmx.EventUserCreated, htmx.EventInviteWelcomeEmailFailed)
 	} else {
-		htmx.SetResponseTrigger(c, htmx.EventUserCreated)
+		htmx.SetTrigger(c, htmx.EventUserCreated)
 	}
 
 	c.JSON(http.StatusOK, user)
