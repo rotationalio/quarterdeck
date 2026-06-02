@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/quarterdeck/pkg/store/cursor"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/ulid"
 )
@@ -14,19 +15,19 @@ import (
 // Users Store
 //===========================================================================
 
-const (
-	listUsersSQL   = "SELECT id, name, email, last_login, email_verified, created, modified FROM users ORDER BY created DESC"
-	filterUsersSQL = "SELECT u.id, u.name, u.email, u.last_login, u.email_verified, u.created, u.modified FROM users u JOIN user_roles ur ON u.id=ur.user_id JOIN roles r ON ur.role_id=r.id WHERE r.title=:role COLLATE NOCASE ORDER BY u.created DESC"
-)
+// const (
+// 	listUsersSQL   = "SELECT id, name, email, last_login, email_verified, created, modified FROM users ORDER BY created DESC"
+// 	filterUsersSQL = "SELECT u.id, u.name, u.email, u.last_login, u.email_verified, u.created, u.modified FROM users u JOIN user_roles ur ON u.id=ur.user_id JOIN roles r ON ur.role_id=r.id WHERE r.title=:role COLLATE NOCASE ORDER BY u.created DESC"
+// )
 
-func (s *Store) ListUsers(ctx context.Context, page *models.UserPage) (out *models.UserList, err error) {
+func (s *Store) ListUsers(ctx context.Context, filter cursor.Filter) (out cursor.Cursor[*models.User], err error) {
 	var tx *Tx
 	if tx, err = s.BeginTx(ctx, &sql.TxOptions{ReadOnly: true}); err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	if out, err = tx.ListUsers(page); err != nil {
+	if out, err = tx.ListUsers(filter); err != nil {
 		return nil, err
 	}
 
@@ -36,39 +37,10 @@ func (s *Store) ListUsers(ctx context.Context, page *models.UserPage) (out *mode
 	return out, nil
 }
 
-func (tx *Tx) ListUsers(page *models.UserPage) (out *models.UserList, err error) {
+func (tx *Tx) ListUsers(filter cursor.Filter) (out cursor.Cursor[*models.User], err error) {
 	// TODO: handle pagination
-	out = &models.UserList{
-		Users: make([]*models.User, 0),
-		Page:  models.UserPageFrom(page),
-	}
-
-	var rows *sql.Rows
-	if page != nil && page.Role != "" {
-		if rows, err = tx.Query(filterUsersSQL, sql.Named("role", page.Role)); err != nil {
-			return nil, dbe(err)
-		}
-	} else {
-		if rows, err = tx.Query(listUsersSQL); err != nil {
-			return nil, dbe(err)
-		}
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		// Scan user summary into a new User struct.
-		user := &models.User{}
-		if err = user.ScanSummary(rows); err != nil {
-			return nil, err
-		}
-		out.Users = append(out.Users, user)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, dbe(err)
-	}
-
-	return out, nil
+	// TODO: implement cursor
+	return nil, nil
 }
 
 const (
@@ -99,17 +71,13 @@ func (tx *Tx) CreateUser(user *models.User) (err error) {
 	user.Created = time.Now()
 	user.Modified = user.Created
 
-	if _, err = tx.Exec(createUserSQL, user.Params()...); err != nil {
+	if _, err = tx.Exec(createUserSQL, user.Params(models.Create)...); err != nil {
 		return dbe(err)
 	}
 
 	// Add the roles to the user; or if no roles are set, assign the default role(s) if any.
 	var roles []*models.Role
-	if roles, err = user.Roles(); err != nil {
-		if !errors.Is(err, errors.ErrMissingAssociation) {
-			return err
-		}
-
+	if len(user.Roles) == 0 {
 		// If no roles are set, assign the default role(s).
 		var rows *sql.Rows
 		if rows, err = tx.Query(defaultRolesSQL); err != nil {
@@ -177,7 +145,7 @@ func (tx *Tx) RetrieveUser(emailOrUserID any) (out *models.User, err error) {
 	}
 
 	out = &models.User{}
-	if err = out.Scan(tx.QueryRow(query, param)); err != nil {
+	if err = out.Scan(models.Retrieve, tx.QueryRow(query, param)); err != nil {
 		return nil, dbe(err)
 	}
 
@@ -186,14 +154,14 @@ func (tx *Tx) RetrieveUser(emailOrUserID any) (out *models.User, err error) {
 	if roles, err = tx.userRoles(out.ID); err != nil {
 		return nil, err
 	}
-	out.SetRoles(roles)
+	out.Roles = roles
 
 	// Fetch user permissions.
 	var permissions []string
 	if permissions, err = tx.userPermissions(out.ID); err != nil {
 		return nil, err
 	}
-	out.SetPermissions(permissions)
+	out.Permissions.Load(permissions)
 
 	return out, nil
 }
@@ -208,7 +176,7 @@ func (tx *Tx) userRoles(userID ulid.ULID) (roles []*models.Role, err error) {
 	roles = make([]*models.Role, 0)
 	for rows.Next() {
 		role := &models.Role{}
-		if err = role.Scan(rows); err != nil {
+		if err = role.Scan(models.List, rows); err != nil {
 			return nil, dbe(err)
 		}
 		roles = append(roles, role)
@@ -262,7 +230,7 @@ func (tx *Tx) UpdateUser(user *models.User) (err error) {
 	user.Modified = time.Now()
 
 	var result sql.Result
-	if result, err = tx.Exec(updateUserSQL, user.Params()...); err != nil {
+	if result, err = tx.Exec(updateUserSQL, user.Params(models.Update)...); err != nil {
 		return dbe(err)
 	}
 
@@ -296,7 +264,7 @@ func (tx *Tx) UpdatePassword(userID ulid.ULID, password string) (err error) {
 		return errors.ErrMissingID
 	}
 
-	params := []any{
+	params := []sql.NamedArg{
 		sql.Named("id", userID),
 		sql.Named("password", password),
 		sql.Named("modified", time.Now()),
@@ -337,7 +305,7 @@ func (tx *Tx) UpdateLastLogin(userID ulid.ULID, lastLogin time.Time) (err error)
 		return errors.ErrMissingID
 	}
 
-	params := []any{
+	params := []sql.NamedArg{
 		sql.Named("id", userID),
 		sql.Named("lastLogin", sql.NullTime{Time: lastLogin, Valid: !lastLogin.IsZero()}),
 		sql.Named("modified", time.Now()),
@@ -378,7 +346,7 @@ func (tx *Tx) VerifyEmail(userID ulid.ULID) (err error) {
 		return errors.ErrMissingID
 	}
 
-	params := []any{
+	params := []sql.NamedArg{
 		sql.Named("id", userID),
 		sql.Named("emailVerified", true),
 		sql.Named("modified", time.Now()),
@@ -424,7 +392,7 @@ func (tx *Tx) AddRoleToUser(userID ulid.ULID, role any) (err error) {
 		return err
 	}
 
-	params := []any{
+	params := []sql.NamedArg{
 		sql.Named("userID", userID),
 		sql.Named("roleID", roleID),
 		sql.Named("created", time.Now()),
@@ -465,7 +433,7 @@ func (tx *Tx) RemoveRoleFromUser(userID ulid.ULID, role any) (err error) {
 		return err
 	}
 
-	params := []any{
+	params := []sql.NamedArg{
 		sql.Named("userID", userID),
 		sql.Named("roleID", roleID),
 	}

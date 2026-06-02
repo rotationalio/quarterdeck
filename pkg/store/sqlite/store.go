@@ -6,10 +6,10 @@ import (
 	"os"
 
 	"go.rtnl.ai/quarterdeck/pkg/errors"
-	"go.rtnl.ai/quarterdeck/pkg/store/dsn"
 	"go.rtnl.ai/quarterdeck/pkg/store/txn"
 
 	"github.com/mattn/go-sqlite3"
+	"go.rtnl.ai/x/dsn"
 )
 
 // Store implements the store.Store interface using sqlite3 as the storage backend.
@@ -26,7 +26,7 @@ type Tx struct {
 
 func Open(uri *dsn.DSN) (_ *Store, err error) {
 	// Ensure that only sqlite3 connections can be opened.
-	if uri.Scheme != dsn.SQLite && uri.Scheme != dsn.SQLite3 {
+	if uri.Provider != dsn.SQLite3 {
 		return nil, errors.ErrUnknownScheme
 	}
 
@@ -44,7 +44,7 @@ func Open(uri *dsn.DSN) (_ *Store, err error) {
 	}
 
 	// Connect to the database
-	s := &Store{readonly: uri.ReadOnly}
+	s := &Store{readonly: uri.Options.ReadOnly()}
 	if s.conn, err = sql.Open("sqlite3", uri.Path); err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func Open(uri *dsn.DSN) (_ *Store, err error) {
 	}
 
 	// Set the database to readonly mode after initializing the schema.
-	if uri.ReadOnly {
+	if uri.Options.ReadOnly() {
 		if _, err = s.conn.Exec("PRAGMA query_only = on;"); err != nil {
 			return nil, errors.Fmt("could not set database to readonly mode: %w", err)
 		}
@@ -118,21 +118,22 @@ func (t *Tx) Rollback() error {
 	return t.tx.Rollback()
 }
 
-func (t *Tx) Query(query string, args ...any) (*sql.Rows, error) {
-	return t.tx.Query(query, args...)
+func (t *Tx) Query(query string, args ...sql.NamedArg) (*sql.Rows, error) {
+	return t.tx.Query(query, queryArgs(args)...)
 }
 
-func (t *Tx) QueryRow(query string, args ...any) *sql.Row {
-	return t.tx.QueryRow(query, args...)
+func (t *Tx) QueryRow(query string, args ...sql.NamedArg) *sql.Row {
+	return t.tx.QueryRow(query, queryArgs(args)...)
 }
 
-func (t *Tx) Exec(query string, args ...any) (sql.Result, error) {
-	return t.tx.Exec(query, args...)
+func (t *Tx) Exec(query string, args ...sql.NamedArg) (sql.Result, error) {
+	return t.tx.Exec(query, queryArgs(args)...)
 }
 
 // ===========================================================================
 // Database Helpers
 // ===========================================================================
+
 func dbe(err error) error {
 	if err == nil {
 		return nil
@@ -154,4 +155,12 @@ func dbe(err error) error {
 	}
 
 	return errors.Fmt("sqlite3 error: %w", err)
+}
+
+func queryArgs(args []sql.NamedArg) []any {
+	out := make([]any, len(args))
+	for i, arg := range args {
+		out[i] = arg
+	}
+	return out
 }

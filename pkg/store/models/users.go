@@ -26,8 +26,8 @@ type User struct {
 	EmailVerified bool
 
 	// Associated Fields
-	Roles       []*Role
-	Permissions []*Permission
+	Roles       Roles
+	Permissions Permissions
 }
 
 var (

@@ -3,6 +3,7 @@ package txn
 import (
 	"time"
 
+	"go.rtnl.ai/quarterdeck/pkg/store/cursor"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/ulid"
 )
@@ -25,7 +26,7 @@ type Txn interface {
 }
 
 type UserTxn interface {
-	ListUsers(*models.UserPage) (*models.UserList, error)
+	ListUsers(cursor.Filter) (cursor.Cursor[*models.User], error)
 	CreateUser(*models.User) error
 	RetrieveUser(id any) (*models.User, error)
 	UpdateUser(*models.User) error
@@ -36,7 +37,7 @@ type UserTxn interface {
 }
 
 type RoleTxn interface {
-	ListRoles(*models.Page) (*models.RoleList, error)
+	ListRoles(cursor.Filter) (cursor.Cursor[*models.Role], error)
 	CreateRole(*models.Role) error
 	RetrieveRole(any) (*models.Role, error)
 	UpdateRole(*models.Role) error
@@ -46,7 +47,7 @@ type RoleTxn interface {
 }
 
 type PermissionTxn interface {
-	ListPermissions(*models.Page) (*models.PermissionList, error)
+	ListPermissions(cursor.Filter) (cursor.Cursor[*models.Permission], error)
 	CreatePermission(*models.Permission) error
 	RetrievePermission(any) (*models.Permission, error)
 	UpdatePermission(*models.Permission) error
@@ -54,7 +55,7 @@ type PermissionTxn interface {
 }
 
 type APIKeyTxn interface {
-	ListAPIKeys(*models.Page) (*models.APIKeyList, error)
+	ListAPIKeys(cursor.Filter) (cursor.Cursor[*models.APIKey], error)
 	CreateAPIKey(*models.APIKey) error
 	RetrieveAPIKey(any) (*models.APIKey, error)
 	UpdateAPIKey(*models.APIKey) error
@@ -66,7 +67,7 @@ type APIKeyTxn interface {
 }
 
 type OIDCClientTxn interface {
-	ListOIDCClients(*models.Page) (*models.OIDCClientList, error)
+	ListOIDCClients(cursor.Filter) (cursor.Cursor[*models.OIDCClient], error)
 	CreateOIDCClient(*models.OIDCClient) error
 	RetrieveOIDCClient(any) (*models.OIDCClient, error)
 	UpdateOIDCClient(*models.OIDCClient) error

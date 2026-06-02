@@ -24,6 +24,7 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/emails"
 	"go.rtnl.ai/quarterdeck/pkg/enum"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/quarterdeck/pkg/store/cursor"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/quarterdeck/pkg/store/txn"
 	"go.rtnl.ai/quarterdeck/pkg/web/htmx"
@@ -46,8 +47,7 @@ func (s *Server) ListUsers(c *gin.Context) {
 	var (
 		err        error
 		in         *api.UserPageQuery
-		page       *models.UserPage
-		userModels *models.UserList
+		userModels cursor.Cursor[*models.User]
 		out        *api.UserList
 	)
 
@@ -59,15 +59,10 @@ func (s *Server) ListUsers(c *gin.Context) {
 		return
 	}
 
-	// Query page to model page
-	if page, err = in.UserPage().Model(); err != nil {
-		c.Error(err)
-		c.JSON(http.StatusBadRequest, api.Error("invalid query parameters"))
-		return
-	}
+	// TODO: implement pagination
 
 	// List users
-	if userModels, err = s.store.ListUsers(c.Request.Context(), page); err != nil {
+	if userModels, err = s.store.ListUsers(c.Request.Context(), nil); err != nil {
 		c.Error(err)
 		c.JSON(http.StatusInternalServerError, api.Error("could not process users list request"))
 		return

@@ -65,7 +65,7 @@ func (s *storeTestSuite) TestCreateVeroToken() {
 
 	s.Run("NoIDOnCreate", func() {
 		token := &models.VeroToken{
-			Model: models.Model{
+			BaseModel: models.BaseModel{
 				ID:       ulid.Make(),
 				Created:  time.Now(),
 				Modified: time.Now(),
@@ -163,7 +163,7 @@ func (s *storeTestSuite) TestUpdateVeroToken() {
 	})
 
 	token := &models.VeroToken{
-		Model: models.Model{
+		BaseModel: models.BaseModel{
 			ID:       ulid.MustParse("01JXTGSFRC88HAY8V173976Z9D"),           // Existing token ID for testing
 			Created:  time.Date(1998, time.April, 8, 7, 42, 12, 0, time.UTC), // Created time should not be modified
 			Modified: time.Date(1998, time.April, 8, 7, 42, 12, 0, time.UTC), // Modified time should be set to now
@@ -266,7 +266,7 @@ func (s *storeTestSuite) TestCreateResetPasswordVeroToken() {
 
 	s.Run("NoIDOnCreate", func() {
 		token := &models.VeroToken{
-			Model: models.Model{
+			BaseModel: models.BaseModel{
 				ID:       ulid.Make(),
 				Created:  time.Now(),
 				Modified: time.Now(),

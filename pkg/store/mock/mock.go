@@ -10,10 +10,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
-	"go.rtnl.ai/quarterdeck/pkg/store/dsn"
+	"go.rtnl.ai/quarterdeck/pkg/store/cursor"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/quarterdeck/pkg/store/txn"
+
 	"go.rtnl.ai/ulid"
+	"go.rtnl.ai/x/dsn"
 )
 
 // Method names for the Store interface
@@ -34,7 +36,7 @@ type Store struct {
 	OnBegin func(context.Context, *sql.TxOptions) (txn.Txn, error)
 
 	// UserStore Callbacks
-	OnListUsers       func(context.Context, *models.UserPage) (*models.UserList, error)
+	OnListUsers       func(context.Context, cursor.Filter) (cursor.Cursor[*models.User], error)
 	OnCreateUser      func(context.Context, *models.User) error
 	OnRetrieveUser    func(context.Context, any) (*models.User, error)
 	OnUpdateUser      func(context.Context, *models.User) error
@@ -44,7 +46,7 @@ type Store struct {
 	OnDeleteUser      func(context.Context, ulid.ULID) error
 
 	// RoleStore Callbacks
-	OnListRoles                func(context.Context, *models.Page) (*models.RoleList, error)
+	OnListRoles                func(context.Context, cursor.Filter) (cursor.Cursor[*models.Role], error)
 	OnCreateRole               func(context.Context, *models.Role) error
 	OnRetrieveRole             func(context.Context, any) (*models.Role, error)
 	OnUpdateRole               func(context.Context, *models.Role) error
@@ -53,14 +55,14 @@ type Store struct {
 	OnDeleteRole               func(context.Context, int64) error
 
 	// PermissionStore Callbacks
-	OnListPermissions    func(context.Context, *models.Page) (*models.PermissionList, error)
+	OnListPermissions    func(context.Context, cursor.Filter) (cursor.Cursor[*models.Permission], error)
 	OnCreatePermission   func(context.Context, *models.Permission) error
 	OnRetrievePermission func(context.Context, any) (*models.Permission, error)
 	OnUpdatePermission   func(context.Context, *models.Permission) error
 	OnDeletePermission   func(context.Context, int64) error
 
 	// APIKeyStore Callbacks
-	OnListAPIKeys                func(context.Context, *models.Page) (*models.APIKeyList, error)
+	OnListAPIKeys                func(context.Context, cursor.Filter) (cursor.Cursor[*models.APIKey], error)
 	OnCreateAPIKey               func(context.Context, *models.APIKey) error
 	OnRetrieveAPIKey             func(context.Context, any) (*models.APIKey, error)
 	OnUpdateAPIKey               func(context.Context, *models.APIKey) error
@@ -71,7 +73,7 @@ type Store struct {
 	OnDeleteAPIKey               func(context.Context, ulid.ULID) error
 
 	// OIDCClientStore Callbacks
-	OnListOIDCClients    func(context.Context, *models.Page) (*models.OIDCClientList, error)
+	OnListOIDCClients    func(context.Context, cursor.Filter) (cursor.Cursor[*models.OIDCClient], error)
 	OnCreateOIDCClient   func(context.Context, *models.OIDCClient) error
 	OnRetrieveOIDCClient func(context.Context, any) (*models.OIDCClient, error)
 	OnUpdateOIDCClient   func(context.Context, *models.OIDCClient) error
@@ -88,17 +90,17 @@ type Store struct {
 }
 
 func Open(uri *dsn.DSN) (*Store, error) {
-	if uri != nil && uri.Scheme != dsn.Mock {
+	if uri != nil && uri.Provider != dsn.Mock {
 		return nil, errors.ErrUnknownScheme
 	}
 
 	if uri == nil {
-		uri = &dsn.DSN{ReadOnly: false, Scheme: dsn.Mock}
+		uri = &dsn.DSN{Options: map[string]string{dsn.ReadOnly: "false"}, Provider: dsn.Mock}
 	}
 
 	return &Store{
 		calls:    make(map[string]int),
-		readonly: uri.ReadOnly,
+		readonly: uri.Options.ReadOnly(),
 	}, nil
 }
 
@@ -174,10 +176,10 @@ const (
 	DeleteUser      = "DeleteUser"
 )
 
-func (s *Store) ListUsers(ctx context.Context, page *models.UserPage) (*models.UserList, error) {
+func (s *Store) ListUsers(ctx context.Context, filter cursor.Filter) (cursor.Cursor[*models.User], error) {
 	s.calls[ListUsers]++
 	if s.OnListUsers != nil {
-		return s.OnListUsers(ctx, page)
+		return s.OnListUsers(ctx, filter)
 	}
 	panic(errors.Fmt("%s callback is not mocked", ListUsers))
 }
@@ -252,10 +254,10 @@ const (
 	DeleteRole               = "DeleteRole"
 )
 
-func (s *Store) ListRoles(ctx context.Context, page *models.Page) (*models.RoleList, error) {
+func (s *Store) ListRoles(ctx context.Context, filter cursor.Filter) (cursor.Cursor[*models.Role], error) {
 	s.calls[ListRoles]++
 	if s.OnListRoles != nil {
-		return s.OnListRoles(ctx, page)
+		return s.OnListRoles(ctx, filter)
 	}
 	panic(errors.Fmt("%s callback is not mocked", ListRoles))
 }
@@ -320,10 +322,10 @@ const (
 	DeletePermission   = "DeletePermission"
 )
 
-func (s *Store) ListPermissions(ctx context.Context, page *models.Page) (*models.PermissionList, error) {
+func (s *Store) ListPermissions(ctx context.Context, filter cursor.Filter) (cursor.Cursor[*models.Permission], error) {
 	s.calls[ListPermissions]++
 	if s.OnListPermissions != nil {
-		return s.OnListPermissions(ctx, page)
+		return s.OnListPermissions(ctx, filter)
 	}
 	panic(errors.Fmt("%s callback is not mocked", ListPermissions))
 }
@@ -376,10 +378,10 @@ const (
 	DeleteAPIKey               = "DeleteAPIKey"
 )
 
-func (s *Store) ListAPIKeys(ctx context.Context, page *models.Page) (*models.APIKeyList, error) {
+func (s *Store) ListAPIKeys(ctx context.Context, filter cursor.Filter) (cursor.Cursor[*models.APIKey], error) {
 	s.calls[ListAPIKeys]++
 	if s.OnListAPIKeys != nil {
-		return s.OnListAPIKeys(ctx, page)
+		return s.OnListAPIKeys(ctx, filter)
 	}
 	panic(errors.Fmt("%s callback is not mocked", ListAPIKeys))
 }
@@ -460,10 +462,10 @@ const (
 	DeleteOIDCClient   = "DeleteOIDCClient"
 )
 
-func (s *Store) ListOIDCClients(ctx context.Context, page *models.Page) (*models.OIDCClientList, error) {
+func (s *Store) ListOIDCClients(ctx context.Context, filter cursor.Filter) (cursor.Cursor[*models.OIDCClient], error) {
 	s.calls[ListOIDCClients]++
 	if s.OnListOIDCClients != nil {
-		return s.OnListOIDCClients(ctx, page)
+		return s.OnListOIDCClients(ctx, filter)
 	}
 	panic(errors.Fmt("%s callback is not mocked", ListOIDCClients))
 }

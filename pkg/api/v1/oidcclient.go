@@ -2,29 +2,32 @@ package api
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/mail"
 	"net/url"
 	"time"
 
+	"go.rtnl.ai/quarterdeck/pkg/store/cursor"
+	"go.rtnl.ai/quarterdeck/pkg/store/fields"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/ulid"
 )
 
 type OIDCClient struct {
-	ID           ulid.ULID  `json:"id,omitempty"`
-	ClientName   string     `json:"client_name"`
-	ClientURI    *string    `json:"client_uri,omitempty"`
-	LogoURI      *string    `json:"logo_uri,omitempty"`
-	PolicyURI    *string    `json:"policy_uri,omitempty"`
-	TOSURI       *string    `json:"tos_uri,omitempty"`
-	Contacts     []string   `json:"contacts,omitempty"`
-	RedirectURIs []string   `json:"redirect_uris"`
-	ClientID     string     `json:"client_id,omitempty"`
-	Secret       string     `json:"secret,omitempty"`
-	CreatedBy    ulid.ULID  `json:"created_by,omitempty"`
-	Created      time.Time  `json:"created,omitempty"`
-	Modified     time.Time  `json:"modified,omitempty"`
+	ID           ulid.ULID `json:"id,omitempty"`
+	ClientName   string    `json:"client_name"`
+	ClientURI    *string   `json:"client_uri,omitempty"`
+	LogoURI      *string   `json:"logo_uri,omitempty"`
+	PolicyURI    *string   `json:"policy_uri,omitempty"`
+	TOSURI       *string   `json:"tos_uri,omitempty"`
+	Contacts     []string  `json:"contacts,omitempty"`
+	RedirectURIs []string  `json:"redirect_uris"`
+	ClientID     string    `json:"client_id,omitempty"`
+	Secret       string    `json:"secret,omitempty"`
+	CreatedBy    ulid.ULID `json:"created_by,omitempty"`
+	Created      time.Time `json:"created,omitempty"`
+	Modified     time.Time `json:"modified,omitempty"`
 }
 
 type OIDCClientList struct {
@@ -38,7 +41,7 @@ func NewOIDCClient(model *models.OIDCClient) (out *OIDCClient, err error) {
 	out = &OIDCClient{
 		ID:           model.ID,
 		ClientName:   model.ClientName,
-		RedirectURIs: model.RedirectURIs,
+		RedirectURIs: model.RedirectURIs.StringArray[:],
 		ClientID:     model.ClientID,
 		CreatedBy:    model.CreatedBy,
 		Created:      model.Created,
@@ -61,12 +64,10 @@ func NewOIDCClient(model *models.OIDCClient) (out *OIDCClient, err error) {
 		s := model.TOSURI.String
 		out.TOSURI = &s
 	}
-	if len(model.Contacts) > 0 {
-		out.Contacts = make([]string, 0, len(model.Contacts))
-		for _, c := range model.Contacts {
-			if c.Valid {
-				out.Contacts = append(out.Contacts, c.String)
-			}
+	if len(model.Contacts.StringArray) > 0 {
+		out.Contacts = make([]string, 0, len(model.Contacts.StringArray))
+		for _, c := range model.Contacts.StringArray {
+			out.Contacts = append(out.Contacts, c)
 		}
 	}
 
@@ -74,27 +75,8 @@ func NewOIDCClient(model *models.OIDCClient) (out *OIDCClient, err error) {
 }
 
 // NewOIDCClientList converts a store model list to an API list.
-func NewOIDCClientList(list *models.OIDCClientList) (out *OIDCClientList, err error) {
-	out = &OIDCClientList{
-		Page:        &Page{},
-		OIDCClients: make([]*OIDCClient, 0, len(list.OIDCClients)),
-	}
-
-	if list.Page != nil {
-		out.Page.PrevPageToken = list.Page.PrevPageID.String()
-		out.Page.NextPageToken = list.Page.NextPageID.String()
-		out.Page.PageSize = int(list.Page.PageSize)
-	}
-
-	for _, model := range list.OIDCClients {
-		var client *OIDCClient
-		if client, err = NewOIDCClient(model); err != nil {
-			return nil, err
-		}
-		out.OIDCClients = append(out.OIDCClients, client)
-	}
-
-	return out, nil
+func NewOIDCClientList(cursor cursor.Cursor[*models.OIDCClient]) (out *OIDCClientList, err error) {
+	return nil, errors.New("not implemented")
 }
 
 // Validate validates the OIDCClient. If create is true, the ID field is not
@@ -196,12 +178,16 @@ func validateURI(field, raw string) error {
 // Model converts the API DTO to a store model for create/update. ID must be set by caller when updating.
 func (o *OIDCClient) Model() (model *models.OIDCClient, err error) {
 	model = &models.OIDCClient{
-		Model:        models.Model{ID: o.ID, Created: o.Created, Modified: o.Modified},
-		ClientName:   o.ClientName,
-		RedirectURIs: o.RedirectURIs,
-		ClientID:     o.ClientID,
-		Secret:       o.Secret,
-		CreatedBy:    o.CreatedBy,
+		BaseModel:  models.BaseModel{ID: o.ID, Created: o.Created, Modified: o.Modified},
+		ClientName: o.ClientName,
+		ClientID:   o.ClientID,
+		Secret:     o.Secret,
+		CreatedBy:  o.CreatedBy,
+	}
+
+	if len(o.RedirectURIs) > 0 {
+		// TODO: remove any empty redirect URIs from the array
+		model.RedirectURIs = fields.NullStringArray{StringArray: o.RedirectURIs[:], Valid: true}
 	}
 
 	if o.ClientURI != nil && *o.ClientURI != "" {
@@ -216,11 +202,10 @@ func (o *OIDCClient) Model() (model *models.OIDCClient, err error) {
 	if o.TOSURI != nil && *o.TOSURI != "" {
 		model.TOSURI = sql.NullString{String: *o.TOSURI, Valid: true}
 	}
+
 	if len(o.Contacts) > 0 {
-		model.Contacts = make([]sql.NullString, len(o.Contacts))
-		for i, c := range o.Contacts {
-			model.Contacts[i] = sql.NullString{String: c, Valid: c != ""}
-		}
+		// TODO: remove any empty contacts from the array
+		model.Contacts = fields.NullStringArray{StringArray: o.Contacts[:], Valid: true}
 	}
 
 	return model, nil

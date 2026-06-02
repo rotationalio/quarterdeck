@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/quarterdeck/pkg/store/cursor"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/ulid"
 )
@@ -30,7 +31,7 @@ type Tx struct {
 	OnRollback func() error
 
 	// UserTxn Callbacks
-	OnListUsers       func(*models.UserPage) (*models.UserList, error)
+	OnListUsers       func(cursor.Filter) (cursor.Cursor[*models.User], error)
 	OnCreateUser      func(*models.User) error
 	OnRetrieveUser    func(any) (*models.User, error)
 	OnUpdateUser      func(*models.User) error
@@ -40,7 +41,7 @@ type Tx struct {
 	OnDeleteUser      func(ulid.ULID) error
 
 	// RoleTxn Callbacks
-	OnListRoles                func(*models.Page) (*models.RoleList, error)
+	OnListRoles                func(cursor.Filter) (cursor.Cursor[*models.Role], error)
 	OnCreateRole               func(*models.Role) error
 	OnRetrieveRole             func(any) (*models.Role, error)
 	OnUpdateRole               func(*models.Role) error
@@ -49,14 +50,14 @@ type Tx struct {
 	OnDeleteRole               func(int64) error
 
 	// PermissionTxn Callbacks
-	OnListPermissions    func(*models.Page) (*models.PermissionList, error)
+	OnListPermissions    func(cursor.Filter) (cursor.Cursor[*models.Permission], error)
 	OnCreatePermission   func(*models.Permission) error
 	OnRetrievePermission func(any) (*models.Permission, error)
 	OnUpdatePermission   func(*models.Permission) error
 	OnDeletePermission   func(int64) error
 
 	// APIKeyTxn Callbacks
-	OnListAPIKeys                func(*models.Page) (*models.APIKeyList, error)
+	OnListAPIKeys                func(cursor.Filter) (cursor.Cursor[*models.APIKey], error)
 	OnCreateAPIKey               func(*models.APIKey) error
 	OnRetrieveAPIKey             func(any) (*models.APIKey, error)
 	OnUpdateAPIKey               func(*models.APIKey) error
@@ -67,7 +68,7 @@ type Tx struct {
 	OnDeleteAPIKey               func(ulid.ULID) error
 
 	// OIDCClientTxn Callbacks
-	OnListOIDCClients    func(*models.Page) (*models.OIDCClientList, error)
+	OnListOIDCClients    func(cursor.Filter) (cursor.Cursor[*models.OIDCClient], error)
 	OnCreateOIDCClient   func(*models.OIDCClient) error
 	OnRetrieveOIDCClient func(any) (*models.OIDCClient, error)
 	OnUpdateOIDCClient   func(*models.OIDCClient) error
@@ -182,10 +183,10 @@ func (tx *Tx) Rollback() (err error) {
 // UserTxn Methods
 //===========================================================================
 
-func (tx *Tx) ListUsers(page *models.UserPage) (*models.UserList, error) {
+func (tx *Tx) ListUsers(filter cursor.Filter) (cursor.Cursor[*models.User], error) {
 	tx.calls[ListUsers]++
 	if tx.OnListUsers != nil {
-		return tx.OnListUsers(page)
+		return tx.OnListUsers(filter)
 	}
 	panic(errors.Fmt("%s callback is not mocked", ListUsers))
 }
@@ -250,10 +251,10 @@ func (tx *Tx) DeleteUser(id ulid.ULID) error {
 // RoleTxn Methods
 //===========================================================================
 
-func (tx *Tx) ListRoles(in *models.Page) (*models.RoleList, error) {
+func (tx *Tx) ListRoles(filter cursor.Filter) (cursor.Cursor[*models.Role], error) {
 	tx.calls[ListRoles]++
 	if tx.OnListRoles != nil {
-		return tx.OnListRoles(in)
+		return tx.OnListRoles(filter)
 	}
 	panic(errors.Fmt("%s callback is not mocked", ListRoles))
 }
@@ -310,10 +311,10 @@ func (tx *Tx) DeleteRole(id int64) error {
 // PermissionTxn Methods
 //===========================================================================
 
-func (tx *Tx) ListPermissions(in *models.Page) (*models.PermissionList, error) {
+func (tx *Tx) ListPermissions(filter cursor.Filter) (cursor.Cursor[*models.Permission], error) {
 	tx.calls[ListPermissions]++
 	if tx.OnListPermissions != nil {
-		return tx.OnListPermissions(in)
+		return tx.OnListPermissions(filter)
 	}
 	panic(errors.Fmt("%s callback is not mocked", ListPermissions))
 }
@@ -354,10 +355,10 @@ func (tx *Tx) DeletePermission(in int64) error {
 // APIKeyTxn Methods
 //===========================================================================
 
-func (tx *Tx) ListAPIKeys(in *models.Page) (*models.APIKeyList, error) {
+func (tx *Tx) ListAPIKeys(filter cursor.Filter) (cursor.Cursor[*models.APIKey], error) {
 	tx.calls[ListAPIKeys]++
 	if tx.OnListAPIKeys != nil {
-		return tx.OnListAPIKeys(in)
+		return tx.OnListAPIKeys(filter)
 	}
 	panic(errors.Fmt("%s callback is not mocked", ListAPIKeys))
 }
@@ -430,10 +431,10 @@ func (tx *Tx) DeleteAPIKey(in ulid.ULID) error {
 // OIDCClientTxn Methods
 //===========================================================================
 
-func (tx *Tx) ListOIDCClients(in *models.Page) (*models.OIDCClientList, error) {
+func (tx *Tx) ListOIDCClients(filter cursor.Filter) (cursor.Cursor[*models.OIDCClient], error) {
 	tx.calls[ListOIDCClients]++
 	if tx.OnListOIDCClients != nil {
-		return tx.OnListOIDCClients(in)
+		return tx.OnListOIDCClients(filter)
 	}
 	panic(errors.Fmt("%s callback is not mocked", ListOIDCClients))
 }

@@ -2,8 +2,10 @@ package api
 
 import (
 	"database/sql"
+	"errors"
 	"time"
 
+	"go.rtnl.ai/quarterdeck/pkg/store/cursor"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/ulid"
 )
@@ -31,7 +33,7 @@ func NewAPIKey(model *models.APIKey) (out *APIKey, err error) {
 		Description: model.Description.String,
 		ClientID:    model.ClientID,
 		CreatedBy:   model.CreatedBy,
-		Permissions: model.Permissions(),
+		Permissions: model.Permissions.List(),
 		Created:     model.Created,
 		Modified:    model.Modified,
 	}
@@ -43,21 +45,8 @@ func NewAPIKey(model *models.APIKey) (out *APIKey, err error) {
 	return out, nil
 }
 
-func NewAPIKeyList(page *models.APIKeyList) (out *APIKeyList, err error) {
-	out = &APIKeyList{
-		Page:    &Page{},
-		APIKeys: make([]*APIKey, 0, len(page.APIKeys)),
-	}
-
-	for _, model := range page.APIKeys {
-		var key *APIKey
-		if key, err = NewAPIKey(model); err != nil {
-			return nil, err
-		}
-		out.APIKeys = append(out.APIKeys, key)
-	}
-
-	return out, nil
+func NewAPIKeyList(cursor cursor.Cursor[*models.APIKey]) (out *APIKeyList, err error) {
+	return nil, errors.New("not implemented")
 }
 
 func (k *APIKey) Validate() (err error) {
@@ -99,7 +88,7 @@ func (k *APIKey) Validate() (err error) {
 
 func (k *APIKey) Model() (model *models.APIKey, err error) {
 	model = &models.APIKey{
-		Model: models.Model{
+		BaseModel: models.BaseModel{
 			ID:       k.ID,
 			Created:  k.Created,
 			Modified: k.Modified,
@@ -114,7 +103,7 @@ func (k *APIKey) Model() (model *models.APIKey, err error) {
 	}
 
 	if len(k.Permissions) > 0 {
-		model.SetPermissions(k.Permissions)
+		model.Permissions.Load(k.Permissions)
 	}
 
 	return model, nil

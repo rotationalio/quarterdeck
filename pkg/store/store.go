@@ -8,12 +8,14 @@ import (
 
 	"go.rtnl.ai/quarterdeck/pkg/config"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
-	"go.rtnl.ai/quarterdeck/pkg/store/dsn"
+	"go.rtnl.ai/quarterdeck/pkg/store/cursor"
 	"go.rtnl.ai/quarterdeck/pkg/store/mock"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/quarterdeck/pkg/store/sqlite"
 	"go.rtnl.ai/quarterdeck/pkg/store/txn"
+
 	"go.rtnl.ai/ulid"
+	"go.rtnl.ai/x/dsn"
 )
 
 // Open a directory storage provider with the specified URI. Database URLs should either
@@ -27,15 +29,20 @@ func Open(conf config.DatabaseConfig) (s Store, err error) {
 	}
 
 	// The configuration overrides any read-only setting in the DSN.
-	uri.ReadOnly = conf.ReadOnly
+	if conf.ReadOnly {
+		if uri.Options == nil {
+			uri.Options = make(map[string]string)
+		}
+		uri.Options[dsn.ReadOnly] = "true"
+	}
 
-	switch uri.Scheme {
+	switch uri.Provider {
 	case dsn.Mock:
 		return mock.Open(uri)
-	case dsn.SQLite, dsn.SQLite3:
+	case dsn.SQLite3:
 		return sqlite.Open(uri)
 	default:
-		return nil, errors.Fmt("unhandled database scheme %q", uri.Scheme)
+		return nil, errors.Fmt("unhandled database scheme %q", uri.Provider)
 	}
 }
 
@@ -62,7 +69,7 @@ type Stats interface {
 }
 
 type UserStore interface {
-	ListUsers(context.Context, *models.UserPage) (*models.UserList, error)
+	ListUsers(context.Context, cursor.Filter) (cursor.Cursor[*models.User], error)
 	CreateUser(context.Context, *models.User) error
 	RetrieveUser(context.Context, any) (*models.User, error)
 	UpdateUser(context.Context, *models.User) error
@@ -73,7 +80,7 @@ type UserStore interface {
 }
 
 type RoleStore interface {
-	ListRoles(context.Context, *models.Page) (*models.RoleList, error)
+	ListRoles(context.Context, cursor.Filter) (cursor.Cursor[*models.Role], error)
 	CreateRole(context.Context, *models.Role) error
 	RetrieveRole(context.Context, any) (*models.Role, error)
 	UpdateRole(context.Context, *models.Role) error
@@ -83,7 +90,7 @@ type RoleStore interface {
 }
 
 type PermissionStore interface {
-	ListPermissions(context.Context, *models.Page) (*models.PermissionList, error)
+	ListPermissions(context.Context, cursor.Filter) (cursor.Cursor[*models.Permission], error)
 	CreatePermission(context.Context, *models.Permission) error
 	RetrievePermission(context.Context, any) (*models.Permission, error)
 	UpdatePermission(context.Context, *models.Permission) error
@@ -91,7 +98,7 @@ type PermissionStore interface {
 }
 
 type APIKeyStore interface {
-	ListAPIKeys(context.Context, *models.Page) (*models.APIKeyList, error)
+	ListAPIKeys(context.Context, cursor.Filter) (cursor.Cursor[*models.APIKey], error)
 	CreateAPIKey(context.Context, *models.APIKey) error
 	RetrieveAPIKey(context.Context, any) (*models.APIKey, error)
 	UpdateAPIKey(context.Context, *models.APIKey) error
@@ -103,7 +110,7 @@ type APIKeyStore interface {
 }
 
 type OIDCClientStore interface {
-	ListOIDCClients(context.Context, *models.Page) (*models.OIDCClientList, error)
+	ListOIDCClients(context.Context, cursor.Filter) (cursor.Cursor[*models.OIDCClient], error)
 	CreateOIDCClient(context.Context, *models.OIDCClient) error
 	RetrieveOIDCClient(context.Context, any) (*models.OIDCClient, error)
 	UpdateOIDCClient(context.Context, *models.OIDCClient) error

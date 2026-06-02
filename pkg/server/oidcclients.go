@@ -8,6 +8,7 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
 	"go.rtnl.ai/quarterdeck/pkg/auth/passwords"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/quarterdeck/pkg/store/cursor"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/ulid"
 )
@@ -16,7 +17,7 @@ func (s *Server) ListOIDCClients(c *gin.Context) {
 	var (
 		err  error
 		in   *api.PageQuery
-		list *models.OIDCClientList
+		list cursor.Cursor[*models.OIDCClient]
 		out  *api.OIDCClientList
 	)
 
@@ -27,7 +28,7 @@ func (s *Server) ListOIDCClients(c *gin.Context) {
 		return
 	}
 
-	list, err = s.store.ListOIDCClients(c.Request.Context(), in.PageModel())
+	list, err = s.store.ListOIDCClients(c.Request.Context(), nil)
 	if err != nil {
 		c.Error(err)
 		c.JSON(http.StatusInternalServerError, api.Error("could not process oidc clients list request"))

@@ -16,6 +16,8 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store"
+	"go.rtnl.ai/quarterdeck/pkg/store/cursor"
+	"go.rtnl.ai/quarterdeck/pkg/store/fields"
 	"go.rtnl.ai/quarterdeck/pkg/store/mock"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/ulid"
@@ -30,18 +32,9 @@ func TestListOIDCClients(t *testing.T) {
 
 		// set mock callback
 		clientID := ulid.MakeSecure()
-		mockStore.OnListOIDCClients = func(ctx context.Context, page *models.Page) (*models.OIDCClientList, error) {
-			return &models.OIDCClientList{
-				OIDCClients: []*models.OIDCClient{
-					{
-						Model:        models.Model{ID: clientID, Created: time.Now(), Modified: time.Now()},
-						ClientName:   "Test",
-						RedirectURIs: []string{"https://example.com/cb"},
-						ClientID:     "cid",
-						CreatedBy:    ulid.MakeSecure(),
-					},
-				},
-			}, nil
+		mockStore.OnListOIDCClients = func(context.Context, cursor.Filter) (cursor.Cursor[*models.OIDCClient], error) {
+			// TODO: implement mock
+			return nil, nil
 		}
 
 		// build request and context
@@ -86,7 +79,7 @@ func TestListOIDCClients(t *testing.T) {
 		srv := newTestServer(mockStore)
 
 		// set mock callback
-		mockStore.OnListOIDCClients = func(ctx context.Context, page *models.Page) (*models.OIDCClientList, error) {
+		mockStore.OnListOIDCClients = func(context.Context, cursor.Filter) (cursor.Cursor[*models.OIDCClient], error) {
 			return nil, errors.ErrNotFound
 		}
 
@@ -157,7 +150,7 @@ func TestCreateOIDCClient(t *testing.T) {
 		// set mock callbacks
 		var created *models.OIDCClient
 		mockStore.OnRetrieveAPIKey = func(ctx context.Context, id any) (*models.APIKey, error) {
-			return &models.APIKey{Model: models.Model{ID: apiKeyID}, CreatedBy: userID}, nil
+			return &models.APIKey{BaseModel: models.BaseModel{ID: apiKeyID}, CreatedBy: userID}, nil
 		}
 		mockStore.OnCreateOIDCClient = func(ctx context.Context, in *models.OIDCClient) error {
 			created = in
@@ -328,9 +321,9 @@ func TestOIDCClientDetail(t *testing.T) {
 		defer mockStore.Close()
 		clientID := ulid.MakeSecure()
 		client := &models.OIDCClient{
-			Model:        models.Model{ID: clientID, Created: time.Now(), Modified: time.Now()},
+			BaseModel:    models.BaseModel{ID: clientID, Created: time.Now(), Modified: time.Now()},
 			ClientName:   "Detail Client",
-			RedirectURIs: []string{"https://example.com/cb"},
+			RedirectURIs: fields.NullStringArray{StringArray: []string{"https://example.com/cb"}, Valid: true},
 			ClientID:     "cid",
 			CreatedBy:    ulid.MakeSecure(),
 		}

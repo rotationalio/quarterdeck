@@ -10,8 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
-	"go.rtnl.ai/quarterdeck/pkg/store/dsn"
 	db "go.rtnl.ai/quarterdeck/pkg/store/sqlite"
+
+	"go.rtnl.ai/x/dsn"
 )
 
 // ===========================================================================
@@ -61,11 +62,11 @@ func TestConnectClose(t *testing.T) {
 			err error
 		}{
 			{
-				&dsn.DSN{Scheme: "leveldb"},
+				&dsn.DSN{Provider: "leveldb"},
 				errors.ErrUnknownScheme,
 			},
 			{
-				&dsn.DSN{Scheme: "sqlite3"},
+				&dsn.DSN{Provider: "sqlite3"},
 				errors.ErrPathRequired,
 			},
 		}
@@ -92,7 +93,7 @@ func (s *storeTestSuite) SetupSuite() {
 }
 
 func (s *storeTestSuite) AfterTest(suiteName, testName string) {
-	if !s.dsn.ReadOnly {
+	if !s.dsn.Options.ReadOnly() {
 		s.ResetDB()
 	}
 }
@@ -120,7 +121,7 @@ func (s *storeTestSuite) CreateDB() {
 	require.NoError(err, "could not open transaction")
 	defer tx.Rollback()
 
-	if len(paths) > 0 && s.dsn.ReadOnly {
+	if len(paths) > 0 && s.dsn.Options.ReadOnly() {
 		// If we're in read-only mode, temporarily disable it to insert fixtures.
 		_, err = tx.Exec("PRAGMA query_only = off;")
 		require.NoError(err, "could not disable query_only pragma for read-only mode")
@@ -134,7 +135,7 @@ func (s *storeTestSuite) CreateDB() {
 		require.NoError(err, "could not execute sql query from fixture %s", path)
 	}
 
-	if len(paths) > 0 && s.dsn.ReadOnly {
+	if len(paths) > 0 && s.dsn.Options.ReadOnly() {
 		// Re-enable read-only mode after executing the fixtures.
 		_, err = tx.Exec("PRAGMA query_only = on;")
 		require.NoError(err, "could not re-enable query_only pragma for read-only mode")
@@ -165,7 +166,7 @@ func (s *storeTestSuite) Count(table string) (count int) {
 }
 
 func (s *storeTestSuite) ReadOnly() bool {
-	return s.dsn.ReadOnly
+	return s.dsn.Options.ReadOnly()
 }
 
 func (S *storeTestSuite) Context() context.Context {
@@ -173,9 +174,9 @@ func (S *storeTestSuite) Context() context.Context {
 }
 
 func TestStore(t *testing.T) {
-	suite.Run(t, &storeTestSuite{dsn: &dsn.DSN{ReadOnly: false, Scheme: "sqlite3"}})
+	suite.Run(t, &storeTestSuite{dsn: &dsn.DSN{Options: map[string]string{dsn.ReadOnly: "false"}, Provider: dsn.SQLite3}})
 }
 
 func TestReadOnlyStore(t *testing.T) {
-	suite.Run(t, &storeTestSuite{dsn: &dsn.DSN{ReadOnly: true, Scheme: "sqlite3"}})
+	suite.Run(t, &storeTestSuite{dsn: &dsn.DSN{Options: map[string]string{dsn.ReadOnly: "true"}, Provider: dsn.SQLite3}})
 }

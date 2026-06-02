@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/quarterdeck/pkg/store/cursor"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 )
 
@@ -14,16 +15,16 @@ import (
 // Roles Store
 //===========================================================================
 
-const listRolesSQL = `SELECT * FROM roles ORDER BY created DESC`
+// const listRolesSQL = `SELECT * FROM roles ORDER BY created DESC`
 
-func (s *Store) ListRoles(ctx context.Context, page *models.Page) (out *models.RoleList, err error) {
+func (s *Store) ListRoles(ctx context.Context, filter cursor.Filter) (out cursor.Cursor[*models.Role], err error) {
 	var tx *Tx
 	if tx, err = s.BeginTx(ctx, &sql.TxOptions{ReadOnly: true}); err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	if out, err = tx.ListRoles(page); err != nil {
+	if out, err = tx.ListRoles(filter); err != nil {
 		return nil, err
 	}
 
@@ -33,32 +34,10 @@ func (s *Store) ListRoles(ctx context.Context, page *models.Page) (out *models.R
 	return out, nil
 }
 
-func (tx *Tx) ListRoles(page *models.Page) (out *models.RoleList, err error) {
+func (tx *Tx) ListRoles(filter cursor.Filter) (out cursor.Cursor[*models.Role], err error) {
 	// TODO: handle pagination
-	out = &models.RoleList{
-		Page:  models.PageFrom(page),
-		Roles: make([]*models.Role, 0),
-	}
-
-	rows, err := tx.Query(listRolesSQL)
-	if err != nil {
-		return nil, dbe(err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		role := &models.Role{}
-		if err = role.Scan(rows); err != nil {
-			return nil, err
-		}
-		out.Roles = append(out.Roles, role)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, dbe(err)
-	}
-
-	return out, nil
+	// TODO: implement cursor
+	return nil, nil
 }
 
 const createRoleSQL = `INSERT INTO roles (title, description, is_default, created, modified) VALUES (:title, :description, :isDefault, :created, :modified)`
@@ -86,7 +65,7 @@ func (tx *Tx) CreateRole(role *models.Role) (err error) {
 	role.Modified = role.Created
 
 	var result sql.Result
-	if result, err = tx.Exec(createRoleSQL, role.Params()...); err != nil {
+	if result, err = tx.Exec(createRoleSQL, role.Params(models.Create)...); err != nil {
 		return dbe(err)
 	}
 
@@ -95,14 +74,7 @@ func (tx *Tx) CreateRole(role *models.Role) (err error) {
 	}
 
 	// Assign permissions to the role if any are associated.
-	var permissions []*models.Permission
-	if permissions, err = role.Permissions(); err != nil {
-		if !errors.Is(err, errors.ErrMissingAssociation) {
-			return err
-		}
-	}
-
-	for _, permission := range permissions {
+	for _, permission := range role.Permissions {
 		if err = tx.AddPermissionToRole(role.ID, permission); err != nil {
 			return fmt.Errorf("invalid permission %q (ID: %d): role not created: %w", permission.Title, permission.ID, err)
 		}
@@ -151,17 +123,14 @@ func (tx *Tx) RetrieveRole(titleOrName any) (out *models.Role, err error) {
 	}
 
 	out = &models.Role{}
-	if err = out.Scan(tx.QueryRow(query, param)); err != nil {
+	if err = out.Scan(models.Retrieve, tx.QueryRow(query, param)); err != nil {
 		return nil, dbe(err)
 	}
 
 	// Retrieve associated permissions for the role.
-	var permissions []*models.Permission
-	if permissions, err = tx.rolePermissions(out.ID); err != nil {
+	if out.Permissions, err = tx.rolePermissions(out.ID); err != nil {
 		return nil, err
 	}
-	out.SetPermissions(permissions)
-
 	return out, nil
 }
 
@@ -180,7 +149,7 @@ func (tx *Tx) rolePermissions(roleID int64) (permissions []*models.Permission, e
 
 	for rows.Next() {
 		permission := &models.Permission{}
-		if err = permission.Scan(rows); err != nil {
+		if err = permission.Scan(models.List, rows); err != nil {
 			return nil, err
 		}
 		permissions = append(permissions, permission)
@@ -201,7 +170,7 @@ const (
 func (tx *Tx) resolveRoleID(role any) (roleID int64, err error) {
 	var (
 		query string
-		param any
+		param sql.NamedArg
 	)
 
 	switch r := role.(type) {
@@ -261,7 +230,7 @@ func (tx *Tx) UpdateRole(role *models.Role) (err error) {
 	role.Modified = time.Now()
 
 	var result sql.Result
-	if result, err = tx.Exec(updateRoleSQL, role.Params()...); err != nil {
+	if result, err = tx.Exec(updateRoleSQL, role.Params(models.Update)...); err != nil {
 		return dbe(err)
 	}
 
@@ -299,7 +268,7 @@ func (tx *Tx) AddPermissionToRole(roleID int64, permission any) (err error) {
 		return err
 	}
 
-	params := []any{
+	params := []sql.NamedArg{
 		sql.Named("roleID", roleID),
 		sql.Named("permissionID", resolvedPermission.ID),
 		sql.Named("created", time.Now()),
@@ -333,7 +302,7 @@ func (tx *Tx) RemovePermissionFromRole(roleID int64, permissionID int64) (err er
 		return errors.ErrMissingID
 	}
 
-	params := []any{
+	params := []sql.NamedArg{
 		sql.Named("roleID", roleID),
 		sql.Named("permissionID", permissionID),
 	}
@@ -382,16 +351,16 @@ func (tx *Tx) DeleteRole(roleID int64) (err error) {
 // Permissions Store
 //===========================================================================
 
-const listPermissionsSQL = `SELECT * FROM permissions ORDER BY title ASC`
+// const listPermissionsSQL = `SELECT * FROM permissions ORDER BY title ASC`
 
-func (s *Store) ListPermissions(ctx context.Context, page *models.Page) (out *models.PermissionList, err error) {
+func (s *Store) ListPermissions(ctx context.Context, filter cursor.Filter) (out cursor.Cursor[*models.Permission], err error) {
 	var tx *Tx
 	if tx, err = s.BeginTx(ctx, &sql.TxOptions{ReadOnly: true}); err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	if out, err = tx.ListPermissions(page); err != nil {
+	if out, err = tx.ListPermissions(filter); err != nil {
 		return nil, err
 	}
 
@@ -401,33 +370,10 @@ func (s *Store) ListPermissions(ctx context.Context, page *models.Page) (out *mo
 	return out, nil
 }
 
-func (tx *Tx) ListPermissions(page *models.Page) (out *models.PermissionList, err error) {
+func (tx *Tx) ListPermissions(filter cursor.Filter) (out cursor.Cursor[*models.Permission], err error) {
 	// TODO: handle pagination
-	out = &models.PermissionList{
-		Page:        models.PageFrom(page),
-		Permissions: make([]*models.Permission, 0),
-	}
-
-	var rows *sql.Rows
-	if rows, err = tx.Query(listPermissionsSQL); err != nil {
-		return nil, dbe(err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		// Scan permission summary into a new Permission struct.
-		permission := &models.Permission{}
-		if err = permission.Scan(rows); err != nil {
-			return nil, err
-		}
-		out.Permissions = append(out.Permissions, permission)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, dbe(err)
-	}
-
-	return out, nil
+	// TODO: re-implement cursor
+	return nil, nil
 }
 
 const createPermissionSQL = `INSERT INTO permissions (title, description, created, modified) VALUES (:title, :description, :created, :modified)`
@@ -459,7 +405,7 @@ func (tx *Tx) CreatePermission(permission *models.Permission) (err error) {
 	permission.Modified = permission.Created
 
 	var result sql.Result
-	if result, err = tx.Exec(createPermissionSQL, permission.Params()...); err != nil {
+	if result, err = tx.Exec(createPermissionSQL, permission.Params(models.Create)...); err != nil {
 		return dbe(err)
 	}
 
@@ -537,7 +483,7 @@ func (tx *Tx) RetrievePermission(titleOrID any) (permission *models.Permission, 
 	}
 
 	permission = &models.Permission{}
-	if err = permission.Scan(tx.QueryRow(query, param)); err != nil {
+	if err = permission.Scan(models.Retrieve, tx.QueryRow(query, param)); err != nil {
 		return nil, dbe(err)
 	}
 
@@ -568,7 +514,7 @@ func (tx *Tx) UpdatePermission(permission *models.Permission) (err error) {
 	permission.Modified = time.Now()
 
 	var result sql.Result
-	if result, err = tx.Exec(updatePermissionSQL, permission.Params()...); err != nil {
+	if result, err = tx.Exec(updatePermissionSQL, permission.Params(models.Update)...); err != nil {
 		return dbe(err)
 	}
 

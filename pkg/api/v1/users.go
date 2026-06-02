@@ -6,7 +6,7 @@ import (
 	"net/mail"
 	"time"
 
-	qde "go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/quarterdeck/pkg/store/cursor"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/ulid"
 )
@@ -43,20 +43,13 @@ func NewUser(model *models.User) (out *User, err error) {
 		ID:          model.ID,
 		Email:       model.Email,
 		Avatar:      model.Gravatar(),
-		Permissions: model.Permissions(),
+		Permissions: model.Permissions.List(),
 		Created:     model.Created,
 		Modified:    model.Modified,
 	}
 
-	var roles []*models.Role
-	if roles, err = model.Roles(); err != nil {
-		if !errors.Is(err, qde.ErrMissingAssociation) {
-			return nil, err
-		}
-		roles = []*models.Role{}
-	}
-	out.Roles = make([]*Role, 0, len(roles))
-	for _, role := range roles {
+	out.Roles = make([]*Role, 0, len(model.Roles))
+	for _, role := range model.Roles {
 		out.Roles = append(out.Roles, &Role{
 			ID:    int(role.ID),
 			Title: role.Title,
@@ -74,37 +67,8 @@ func NewUser(model *models.User) (out *User, err error) {
 	return out, nil
 }
 
-func NewUserList(list *models.UserList) (out *UserList, err error) {
-	out = &UserList{
-		Users: make([]*User, 0, len(list.Users)),
-	}
-
-	if out.Page, err = NewUserPage(list.Page); err != nil {
-		return nil, err
-	}
-
-	for _, modelUser := range list.Users {
-		var user *User
-		if user, err = NewUser(modelUser); err != nil {
-			return nil, err
-		}
-		out.Users = append(out.Users, user)
-	}
-
-	return out, nil
-}
-
-func NewUserPage(page *models.UserPage) (out *UserPage, err error) {
-	out = &UserPage{
-		Page: Page{
-			NextPageToken: page.NextPageID.String(),
-			PrevPageToken: page.PrevPageID.String(),
-			PageSize:      int(page.PageSize),
-		},
-		Role: page.Role,
-	}
-
-	return out, nil
+func NewUserList(list cursor.Cursor[*models.User]) (out *UserList, err error) {
+	return nil, errors.New("not implemented")
 }
 
 func (u *User) Validate() (err error) {
@@ -143,38 +107,14 @@ func (u *User) Validate() (err error) {
 
 func (u *User) Model() (model *models.User, err error) {
 	model = &models.User{
-		Model: models.Model{ID: u.ID},
-		Name:  sql.NullString{Valid: u.Name != "", String: u.Name},
-		Email: u.Email,
+		BaseModel: models.BaseModel{ID: u.ID},
+		Name:      sql.NullString{Valid: u.Name != "", String: u.Name},
+		Email:     u.Email,
+		Roles:     make(models.Roles, 0, len(u.Roles)),
 	}
 
-	modelRoles := make([]*models.Role, 0, len(u.Roles))
 	for _, role := range u.Roles {
-		modelRoles = append(modelRoles, role.Model())
-	}
-	model.SetRoles(modelRoles)
-
-	return model, nil
-}
-
-func (p *UserPage) Model() (model *models.UserPage, err error) {
-	var next, prev ulid.ULID
-
-	if next, err = ulid.Parse(p.NextPageToken); err != nil {
-		return nil, err
-	}
-
-	if prev, err = ulid.Parse(p.PrevPageToken); err != nil {
-		return nil, err
-	}
-
-	model = &models.UserPage{
-		Page: models.Page{
-			NextPageID: next,
-			PrevPageID: prev,
-			PageSize:   uint32(p.PageSize),
-		},
-		Role: p.Role,
+		model.Roles = append(model.Roles, role.Model())
 	}
 
 	return model, nil

@@ -223,9 +223,8 @@ func createUser(c *cli.Context) (err error) {
 		Name:          sql.NullString{Valid: c.String("name") != "", String: c.String("name")},
 		Email:         c.String("email"),
 		EmailVerified: true,
+		Roles:         roles,
 	}
-
-	user.SetRoles(roles)
 
 	var password string
 	if password, err = inputPassword(); err != nil {

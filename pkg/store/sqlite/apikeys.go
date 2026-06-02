@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/quarterdeck/pkg/store/cursor"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/ulid"
 )
@@ -14,18 +15,18 @@ import (
 // APIKey Store
 //===========================================================================
 
-const (
-	listAPIKeysSQL = "SELECT id, description, client_id, created_by, last_seen, revoked, created, modified FROM api_keys WHERE revoked IS NULL ORDER BY created DESC"
-)
+// const (
+// 	listAPIKeysSQL = "SELECT id, description, client_id, created_by, last_seen, revoked, created, modified FROM api_keys WHERE revoked IS NULL ORDER BY created DESC"
+// )
 
-func (s *Store) ListAPIKeys(ctx context.Context, page *models.Page) (out *models.APIKeyList, err error) {
+func (s *Store) ListAPIKeys(ctx context.Context, filter cursor.Filter) (out cursor.Cursor[*models.APIKey], err error) {
 	var tx *Tx
 	if tx, err = s.BeginTx(ctx, &sql.TxOptions{ReadOnly: true}); err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	if out, err = tx.ListAPIKeys(page); err != nil {
+	if out, err = tx.ListAPIKeys(filter); err != nil {
 		return nil, err
 	}
 
@@ -36,31 +37,8 @@ func (s *Store) ListAPIKeys(ctx context.Context, page *models.Page) (out *models
 	return out, nil
 }
 
-func (tx *Tx) ListAPIKeys(page *models.Page) (out *models.APIKeyList, err error) {
-	// TODO: handle pagination
-	out = &models.APIKeyList{
-		APIKeys: make([]*models.APIKey, 0),
-		Page:    models.PageFrom(page),
-	}
-
-	var rows *sql.Rows
-	if rows, err = tx.Query(listAPIKeysSQL); err != nil {
-		return nil, dbe(err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		key := &models.APIKey{}
-		if err = key.ScanSummary(rows); err != nil {
-			return nil, err
-		}
-		out.APIKeys = append(out.APIKeys, key)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, dbe(err)
-	}
-
+func (tx *Tx) ListAPIKeys(filter cursor.Filter) (out cursor.Cursor[*models.APIKey], err error) {
+	// TODO: implement cursor
 	return out, nil
 }
 
@@ -95,12 +73,12 @@ func (tx *Tx) CreateAPIKey(key *models.APIKey) (err error) {
 	key.Created = time.Now()
 	key.Modified = key.Created
 
-	if _, err = tx.Exec(createAPIKeySQL, key.Params()...); err != nil {
+	if _, err = tx.Exec(createAPIKeySQL, key.Params(models.Create)...); err != nil {
 		return dbe(err)
 	}
 
-	for _, permission := range key.Permissions() {
-		if err = tx.AddPermissionToAPIKey(key.ID, permission); err != nil {
+	for _, permission := range key.Permissions {
+		if err = tx.AddPermissionToAPIKey(key.ID, permission.Title); err != nil {
 			return err
 		}
 	}
@@ -157,16 +135,16 @@ func (tx *Tx) RetrieveAPIKey(id any) (key *models.APIKey, err error) {
 	}
 
 	key = &models.APIKey{}
-	if err = key.Scan(tx.QueryRow(query, param)); err != nil {
+	if err = key.Scan(models.Retrieve, tx.QueryRow(query, param)); err != nil {
 		return nil, dbe(err)
 	}
 
-	// Fetch api keyh permissions
+	// Fetch api key permissions
 	var permissions []string
 	if permissions, err = tx.apikeyPermissions(key.ID); err != nil {
 		return nil, err
 	}
-	key.SetPermissions(permissions)
+	key.Permissions.Load(permissions)
 
 	return key, nil
 }
@@ -224,7 +202,7 @@ func (tx *Tx) UpdateAPIKey(key *models.APIKey) (err error) {
 	key.Modified = time.Now()
 
 	var result sql.Result
-	if result, err = tx.Exec(updateAPIKeySQL, key.Params()...); err != nil {
+	if result, err = tx.Exec(updateAPIKeySQL, key.Params(models.Update)...); err != nil {
 		return dbe(err)
 	}
 
@@ -258,7 +236,7 @@ func (tx *Tx) UpdateLastSeen(keyID ulid.ULID, lastSeen time.Time) (err error) {
 		return errors.ErrMissingID
 	}
 
-	params := []any{
+	params := []sql.NamedArg{
 		sql.Named("id", keyID),
 		sql.Named("lastSeen", sql.NullTime{Time: lastSeen, Valid: !lastSeen.IsZero()}),
 		sql.Named("modified", time.Now()),
@@ -305,7 +283,7 @@ func (tx *Tx) AddPermissionToAPIKey(keyID ulid.ULID, permission any) (err error)
 		return err
 	}
 
-	params := []any{
+	params := []sql.NamedArg{
 		sql.Named("keyID", keyID),
 		sql.Named("permissionID", resolvedPermission.ID),
 		sql.Named("created", time.Now()),
@@ -341,7 +319,7 @@ func (tx *Tx) RemovePermissionFromAPIKey(keyID ulid.ULID, permissionID int64) (e
 		return errors.ErrMissingID
 	}
 
-	params := []any{
+	params := []sql.NamedArg{
 		sql.Named("keyID", keyID),
 		sql.Named("permissionID", permissionID),
 	}
@@ -377,7 +355,7 @@ func (tx *Tx) RevokeAPIKey(keyID ulid.ULID) (err error) {
 	}
 
 	now := time.Now()
-	params := []any{
+	params := []sql.NamedArg{
 		sql.Named("id", keyID),
 		sql.Named("revoked", sql.NullTime{Time: now, Valid: true}),
 		sql.Named("modified", now),

@@ -16,7 +16,7 @@ func TestNewUser(t *testing.T) {
 	now := time.Now()
 
 	modelUser := &models.User{
-		Model: models.Model{
+		BaseModel: models.BaseModel{
 			ID:       id,
 			Created:  now.Add(-2 * time.Hour),
 			Modified: now.Add(-1 * time.Hour),
@@ -26,12 +26,15 @@ func TestNewUser(t *testing.T) {
 		Password:      "not_a_valid_derived_key",
 		LastLogin:     sql.NullTime{Valid: true, Time: now},
 		EmailVerified: true,
-	}
-	modelUser.SetRoles([]*models.Role{
-		{ID: 123, Title: "role", Description: "description is not used"},
-	})
-	modelUser.SetPermissions([]string{"one", "two"})
 
+		Roles: []*models.Role{
+			{ID: 123, Title: "role", Description: "description is not used"},
+		},
+		Permissions: []*models.Permission{
+			{Title: "one"},
+			{Title: "two"},
+		},
+	}
 	apiUser, err := api.NewUser(modelUser)
 	require.NoError(t, err)
 	require.NotNil(t, apiUser)
@@ -42,7 +45,7 @@ func TestNewUser(t *testing.T) {
 	require.Equal(t, modelUser.Email, apiUser.Email)
 	require.Equal(t, modelUser.LastLogin.Time, apiUser.LastLogin)
 	require.Equal(t, []*api.Role{{ID: 123, Title: "role"}}, apiUser.Roles)
-	require.Equal(t, apiUser.Permissions, modelUser.Permissions())
+	require.Equal(t, apiUser.Permissions, modelUser.Permissions.List())
 }
 
 func TestValidateUser(t *testing.T) {

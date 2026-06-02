@@ -19,7 +19,7 @@ type APIKey struct {
 	Revoked     sql.NullTime
 
 	// Associated fields
-	Permissions []string
+	Permissions Permissions
 }
 
 var (
@@ -142,11 +142,7 @@ func (k *APIKey) Status() enum.APIKeyStatus {
 func (k APIKey) Claims() *auth.Claims {
 	claims := &auth.Claims{
 		ClientID:    k.ClientID,
-		Permissions: k.Permissions,
-	}
-
-	if len(k.Permissions) > 0 {
-		claims.Permissions = k.Permissions
+		Permissions: k.Permissions.List(),
 	}
 
 	claims.SetSubjectID(auth.SubjectAPIKey, k.ID)

@@ -9,6 +9,7 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
 	"go.rtnl.ai/quarterdeck/pkg/auth/passwords"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/quarterdeck/pkg/store/cursor"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/quarterdeck/pkg/store/txn"
 	"go.rtnl.ai/quarterdeck/pkg/web/htmx"
@@ -20,8 +21,7 @@ func (s *Server) ListAPIKeys(c *gin.Context) {
 	var (
 		err    error
 		in     *api.PageQuery
-		page   *models.Page
-		models *models.APIKeyList
+		models cursor.Cursor[*models.APIKey]
 		out    *api.APIKeyList
 	)
 
@@ -35,7 +35,7 @@ func (s *Server) ListAPIKeys(c *gin.Context) {
 
 	// TODO: manage pagination mechanism
 
-	if models, err = s.store.ListAPIKeys(c.Request.Context(), page); err != nil {
+	if models, err = s.store.ListAPIKeys(c.Request.Context(), nil); err != nil {
 		c.Error(err)
 		c.JSON(http.StatusInternalServerError, api.Error("could not process apikeys list request"))
 		return

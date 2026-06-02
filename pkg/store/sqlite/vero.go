@@ -38,7 +38,7 @@ func (tx *Tx) CreateVeroToken(token *models.VeroToken) (err error) {
 	token.Created = time.Now()
 	token.Modified = token.Created
 
-	if _, err = tx.Exec(createVeroSQL, token.Params()...); err != nil {
+	if _, err = tx.Exec(createVeroSQL, token.Params(models.Create)...); err != nil {
 		return dbe(err)
 	}
 
@@ -73,7 +73,7 @@ func (tx *Tx) RetrieveVeroToken(id ulid.ULID) (token *models.VeroToken, err erro
 	}
 
 	token = &models.VeroToken{}
-	if err = token.Scan(tx.QueryRow(retrieveVeroTokenSQL, sql.Named("id", id))); err != nil {
+	if err = token.Scan(models.Retrieve, tx.QueryRow(retrieveVeroTokenSQL, sql.Named("id", id))); err != nil {
 		return nil, dbe(err)
 	}
 
@@ -106,7 +106,7 @@ func (tx *Tx) UpdateVeroToken(token *models.VeroToken) (err error) {
 	token.Modified = time.Now()
 
 	var result sql.Result
-	if result, err = tx.Exec(updateVeroSQL, token.Params()...); err != nil {
+	if result, err = tx.Exec(updateVeroSQL, token.Params(models.Update)...); err != nil {
 		return dbe(err)
 	}
 
@@ -194,7 +194,7 @@ func (tx *Tx) CreateResetPasswordVeroToken(token *models.VeroToken) (err error) 
 
 	// Get any existing reset password tokens
 	existing := &models.VeroToken{}
-	if err = existing.Scan(tx.QueryRow(
+	if err = existing.Scan(models.Retrieve, tx.QueryRow(
 		retrieveResetPasswordTokenSQL,
 		sql.Named("resourceID", token.ResourceID),
 		sql.Named("tokenType", enum.TokenTypeResetPassword),
@@ -263,7 +263,7 @@ func (tx *Tx) CreateTeamInviteVeroToken(token *models.VeroToken) (err error) {
 
 	// Get any existing team invite tokens
 	existing := &models.VeroToken{}
-	if err = existing.Scan(tx.QueryRow(
+	if err = existing.Scan(models.Retrieve, tx.QueryRow(
 		retrieveResetPasswordTokenSQL,
 		sql.Named("resourceID", token.ResourceID),
 		sql.Named("tokenType", enum.TokenTypeTeamInvite),
@@ -319,7 +319,7 @@ func (tx *Tx) RetrieveTeamInviteVeroToken(userID ulid.ULID) (out *models.VeroTok
 	}
 
 	out = &models.VeroToken{}
-	if err = out.Scan(tx.QueryRow(
+	if err = out.Scan(models.Retrieve, tx.QueryRow(
 		retrieveResetPasswordTokenSQL,
 		sql.Named("resourceID", ulid.NullULID{Valid: true, ULID: userID}),
 		sql.Named("tokenType", enum.TokenTypeTeamInvite),

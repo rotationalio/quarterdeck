@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/quarterdeck/pkg/store/cursor"
 	"go.rtnl.ai/quarterdeck/pkg/store/models"
 	"go.rtnl.ai/ulid"
 )
@@ -14,35 +15,13 @@ import (
 // OIDCClient Tx
 //===========================================================================
 
-const (
-	listOIDCClientsSQL = "SELECT id, client_name, client_uri, logo_uri, policy_uri, tos_uri, redirect_uris, contacts, client_id, created_by, created, modified FROM oidc_clients ORDER BY created DESC"
-)
+// const (
+// 	listOIDCClientsSQL = "SELECT id, client_name, client_uri, logo_uri, policy_uri, tos_uri, redirect_uris, contacts, client_id, created_by, created, modified FROM oidc_clients ORDER BY created DESC"
+// )
 
-func (tx *Tx) ListOIDCClients(page *models.Page) (out *models.OIDCClientList, err error) {
-	out = &models.OIDCClientList{
-		OIDCClients: make([]*models.OIDCClient, 0),
-		Page:        models.PageFrom(page),
-	}
-
-	var rows *sql.Rows
-	if rows, err = tx.Query(listOIDCClientsSQL); err != nil {
-		return nil, dbe(err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		client := &models.OIDCClient{}
-		if err = client.ScanSummary(rows); err != nil {
-			return nil, err
-		}
-		out.OIDCClients = append(out.OIDCClients, client)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, dbe(err)
-	}
-
-	return out, nil
+func (tx *Tx) ListOIDCClients(filter cursor.Filter) (out cursor.Cursor[*models.OIDCClient], err error) {
+	// TODO: implement cursor
+	return nil, nil
 }
 
 const (
@@ -62,7 +41,7 @@ func (tx *Tx) CreateOIDCClient(client *models.OIDCClient) (err error) {
 	client.Created = time.Now()
 	client.Modified = client.Created
 
-	if _, err = tx.Exec(createOIDCClientSQL, client.Params()...); err != nil {
+	if _, err = tx.Exec(createOIDCClientSQL, client.Params(models.Create)...); err != nil {
 		return dbe(err)
 	}
 
@@ -100,7 +79,7 @@ func (tx *Tx) RetrieveOIDCClient(id any) (client *models.OIDCClient, err error) 
 	}
 
 	client = &models.OIDCClient{}
-	if err = client.Scan(tx.QueryRow(query, param)); err != nil {
+	if err = client.Scan(models.Retrieve, tx.QueryRow(query, param)); err != nil {
 		return nil, dbe(err)
 	}
 
@@ -119,7 +98,7 @@ func (tx *Tx) UpdateOIDCClient(client *models.OIDCClient) (err error) {
 	client.Modified = time.Now()
 
 	var result sql.Result
-	if result, err = tx.Exec(updateOIDCClientSQL, client.Params()...); err != nil {
+	if result, err = tx.Exec(updateOIDCClientSQL, client.Params(models.Update)...); err != nil {
 		return dbe(err)
 	}
 
@@ -155,14 +134,14 @@ func (tx *Tx) DeleteOIDCClient(id ulid.ULID) (err error) {
 // OIDCClient Store
 //===========================================================================
 
-func (s *Store) ListOIDCClients(ctx context.Context, page *models.Page) (out *models.OIDCClientList, err error) {
+func (s *Store) ListOIDCClients(ctx context.Context, filter cursor.Filter) (out cursor.Cursor[*models.OIDCClient], err error) {
 	var tx *Tx
 	if tx, err = s.BeginTx(ctx, &sql.TxOptions{ReadOnly: true}); err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	if out, err = tx.ListOIDCClients(page); err != nil {
+	if out, err = tx.ListOIDCClients(filter); err != nil {
 		return nil, err
 	}
 

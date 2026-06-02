@@ -14,7 +14,7 @@ type Role struct {
 	Modified    time.Time
 
 	// Associated Fields
-	Permissions []*Permission
+	Permissions Permissions
 }
 
 type Permission struct {
@@ -24,6 +24,10 @@ type Permission struct {
 	Created     time.Time
 	Modified    time.Time
 }
+
+type Permissions []*Permission
+
+type Roles []*Role
 
 var (
 	_ Model = (*Role)(nil)
@@ -104,5 +108,43 @@ func (p *Permission) Params(_ Operation) []sql.NamedArg {
 		sql.Named("description", p.Description),
 		sql.Named("created", p.Created),
 		sql.Named("modified", p.Modified),
+	}
+}
+
+//============================================================================
+// Helper Methods
+//============================================================================
+
+func (r Roles) List() []string {
+	out := make([]string, 0, len(r))
+	for _, role := range r {
+		out = append(out, role.Title)
+	}
+	return out
+}
+
+func (p Permissions) List() []string {
+	out := make([]string, 0, len(p))
+	for _, perm := range p {
+		out = append(out, perm.Title)
+	}
+	return out
+}
+
+func (r Roles) Load(in []string) {
+	r = make(Roles, 0, len(in))
+	for _, title := range in {
+		if title != "" {
+			r = append(r, &Role{Title: title})
+		}
+	}
+}
+
+func (p Permissions) Load(in []string) {
+	p = make(Permissions, 0, len(in))
+	for _, title := range in {
+		if title != "" {
+			p = append(p, &Permission{Title: title})
+		}
 	}
 }

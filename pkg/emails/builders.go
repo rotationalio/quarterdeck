@@ -42,11 +42,12 @@ type WelcomeUserEmailData struct {
 
 // RoleTitle returns the first role title for the user, or empty if none.
 func RoleTitle(user *models.User) string {
-	roles, err := user.Roles()
-	if err != nil || len(roles) == 0 {
-		return ""
+	for _, role := range user.Roles {
+		if role.Title != "" {
+			return role.Title
+		}
 	}
-	return roles[0].Title
+	return ""
 }
 
 // VerifyURL returns the password-reset URL including the signed verification token.
