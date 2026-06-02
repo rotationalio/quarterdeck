@@ -17,7 +17,7 @@ func TestOIDCClientParams(t *testing.T) {
 	contacts := []string{"first@example.com", "second@example.com"}
 
 	client := &OIDCClient{
-		Model: Model{
+		BaseModel: BaseModel{
 			ID:       modelID,
 			Created:  created,
 			Modified: modified,

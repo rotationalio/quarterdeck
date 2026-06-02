@@ -14,7 +14,7 @@ import (
 
 func TestAPIKeyParams(t *testing.T) {
 	apikey := &APIKey{
-		Model: Model{
+		BaseModel: BaseModel{
 			ID:       modelID,
 			Created:  created,
 			Modified: modified,
@@ -149,7 +149,7 @@ func TestAPIKeyScanSummary(t *testing.T) {
 
 func TestAPIKeyPermissions(t *testing.T) {
 	apikey := &APIKey{
-		Model: Model{
+		BaseModel: BaseModel{
 			ID:       modelID,
 			Created:  created,
 			Modified: modified,
@@ -174,7 +174,7 @@ func TestAPIKeyStatus(t *testing.T) {
 	}{
 		{
 			key: &APIKey{
-				Model: Model{
+				BaseModel: BaseModel{
 					ID:       modelID,
 					Created:  created,
 					Modified: modified,
@@ -186,7 +186,7 @@ func TestAPIKeyStatus(t *testing.T) {
 		},
 		{
 			key: &APIKey{
-				Model: Model{
+				BaseModel: BaseModel{
 					ID:       modelID,
 					Created:  created,
 					Modified: modified,
@@ -198,7 +198,7 @@ func TestAPIKeyStatus(t *testing.T) {
 		},
 		{
 			key: &APIKey{
-				Model: Model{
+				BaseModel: BaseModel{
 					ID:       modelID,
 					Created:  created,
 					Modified: modified,
@@ -210,7 +210,7 @@ func TestAPIKeyStatus(t *testing.T) {
 		},
 		{
 			key: &APIKey{
-				Model: Model{
+				BaseModel: BaseModel{
 					ID:       modelID,
 					Created:  created,
 					Modified: modified,

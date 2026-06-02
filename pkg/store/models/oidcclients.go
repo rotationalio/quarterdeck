@@ -2,152 +2,131 @@ package models
 
 import (
 	"database/sql"
-	"encoding/json"
 
+	"go.rtnl.ai/quarterdeck/pkg/store/fields"
 	"go.rtnl.ai/ulid"
 )
 
 type OIDCClient struct {
-	Model
-	CreatedBy ulid.ULID
+	BaseModel
 
 	// OIDC spec descriptive fields
-
-	ClientName string           // Descriptive name
-	ClientURI  sql.NullString   // Main page, or "about us" type of page
-	LogoURI    sql.NullString   // Logo image
-	PolicyURI  sql.NullString   // Privacy policy page
-	TOSURI     sql.NullString   // Terms of service page
-	Contacts   []sql.NullString // Email addresses for the client
+	ClientName string                 // Descriptive name
+	ClientURI  sql.NullString         // Main page, or "about us" type of page
+	LogoURI    sql.NullString         // Logo image
+	PolicyURI  sql.NullString         // Privacy policy page
+	TOSURI     sql.NullString         // Terms of service page
+	Contacts   fields.NullStringArray // Email addresses for the client
 
 	// OIDC spec technical fields
-
 	ClientID     string
 	Secret       string
-	RedirectURIs []string
+	RedirectURIs fields.NullStringArray
+
+	// Associated Fields
+	CreatedBy ulid.ULID
 }
 
-type OIDCClientList struct {
-	Page        *Page
-	OIDCClients []*OIDCClient
-}
+var (
+	_ Model = (*OIDCClient)(nil)
+)
+
+var (
+	oidcclientFields = [13]string{
+		"id",
+		"client_name",
+		"client_uri",
+		"logo_uri",
+		"policy_uri",
+		"tos_uri",
+		"contacts",
+		"client_id",
+		"secret",
+		"redirect_uris",
+		"created_by",
+		"created",
+		"modified",
+	}
+
+	oidcclientSummaryFields = [12]string{
+		"id",
+		"client_name",
+		"client_uri",
+		"logo_uri",
+		"policy_uri",
+		"tos_uri",
+		"contacts",
+		"client_id",
+		"redirect_uris",
+		"created_by",
+		"created",
+		"modified",
+	}
+)
 
 //===========================================================================
-// Scanning and Params
+// Model Methods
 //===========================================================================
 
 // Scanner is an interface for scanning database rows into the OIDCClient struct.
-func (k *OIDCClient) Scan(scanner Scanner) (err error) {
-	var redirectURIsJSON, contactsJSON sql.NullString
-
-	if err = scanner.Scan(
-		&k.ID,
-		&k.ClientName,
-		&k.ClientURI,
-		&k.LogoURI,
-		&k.PolicyURI,
-		&k.TOSURI,
-		&redirectURIsJSON,
-		&contactsJSON,
-		&k.ClientID,
-		&k.Secret,
-		&k.CreatedBy,
-		&k.Created,
-		&k.Modified,
-	); err != nil {
-		return err
+func (k *OIDCClient) Scan(op Operation, scanner Scanner) (err error) {
+	switch op {
+	case List:
+		return scanner.Scan(
+			&k.ID,
+			&k.ClientName,
+			&k.ClientURI,
+			&k.LogoURI,
+			&k.PolicyURI,
+			&k.TOSURI,
+			&k.Contacts,
+			&k.ClientID,
+			&k.RedirectURIs,
+			&k.CreatedBy,
+			&k.Created,
+			&k.Modified,
+		)
+	default:
+		return scanner.Scan(
+			&k.ID,
+			&k.ClientName,
+			&k.ClientURI,
+			&k.LogoURI,
+			&k.PolicyURI,
+			&k.TOSURI,
+			&k.Contacts,
+			&k.ClientID,
+			&k.Secret,
+			&k.RedirectURIs,
+			&k.CreatedBy,
+			&k.Created,
+			&k.Modified,
+		)
 	}
-
-	if redirectURIsJSON.Valid && redirectURIsJSON.String != "" {
-		_ = json.Unmarshal([]byte(redirectURIsJSON.String), &k.RedirectURIs)
-	} else {
-		k.RedirectURIs = nil
-	}
-
-	if contactsJSON.Valid && contactsJSON.String != "" {
-		var strs []string
-		_ = json.Unmarshal([]byte(contactsJSON.String), &strs)
-		k.Contacts = make([]sql.NullString, len(strs))
-		for i, s := range strs {
-			k.Contacts[i] = sql.NullString{Valid: true, String: s}
-		}
-	} else {
-		k.Contacts = nil
-	}
-
-	return nil
 }
 
-// ScanSummary scans an OIDCClient struct from a database row, excluding the Secret field.
-func (k *OIDCClient) ScanSummary(scanner Scanner) (err error) {
-	var redirectURIsJSON, contactsJSON sql.NullString
-
-	if err = scanner.Scan(
-		&k.ID,
-		&k.ClientName,
-		&k.ClientURI,
-		&k.LogoURI,
-		&k.PolicyURI,
-		&k.TOSURI,
-		&redirectURIsJSON,
-		&contactsJSON,
-		&k.ClientID,
-		&k.CreatedBy,
-		&k.Created,
-		&k.Modified,
-	); err != nil {
-		return err
+func (k *OIDCClient) Fields(op Operation) []string {
+	switch op {
+	case List:
+		return oidcclientSummaryFields[:]
+	default:
+		return oidcclientFields[:]
 	}
-
-	if redirectURIsJSON.Valid && redirectURIsJSON.String != "" {
-		_ = json.Unmarshal([]byte(redirectURIsJSON.String), &k.RedirectURIs)
-	} else {
-		k.RedirectURIs = nil
-	}
-
-	if contactsJSON.Valid && contactsJSON.String != "" {
-		var strs []string
-		_ = json.Unmarshal([]byte(contactsJSON.String), &strs)
-		k.Contacts = make([]sql.NullString, len(strs))
-		for i, s := range strs {
-			k.Contacts[i] = sql.NullString{Valid: true, String: s}
-		}
-	} else {
-		k.Contacts = nil
-	}
-
-	k.Secret = ""
-
-	return nil
 }
 
 // Params returns all OIDCClient fields as named params to be used in a SQL query.
-func (k *OIDCClient) Params() []any {
-	redirectURIs := []string{}
-	if k.RedirectURIs != nil {
-		redirectURIs = k.RedirectURIs
-	}
-	redirectURIsJSON, _ := json.Marshal(redirectURIs)
-
-	contactsStrs := make([]string, 0, len(k.Contacts))
-	for _, c := range k.Contacts {
-		if c.Valid {
-			contactsStrs = append(contactsStrs, c.String)
-		}
-	}
-	contactsJSON, _ := json.Marshal(contactsStrs)
-
-	return []any{
+func (k *OIDCClient) Params(_ Operation) []sql.NamedArg {
+	return []sql.NamedArg{
 		sql.Named("id", k.ID),
 		sql.Named("clientName", k.ClientName),
 		sql.Named("clientURI", k.ClientURI),
 		sql.Named("logoURI", k.LogoURI),
 		sql.Named("policyURI", k.PolicyURI),
 		sql.Named("tosURI", k.TOSURI),
-		sql.Named("redirectURIs", string(redirectURIsJSON)),
-		sql.Named("contacts", string(contactsJSON)),
+		sql.Named("contacts", k.Contacts),
 		sql.Named("clientID", k.ClientID),
 		sql.Named("secret", k.Secret),
+		sql.Named("redirectURIs", k.RedirectURIs),
 		sql.Named("createdBy", k.CreatedBy),
 		sql.Named("created", k.Created),
 		sql.Named("modified", k.Modified),

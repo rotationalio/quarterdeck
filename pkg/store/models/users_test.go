@@ -26,7 +26,7 @@ func TestUserParams(t *testing.T) {
 	// because anytime you add a new field, you have to update this test, but it
 	// will prevent headaches for you later on, I promise.
 	user := &User{
-		Model: Model{
+		BaseModel: BaseModel{
 			ID:       modelID,
 			Created:  created,
 			Modified: modified,
@@ -153,7 +153,7 @@ func TestUserScanSummary(t *testing.T) {
 
 func TestUserRoles(t *testing.T) {
 	user := &User{
-		Model: Model{
+		BaseModel: BaseModel{
 			ID:       modelID,
 			Created:  created,
 			Modified: modified,
@@ -188,7 +188,7 @@ func TestUserRoles(t *testing.T) {
 
 func TestUserPermissions(t *testing.T) {
 	user := &User{
-		Model: Model{
+		BaseModel: BaseModel{
 			ID:       modelID,
 			Created:  created,
 			Modified: modified,
@@ -205,7 +205,7 @@ func TestUserPermissions(t *testing.T) {
 
 func TestUserClaims(t *testing.T) {
 	user := &User{
-		Model: Model{
+		BaseModel: BaseModel{
 			ID:       modelID,
 			Created:  created,
 			Modified: modified,
@@ -235,7 +235,7 @@ func TestUserClaims(t *testing.T) {
 
 func TestUserGravatar(t *testing.T) {
 	user := &User{
-		Model: Model{
+		BaseModel: BaseModel{
 			ID:       modelID,
 			Created:  created,
 			Modified: modified,
@@ -249,7 +249,7 @@ func TestUserGravatar(t *testing.T) {
 
 func TestEmptyGravatar(t *testing.T) {
 	user := &User{
-		Model: Model{
+		BaseModel: BaseModel{
 			ID:       modelID,
 			Created:  created,
 			Modified: modified,

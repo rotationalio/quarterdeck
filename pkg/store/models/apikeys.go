@@ -10,57 +10,92 @@ import (
 )
 
 type APIKey struct {
-	Model
+	BaseModel
 	Description sql.NullString
 	ClientID    string
 	Secret      string
 	CreatedBy   ulid.ULID
 	LastSeen    sql.NullTime
 	Revoked     sql.NullTime
-	permissions []string
+
+	// Associated fields
+	Permissions []string
 }
 
-type APIKeyList struct {
-	Page    *Page
-	APIKeys []*APIKey
-}
+var (
+	_ Model = (*APIKey)(nil)
+)
+
+var (
+	apikeyFields = [9]string{
+		"id",
+		"description",
+		"client_id",
+		"secret",
+		"created_by",
+		"last_seen",
+		"revoked",
+		"created",
+		"modified",
+	}
+
+	apikeySummaryFields = [8]string{
+		"id",
+		"description",
+		"client_id",
+		"created_by",
+		"last_seen",
+		"revoked",
+		"created",
+		"modified",
+	}
+)
 
 //===========================================================================
 // Scanning and Params
 //===========================================================================
 
 // Scanner is an interface for scanning database rows into the APIKey struct.
-func (k *APIKey) Scan(scanner Scanner) error {
-	return scanner.Scan(
-		&k.ID,
-		&k.Description,
-		&k.ClientID,
-		&k.Secret,
-		&k.CreatedBy,
-		&k.LastSeen,
-		&k.Revoked,
-		&k.Created,
-		&k.Modified,
-	)
+func (k *APIKey) Scan(op Operation, scanner Scanner) error {
+	switch op {
+	case List:
+		return scanner.Scan(
+			&k.ID,
+			&k.Description,
+			&k.ClientID,
+			&k.CreatedBy,
+			&k.LastSeen,
+			&k.Revoked,
+			&k.Created,
+			&k.Modified,
+		)
+	default:
+		return scanner.Scan(
+			&k.ID,
+			&k.Description,
+			&k.ClientID,
+			&k.Secret,
+			&k.CreatedBy,
+			&k.LastSeen,
+			&k.Revoked,
+			&k.Created,
+			&k.Modified,
+		)
+	}
 }
 
-// ScanSummary scans an APIKey struct from a database row, excluding the Secret field.
-func (k *APIKey) ScanSummary(scanner Scanner) error {
-	return scanner.Scan(
-		&k.ID,
-		&k.Description,
-		&k.ClientID,
-		&k.CreatedBy,
-		&k.LastSeen,
-		&k.Revoked,
-		&k.Created,
-		&k.Modified,
-	)
+func (k *APIKey) Fields(op Operation) []string {
+	switch op {
+	case List:
+		return apikeySummaryFields[:]
+	default:
+		return apikeyFields[:]
+	}
 }
 
 // Params returns all APIKey fields as named params to be used in a SQL query.
-func (k *APIKey) Params() []any {
-	return []any{
+func (k *APIKey) Params(_ Operation) []sql.NamedArg {
+	return []sql.NamedArg{
 		sql.Named("id", k.ID),
 		sql.Named("description", k.Description),
 		sql.Named("clientID", k.ClientID),
@@ -71,20 +106,6 @@ func (k *APIKey) Params() []any {
 		sql.Named("created", k.Created),
 		sql.Named("modified", k.Modified),
 	}
-}
-
-//===========================================================================
-// Associations
-//===========================================================================
-
-// Permissions returns the permissions associated with the APIKey, if set.
-func (k APIKey) Permissions() []string {
-	return k.permissions
-}
-
-// SetPermissions sets the permissions for the APIKey.
-func (k *APIKey) SetPermissions(permissions []string) {
-	k.permissions = permissions
 }
 
 //===========================================================================
@@ -121,11 +142,11 @@ func (k *APIKey) Status() enum.APIKeyStatus {
 func (k APIKey) Claims() *auth.Claims {
 	claims := &auth.Claims{
 		ClientID:    k.ClientID,
-		Permissions: k.Permissions(),
+		Permissions: k.Permissions,
 	}
 
-	if len(k.permissions) > 0 {
-		claims.Permissions = k.permissions
+	if len(k.Permissions) > 0 {
+		claims.Permissions = k.Permissions
 	}
 
 	claims.SetSubjectID(auth.SubjectAPIKey, k.ID)

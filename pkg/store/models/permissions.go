@@ -3,8 +3,6 @@ package models
 import (
 	"database/sql"
 	"time"
-
-	"go.rtnl.ai/quarterdeck/pkg/errors"
 )
 
 type Role struct {
@@ -14,12 +12,9 @@ type Role struct {
 	IsDefault   bool
 	Created     time.Time
 	Modified    time.Time
-	permissions []*Permission
-}
 
-type RoleList struct {
-	Page  *Page
-	Roles []*Role
+	// Associated Fields
+	Permissions []*Permission
 }
 
 type Permission struct {
@@ -30,17 +25,36 @@ type Permission struct {
 	Modified    time.Time
 }
 
-type PermissionList struct {
-	Page        *Page
-	Permissions []*Permission
-}
+var (
+	_ Model = (*Role)(nil)
+	_ Model = (*Permission)(nil)
+)
+
+var (
+	roleFields = [6]string{
+		"id",
+		"title",
+		"description",
+		"is_default",
+		"created",
+		"modified",
+	}
+
+	permissionFields = [5]string{
+		"id",
+		"title",
+		"description",
+		"created",
+		"modified",
+	}
+)
 
 //===========================================================================
 // Scanning and Params
 //===========================================================================
 
 // Scanner is an interface for scanning database rows into the Role structs.
-func (r *Role) Scan(scanner Scanner) error {
+func (r *Role) Scan(op Operation, scanner Scanner) error {
 	return scanner.Scan(
 		&r.ID,
 		&r.Title,
@@ -51,9 +65,13 @@ func (r *Role) Scan(scanner Scanner) error {
 	)
 }
 
+func (r *Role) Fields(op Operation) []string {
+	return roleFields[:]
+}
+
 // Params returns all Role fields as named params to be used in a SQL query.
-func (r *Role) Params() []any {
-	return []any{
+func (r *Role) Params(_ Operation) []sql.NamedArg {
+	return []sql.NamedArg{
 		sql.Named("id", r.ID),
 		sql.Named("title", r.Title),
 		sql.Named("description", r.Description),
@@ -64,7 +82,7 @@ func (r *Role) Params() []any {
 }
 
 // Scan the Permission struct from a database row.
-func (p *Permission) Scan(scanner Scanner) error {
+func (p *Permission) Scan(op Operation, scanner Scanner) error {
 	return scanner.Scan(
 		&p.ID,
 		&p.Title,
@@ -74,31 +92,17 @@ func (p *Permission) Scan(scanner Scanner) error {
 	)
 }
 
+func (p *Permission) Fields(op Operation) []string {
+	return permissionFields[:]
+}
+
 // Params returns all Permission fields as named params to be used in a SQL query.
-func (p *Permission) Params() []any {
-	return []any{
+func (p *Permission) Params(_ Operation) []sql.NamedArg {
+	return []sql.NamedArg{
 		sql.Named("id", p.ID),
 		sql.Named("title", p.Title),
 		sql.Named("description", p.Description),
 		sql.Named("created", p.Created),
 		sql.Named("modified", p.Modified),
 	}
-}
-
-//===========================================================================
-// Associations
-//===========================================================================
-
-// Permissions returns the permissions associated with the role, if set, otherwise
-// returns ErrMissingAssociation.
-func (r Role) Permissions() ([]*Permission, error) {
-	if r.permissions == nil {
-		return nil, errors.ErrMissingAssociation
-	}
-	return r.permissions, nil
-}
-
-// SetPermissions sets the permissions for the role.
-func (r *Role) SetPermissions(permissions []*Permission) {
-	r.permissions = permissions
 }

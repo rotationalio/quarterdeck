@@ -13,7 +13,7 @@ import (
 // Quarterdeck for a one-time task such as resetting a password, verifying an email
 // address, or accepting an invitation to a team.
 type VeroToken struct {
-	Model
+	BaseModel
 	TokenType  enum.TokenType
 	ResourceID ulid.NullULID
 	Email      string
@@ -22,12 +22,30 @@ type VeroToken struct {
 	SentOn     sql.NullTime
 }
 
+var (
+	_ Model = (*VeroToken)(nil)
+)
+
+var (
+	veroTokenFields = [9]string{
+		"id",
+		"token_type",
+		"resource_id",
+		"email",
+		"expiration",
+		"signature",
+		"sent_on",
+		"created",
+		"modified",
+	}
+)
+
 //===========================================================================
 // Scanning and Params
 //===========================================================================
 
 // Scan is an interface for scanning database rows into the VeroToken struct.
-func (v *VeroToken) Scan(scanner Scanner) error {
+func (v *VeroToken) Scan(op Operation, scanner Scanner) error {
 	return scanner.Scan(
 		&v.ID,
 		&v.TokenType,
@@ -41,9 +59,13 @@ func (v *VeroToken) Scan(scanner Scanner) error {
 	)
 }
 
+func (v *VeroToken) Fields(op Operation) []string {
+	return veroTokenFields[:]
+}
+
 // Params returns all VeroToken fields as named params to be used in a SQL query.
-func (v *VeroToken) Params() []any {
-	return []any{
+func (v *VeroToken) Params(_ Operation) []sql.NamedArg {
+	return []sql.NamedArg{
 		sql.Named("id", v.ID),
 		sql.Named("tokenType", v.TokenType),
 		sql.Named("resourceID", v.ResourceID),
