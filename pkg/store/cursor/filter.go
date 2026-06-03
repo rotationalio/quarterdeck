@@ -1,3 +1,8 @@
 package cursor
 
-type Filter interface{}
+import "database/sql"
+
+type Filter interface {
+	SQL() string
+	Params() []sql.NamedArg
+}

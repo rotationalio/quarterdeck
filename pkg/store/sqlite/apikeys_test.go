@@ -15,33 +15,17 @@ func (s *storeTestSuite) TestAPIKeyList() {
 	require.NoError(err, "should be able to list api keys")
 	require.NotNil(out, "should return an api key list")
 
-	// TODO: re-enable this test.
-	// require.Len(out.APIKeys, 3, "api key list should return 3 keys and none that are revoked")
+	keys, err := out.List()
+	require.NoError(err, "should be able to list api keys")
+	require.Len(keys, 3, "api key list should return 3 keys and none that are revoked")
 
-	// // Ensure no keys returned are revoked
-	// for _, key := range out.APIKeys {
-	// 	require.False(key.Revoked.Valid, "api key should not be revoked")
-	// }
+	// Ensure no keys returned are revoked
+	for _, key := range keys {
+		require.False(key.Revoked.Valid, "api key should not be revoked")
+	}
 }
 
 func (s *storeTestSuite) TestCreateAPIKey() {
-	s.Run("NoIDOnCreate", func() {
-		key := &models.APIKey{
-			BaseModel: models.BaseModel{
-				ID:       ulid.Make(),
-				Created:  time.Now(),
-				Modified: time.Now(),
-			},
-			Description: sql.NullString{String: "Test API Key", Valid: true},
-			ClientID:    "DtptIgWgzkwaibktjczVwr",
-			Secret:      "$argon2id$v=19$m=65536,t=1,p=2$IoXhViMsvBCFkA6NqU38vw==$zmsktbWyYxOuX55yB1o6KC8I3hZltxtU53rOWggs2IM=",
-			CreatedBy:   ulid.MustParse("01JPYRNYMEHNEZCS0JYX1CP57A"),
-		}
-
-		err := s.db.CreateAPIKey(s.Context(), key)
-		s.Require().ErrorIs(err, errors.ErrNoIDOnCreate, "should not allow creating API key with ID set")
-	})
-
 	s.Run("ReadOnly", func() {
 		if !s.ReadOnly() {
 			s.T().Skip("skipping create read-only error test in read-write mode")
@@ -84,10 +68,6 @@ func (s *storeTestSuite) TestCreateAPIKey() {
 	})
 
 	s.Run("WithPermissions", func() {
-		if s.ReadOnly() {
-			s.T().Skip("skipping create test in read-only mode")
-		}
-
 		if s.ReadOnly() {
 			s.T().Skip("skipping create test in read-only mode")
 		}

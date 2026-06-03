@@ -6,6 +6,7 @@ import (
 
 	"go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/quarterdeck/pkg/enum"
+	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/ulid"
 )
 
@@ -98,14 +99,25 @@ func (k *APIKey) Params(_ Operation) []sql.NamedArg {
 	return []sql.NamedArg{
 		sql.Named("id", k.ID),
 		sql.Named("description", k.Description),
-		sql.Named("clientID", k.ClientID),
+		sql.Named("client_id", k.ClientID),
 		sql.Named("secret", k.Secret),
-		sql.Named("createdBy", k.CreatedBy),
-		sql.Named("lastSeen", k.LastSeen),
+		sql.Named("created_by", k.CreatedBy),
+		sql.Named("last_seen", k.LastSeen),
 		sql.Named("revoked", k.Revoked),
 		sql.Named("created", k.Created),
 		sql.Named("modified", k.Modified),
 	}
+}
+
+func (k *APIKey) Validate(op Operation) error {
+	switch op {
+	case Create:
+		if k.ClientID == "" || k.Secret == "" || k.CreatedBy.IsZero() {
+			return errors.ErrZeroValuedNotNull
+		}
+	}
+
+	return nil
 }
 
 //===========================================================================

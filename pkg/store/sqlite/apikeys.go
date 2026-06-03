@@ -15,36 +15,23 @@ import (
 // APIKey Store
 //===========================================================================
 
-// const (
-// 	listAPIKeysSQL = "SELECT id, description, client_id, created_by, last_seen, revoked, created, modified FROM api_keys WHERE revoked IS NULL ORDER BY created DESC"
-// )
+var apikeyCRUD = MakeCRUD[*models.APIKey]("api_keys")
 
 func (s *Store) ListAPIKeys(ctx context.Context, filter cursor.Filter) (out cursor.Cursor[*models.APIKey], err error) {
 	var tx *Tx
 	if tx, err = s.BeginTx(ctx, &sql.TxOptions{ReadOnly: true}); err != nil {
 		return nil, err
 	}
-	defer tx.Rollback()
 
 	if out, err = tx.ListAPIKeys(filter); err != nil {
 		return nil, err
 	}
-
-	if err = tx.Commit(); err != nil {
-		return nil, err
-	}
-
 	return out, nil
 }
 
 func (tx *Tx) ListAPIKeys(filter cursor.Filter) (out cursor.Cursor[*models.APIKey], err error) {
-	// TODO: implement cursor
-	return out, nil
+	return apikeyCRUD.List(tx, filter)
 }
-
-const (
-	createAPIKeySQL = "INSERT INTO api_keys (id, description, client_id, secret, created_by, last_seen, revoked, created, modified) VALUES (:id, :description, :clientID, :secret, :createdBy, :lastSeen, :revoked, :created, :modified)"
-)
 
 func (s *Store) CreateAPIKey(ctx context.Context, key *models.APIKey) (err error) {
 	var tx *Tx
@@ -61,20 +48,8 @@ func (s *Store) CreateAPIKey(ctx context.Context, key *models.APIKey) (err error
 }
 
 func (tx *Tx) CreateAPIKey(key *models.APIKey) (err error) {
-	if !key.ID.IsZero() {
-		return errors.ErrNoIDOnCreate
-	}
-
-	if key.ClientID == "" || key.Secret == "" || key.CreatedBy.IsZero() {
-		return errors.ErrZeroValuedNotNull
-	}
-
-	key.ID = ulid.MakeSecure()
-	key.Created = time.Now()
-	key.Modified = key.Created
-
-	if _, err = tx.Exec(createAPIKeySQL, key.Params(models.Create)...); err != nil {
-		return dbe(err)
+	if _, err = apikeyCRUD.Create(tx, key); err != nil {
+		return err
 	}
 
 	for _, permission := range key.Permissions {
@@ -85,11 +60,6 @@ func (tx *Tx) CreateAPIKey(key *models.APIKey) (err error) {
 
 	return nil
 }
-
-const (
-	retrieveAPIKeyByClientIDSQL = "SELECT * FROM api_keys WHERE client_id=:clientID"
-	retrieveAPIKeyByIDSQL       = "SELECT * FROM api_keys WHERE id=:id"
-)
 
 func (s *Store) RetrieveAPIKey(ctx context.Context, id any) (key *models.APIKey, err error) {
 	var tx *Tx
@@ -110,33 +80,25 @@ func (s *Store) RetrieveAPIKey(ctx context.Context, id any) (key *models.APIKey,
 }
 
 func (tx *Tx) RetrieveAPIKey(id any) (key *models.APIKey, err error) {
-	var (
-		query string
-		param sql.NamedArg
-	)
 
+	var param sql.NamedArg
 	switch t := id.(type) {
 	case string:
 		if t == "" {
 			return nil, errors.ErrMissingID
 		}
-
-		query = retrieveAPIKeyByClientIDSQL
 		param = sql.Named("clientID", t)
 	case ulid.ULID:
 		if t.IsZero() {
 			return nil, errors.ErrMissingID
 		}
-
-		query = retrieveAPIKeyByIDSQL
 		param = sql.Named("id", t)
 	default:
 		return nil, errors.Fmt("invalid type %T for API key ID", id)
 	}
 
-	key = &models.APIKey{}
-	if err = key.Scan(models.Retrieve, tx.QueryRow(query, param)); err != nil {
-		return nil, dbe(err)
+	if key, err = apikeyCRUD.Retrieve(tx, param); err != nil {
+		return nil, err
 	}
 
 	// Fetch api key permissions
@@ -176,10 +138,6 @@ func (tx *Tx) apikeyPermissions(keyID ulid.ULID) (permissions []string, err erro
 	return permissions, nil
 }
 
-const (
-	updateAPIKeySQL = "UPDATE api_keys SET description=:description, modified=:modified WHERE id=:id"
-)
-
 func (s *Store) UpdateAPIKey(ctx context.Context, key *models.APIKey) (err error) {
 	var tx *Tx
 	if tx, err = s.BeginTx(ctx, &sql.TxOptions{ReadOnly: true}); err != nil {
@@ -195,22 +153,7 @@ func (s *Store) UpdateAPIKey(ctx context.Context, key *models.APIKey) (err error
 }
 
 func (tx *Tx) UpdateAPIKey(key *models.APIKey) (err error) {
-	if key.ID.IsZero() {
-		return errors.ErrMissingID
-	}
-
-	key.Modified = time.Now()
-
-	var result sql.Result
-	if result, err = tx.Exec(updateAPIKeySQL, key.Params(models.Update)...); err != nil {
-		return dbe(err)
-	}
-
-	if nRows, _ := result.RowsAffected(); nRows == 0 {
-		return errors.ErrNotFound
-	}
-
-	return nil
+	return apikeyCRUD.Update(tx, key)
 }
 
 const (
@@ -373,10 +316,6 @@ func (tx *Tx) RevokeAPIKey(keyID ulid.ULID) (err error) {
 	return nil
 }
 
-const (
-	deleteAPIKeySQL = "DELETE FROM api_keys WHERE id=:id"
-)
-
 func (s *Store) DeleteAPIKey(ctx context.Context, keyID ulid.ULID) (err error) {
 	var tx *Tx
 	if tx, err = s.BeginTx(ctx, nil); err != nil {
@@ -392,18 +331,6 @@ func (s *Store) DeleteAPIKey(ctx context.Context, keyID ulid.ULID) (err error) {
 }
 
 func (tx *Tx) DeleteAPIKey(keyID ulid.ULID) (err error) {
-	if keyID.IsZero() {
-		return errors.ErrMissingID
-	}
-
-	var result sql.Result
-	if result, err = tx.Exec(deleteAPIKeySQL, sql.Named("id", keyID)); err != nil {
-		return dbe(err)
-	}
-
-	if nRows, _ := result.RowsAffected(); nRows == 0 {
-		return errors.ErrNotFound
-	}
-
-	return nil
+	_, err = apikeyCRUD.Delete(tx, sql.Named("id", keyID))
+	return err
 }

@@ -2,8 +2,10 @@ package models
 
 import (
 	"database/sql"
+	"reflect"
 	"time"
 
+	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/ulid"
 )
 
@@ -52,6 +54,21 @@ type Validator interface {
 	Validate(Operation) error
 }
 
+//============================================================================
+// Model Factory
+//============================================================================
+
+func Make[M Model]() M {
+	var instance M
+
+	t := reflect.TypeOf(instance)
+	if t != nil && t.Kind() == reflect.Ptr {
+		return reflect.New(t.Elem()).Interface().(M)
+	}
+
+	return instance
+}
+
 //===========================================================================
 // Base Model Methods
 //===========================================================================
@@ -71,6 +88,18 @@ func (b *BaseModel) Prepare(op Operation) {
 	case Update:
 		b.Modified = time.Now().UTC()
 	}
+}
+
+// Validates the base model before update or create. This is called after Prepare so
+// there is no point checking for timstamp zero values as they will be set by Prepare.
+func (b *BaseModel) Validate(op Operation) error {
+	switch op {
+	case Update:
+		if b.ID.IsZero() {
+			return errors.ErrMissingID
+		}
+	}
+	return nil
 }
 
 func (b *BaseModel) IsZero() bool {
