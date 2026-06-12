@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.rtnl.ai/quarterdeck/pkg/store/models"
+	"go.rtnl.ai/quarterdeck/pkg/store/v1/models"
 )
 
 // TestWelcomeEmailRateLimited checks the resend cooldown uses SentOn.

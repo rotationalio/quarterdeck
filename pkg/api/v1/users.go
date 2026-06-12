@@ -7,7 +7,7 @@ import (
 	"time"
 
 	qde "go.rtnl.ai/quarterdeck/pkg/errors"
-	"go.rtnl.ai/quarterdeck/pkg/store/models"
+	"go.rtnl.ai/quarterdeck/pkg/store/v1/models"
 	"go.rtnl.ai/ulid"
 )
 

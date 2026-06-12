@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
-	"go.rtnl.ai/quarterdeck/pkg/store/models"
+	"go.rtnl.ai/quarterdeck/pkg/store/v1/models"
 	"go.rtnl.ai/ulid"
 )
 

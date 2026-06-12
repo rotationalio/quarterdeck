@@ -21,7 +21,7 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/config"
 	"go.rtnl.ai/quarterdeck/pkg/emails"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
-	"go.rtnl.ai/quarterdeck/pkg/store"
+	"go.rtnl.ai/quarterdeck/pkg/store/v1"
 	"go.rtnl.ai/quarterdeck/pkg/telemetry"
 	"go.rtnl.ai/x/probez"
 	"go.rtnl.ai/x/rlog"

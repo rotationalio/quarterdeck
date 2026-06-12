@@ -7,24 +7,24 @@ import (
 	"net/url"
 	"time"
 
-	"go.rtnl.ai/quarterdeck/pkg/store/models"
+	"go.rtnl.ai/quarterdeck/pkg/store/v1/models"
 	"go.rtnl.ai/ulid"
 )
 
 type OIDCClient struct {
-	ID           ulid.ULID  `json:"id,omitempty"`
-	ClientName   string     `json:"client_name"`
-	ClientURI    *string    `json:"client_uri,omitempty"`
-	LogoURI      *string    `json:"logo_uri,omitempty"`
-	PolicyURI    *string    `json:"policy_uri,omitempty"`
-	TOSURI       *string    `json:"tos_uri,omitempty"`
-	Contacts     []string   `json:"contacts,omitempty"`
-	RedirectURIs []string   `json:"redirect_uris"`
-	ClientID     string     `json:"client_id,omitempty"`
-	Secret       string     `json:"secret,omitempty"`
-	CreatedBy    ulid.ULID  `json:"created_by,omitempty"`
-	Created      time.Time  `json:"created,omitempty"`
-	Modified     time.Time  `json:"modified,omitempty"`
+	ID           ulid.ULID `json:"id,omitempty"`
+	ClientName   string    `json:"client_name"`
+	ClientURI    *string   `json:"client_uri,omitempty"`
+	LogoURI      *string   `json:"logo_uri,omitempty"`
+	PolicyURI    *string   `json:"policy_uri,omitempty"`
+	TOSURI       *string   `json:"tos_uri,omitempty"`
+	Contacts     []string  `json:"contacts,omitempty"`
+	RedirectURIs []string  `json:"redirect_uris"`
+	ClientID     string    `json:"client_id,omitempty"`
+	Secret       string    `json:"secret,omitempty"`
+	CreatedBy    ulid.ULID `json:"created_by,omitempty"`
+	Created      time.Time `json:"created,omitempty"`
+	Modified     time.Time `json:"modified,omitempty"`
 }
 
 type OIDCClientList struct {

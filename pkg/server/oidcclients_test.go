@@ -15,9 +15,9 @@ import (
 	"go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
-	"go.rtnl.ai/quarterdeck/pkg/store"
-	"go.rtnl.ai/quarterdeck/pkg/store/mock"
-	"go.rtnl.ai/quarterdeck/pkg/store/models"
+	"go.rtnl.ai/quarterdeck/pkg/store/v1"
+	"go.rtnl.ai/quarterdeck/pkg/store/v1/mock"
+	"go.rtnl.ai/quarterdeck/pkg/store/v1/models"
 	"go.rtnl.ai/ulid"
 )
 

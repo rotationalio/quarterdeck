@@ -9,7 +9,7 @@ import (
 	"go.rtnl.ai/gimlet/logger"
 	"go.rtnl.ai/quarterdeck/pkg"
 	"go.rtnl.ai/quarterdeck/pkg/api/v1"
-	"go.rtnl.ai/quarterdeck/pkg/store"
+	"go.rtnl.ai/quarterdeck/pkg/store/v1"
 )
 
 const (

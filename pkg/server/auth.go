@@ -17,7 +17,7 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/auth"
 	"go.rtnl.ai/quarterdeck/pkg/auth/passwords"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
-	"go.rtnl.ai/quarterdeck/pkg/store/models"
+	"go.rtnl.ai/quarterdeck/pkg/store/v1/models"
 	"go.rtnl.ai/quarterdeck/pkg/web/htmx"
 	"go.rtnl.ai/quarterdeck/pkg/web/scene"
 	"go.rtnl.ai/x/rlog"
