@@ -27,6 +27,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.42.0
 	go.rtnl.ai/commo v0.3.0
 	go.rtnl.ai/gimlet v1.6.1
+	go.rtnl.ai/tidal v1.1.0
 	go.rtnl.ai/ulid v1.2.0
 	go.rtnl.ai/x v1.18.0
 	golang.org/x/crypto v0.51.0
@@ -95,7 +96,6 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.42.0 // indirect
 	go.opentelemetry.io/otel/exporters/prometheus v0.64.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
-	go.rtnl.ai/tidal v1.1.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	golang.org/x/arch v0.25.0 // indirect
