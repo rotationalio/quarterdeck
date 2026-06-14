@@ -11,16 +11,23 @@ import (
 
 type OIDCClient struct {
 	tidal.BaseModel
-	CreatedBy    ulid.ULID
-	ClientName   string
-	ClientURI    sql.NullString
-	LogoURI      sql.NullString
-	PolicyURI    sql.NullString
-	TOSURI       sql.NullString
-	RedirectURIs fields.StringArray
-	Contacts     fields.StringArray
-	ClientID     string
-	Secret       string
+
+	CreatedBy ulid.ULID // ID of the user who created the client
+
+	// OIDC spec descriptive fields
+
+	ClientName   string             // Descriptive name
+	ClientURI    sql.NullString     // Main page, or "about us" type of page
+	LogoURI      sql.NullString     // Logo image
+	PolicyURI    sql.NullString     // Privacy policy page
+	TOSURI       sql.NullString     // Terms of service page
+	RedirectURIs fields.StringArray // Redirect URIs
+	Contacts     fields.StringArray // Contact email addresses for the client
+
+	// OIDC spec technical fields
+
+	ClientID string
+	Secret   string
 }
 
 var _ tidal.Model = (*OIDCClient)(nil)

@@ -7,15 +7,24 @@ import (
 	"time"
 
 	"go.rtnl.ai/quarterdeck/pkg/enum"
+	"go.rtnl.ai/quarterdeck/pkg/store/v2/backend"
 	"go.rtnl.ai/quarterdeck/pkg/store/v2/models"
+	"go.rtnl.ai/quarterdeck/pkg/store/v2/txn"
 	"go.rtnl.ai/tidal"
 	"go.rtnl.ai/ulid"
 )
 
+// Store is a generic storage interface allowing multiple storage backends to be
+// used based on the preference of the user.
+//
+// NOTE: to prevent import cycles, transactional methods live in [txn.Tx]. If a
+// method is added here for transactional use, add it to [txn.Tx] as well.
 type Store interface {
 	io.Closer
 
 	Stats() sql.DBStats
+
+	txn.StoreTx
 
 	UserStore
 	RoleStore
@@ -24,6 +33,9 @@ type Store interface {
 	OIDCClientStore
 	VeroTokenStore
 }
+
+// Check that [backend.Store] implements [Store].
+var _ Store = (*backend.Store)(nil)
 
 type UserStore interface {
 	ListUsers(ctx context.Context, filter tidal.ListFilter) (tidal.Cursor[*models.User], error)
@@ -74,8 +86,10 @@ type APIKeyStore interface {
 	AddPermissionToAPIKeyByTitle(ctx context.Context, keyID ulid.ULID, title string) error
 	RemovePermissionFromAPIKey(ctx context.Context, keyID ulid.ULID, permissionID int64) error
 	ReplaceAPIKeyPermissions(ctx context.Context, keyID ulid.ULID, permissionIDs []int64) error
-	RevokeAPIKey(ctx context.Context, keyID ulid.ULID) error
 	DeleteAPIKey(ctx context.Context, keyID ulid.ULID) error
+	// RevokeAPIKey soft-revokes a key; DeleteAPIKey removes the row.
+	RevokeAPIKey(ctx context.Context, keyID ulid.ULID) error
+	// CreateAPIKeyFor creates a key on behalf of creator, who must be authorized to delegate.
 	CreateAPIKeyFor(ctx context.Context, key *models.APIKey, creator ulid.ULID) (*models.APIKey, error)
 }
 
@@ -91,10 +105,14 @@ type OIDCClientStore interface {
 type VeroTokenStore interface {
 	CreateVeroToken(ctx context.Context, token *models.VeroToken) (*models.VeroToken, error)
 	RetrieveVeroToken(ctx context.Context, id ulid.ULID) (*models.VeroToken, error)
-	RetrieveVeroTokenByResource(ctx context.Context, resourceID ulid.ULID, tokenType enum.TokenType) (*models.VeroToken, error)
 	UpdateVeroToken(ctx context.Context, token *models.VeroToken) error
 	DeleteVeroToken(ctx context.Context, id ulid.ULID) error
+	// RetrieveVeroTokenByResource looks up a token by linked resource ID and type, not token ID.
+	RetrieveVeroTokenByResource(ctx context.Context, resourceID ulid.ULID, tokenType enum.TokenType) (*models.VeroToken, error)
+	// CreateResetPasswordVeroToken allows at most one unexpired reset-password token per resource.
 	CreateResetPasswordVeroToken(ctx context.Context, token *models.VeroToken) (*models.VeroToken, error)
+	// CreateTeamInviteVeroToken allows at most one unexpired team-invite token per resource.
 	CreateTeamInviteVeroToken(ctx context.Context, token *models.VeroToken) (*models.VeroToken, error)
+	// CompletePasswordReset validates the token, sets the password, and deletes the token.
 	CompletePasswordReset(ctx context.Context, veroTokenID ulid.ULID, newPassword string) error
 }

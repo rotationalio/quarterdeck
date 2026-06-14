@@ -29,7 +29,8 @@ const (
 // specify to simulate a specific behavior. The Store is not thread-safe and one mock
 // store should be used per test.
 type Store struct {
-	calls map[string]int
+	calls    map[string]int
+	readOnly bool
 
 	// Store callbacks
 	OnClose func() error
@@ -116,7 +117,8 @@ func Open(uri *dsn.DSN) (*Store, error) {
 	}
 
 	return &Store{
-		calls: make(map[string]int),
+		calls:    make(map[string]int),
+		readOnly: uri != nil && uri.Options.ReadOnly(),
 	}, nil
 }
 

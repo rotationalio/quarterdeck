@@ -6,7 +6,7 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg"
 	"go.rtnl.ai/quarterdeck/pkg/config"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
-	v2db "go.rtnl.ai/quarterdeck/pkg/store/v2/db"
+	"go.rtnl.ai/quarterdeck/pkg/store/v2/backend"
 	"go.rtnl.ai/quarterdeck/pkg/store/v2/mock"
 	"go.rtnl.ai/tidal"
 	"go.rtnl.ai/x/dsn"
@@ -55,7 +55,8 @@ func openTidal(ctx context.Context, uri *dsn.DSN) (Store, error) {
 	}
 
 	// If the connection URI was modified, wrap the connection with the original
-	// URI so that readonly mode is preserved (see beginTx in db/db.go).
+	// URI so that readonly mode is preserved (see backend/backend.go for details on how
+	// database read-only mode is protected).
 	if connectURI != uri {
 		conn = tidal.Wrap(conn.DB, uri)
 	}
@@ -96,5 +97,5 @@ func openTidal(ctx context.Context, uri *dsn.DSN) (Store, error) {
 		}
 	}
 
-	return v2db.New(conn), nil
+	return backend.New(conn), nil
 }

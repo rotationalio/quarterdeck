@@ -11,7 +11,7 @@ import (
 	"go.rtnl.ai/ulid"
 )
 
-// The duration after which an API key is considered stale.
+// API Keys are considered stale once they have not been used in this duration.
 const APIKeyStalenessThreshold = 90 * 24 * time.Hour
 
 type APIKey struct {
@@ -127,6 +127,14 @@ func (k *APIKey) Validate(op tidal.Operation) error {
 	return nil
 }
 
+// Determines the status of the APIKey:
+//
+//   - If the API key is revoked, returns [enum.APIKeyStatusRevoked].
+//   - If the API key has never been used (LastSeen is unset), returns
+//     [enum.APIKeyStatusUnused].
+//   - If the API key has not been used in the last [APIKeyStalenessThreshold],
+//     returns [enum.APIKeyStatusStale].
+//   - Otherwise, returns [enum.APIKeyStatusActive].
 func (k *APIKey) Status() enum.APIKeyStatus {
 	if k.Revoked.Valid || !k.Revoked.Time.IsZero() {
 		return enum.APIKeyStatusRevoked

@@ -10,6 +10,9 @@ import (
 	"go.rtnl.ai/x/vero"
 )
 
+// VeroTokens are sent via email to a user to allow them to securely authenticate to
+// Quarterdeck for a one-time task such as resetting a password, verifying an email
+// address, or accepting an invitation to a team.
 type VeroToken struct {
 	tidal.BaseModel
 	TokenType  enum.TokenType

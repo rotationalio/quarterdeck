@@ -10,7 +10,9 @@ import (
 	db "go.rtnl.ai/quarterdeck/pkg/store/v2"
 	"go.rtnl.ai/quarterdeck/pkg/store/v2/models"
 	"go.rtnl.ai/quarterdeck/pkg/store/v2/suitetest"
+	"go.rtnl.ai/quarterdeck/pkg/store/v2/txn"
 	tsuite "go.rtnl.ai/tidal/suite"
+	"go.rtnl.ai/ulid"
 	"go.rtnl.ai/x/dsn"
 )
 
@@ -70,27 +72,129 @@ func (s *openSuite) TestOpenClose() {
 	s.Require().NoError(st.Close())
 }
 
-// TestReadOnlyStore verifies writes fail after opening with ReadOnly config.
+// TestReadOnlyStore verifies read-only mode is enforced on every transaction entry
+// point and on writes inside read-only transactions.
 func (s *openSuite) TestReadOnlyStore() {
+	// --- SETUP ---
+
+	// Get a database URI for the test suite.
+	ctx := context.Background()
 	uri := s.DSN()
 	url := uri.String()
 
-	// Setup: open writable store and seed a user.
+	// Open a regular (read-write) connection and create a user to ensure the
+	// DB isn't empty, then close it.
 	rw, err := db.Open(config.DatabaseConfig{URL: url})
 	s.Require().NoError(err)
-
-	_, err = rw.CreateUser(context.Background(), &models.User{Email: "a@b.com", Password: "x"})
-	s.Require().NoError(err, "should be able to create a user in writeable mode")
+	created, err := rw.CreateUser(ctx, &models.User{Email: "a@b.com", Password: "x"})
+	s.Require().NoError(err)
 	s.Require().NoError(rw.Close())
 
-	// Action: reopen read-only and attempt another write.
-	st, err := db.Open(config.DatabaseConfig{URL: url, ReadOnly: true})
+	// Open a new store in read-only mode for subsequent read-only enforcement
+	// checks.
+	ro, err := db.Open(config.DatabaseConfig{URL: url, ReadOnly: true})
+	s.Require().NoError(err)
+	defer ro.Close()
+
+	// --- TESTS ---
+
+	// Store methods that write delegate to WithTx; they must fail before hitting SQL.
+	s.Run("StoreWrite", func() {
+		_, err := ro.CreateUser(ctx, &models.User{Email: "b@b.com", Password: "x"})
+		s.Require().ErrorIs(err, errors.ErrReadOnly)
+	})
+
+	// RW transactions must be rejected at open time, not only when a write runs.
+	s.Run("BeginTx", func() {
+		_, err := ro.BeginTx(ctx, nil)
+		s.Require().ErrorIs(err, errors.ErrReadOnly)
+	})
+
+	// WithTx without ReadOnly opts should fail the same way as BeginTx.
+	s.Run("WithTx", func() {
+		err := ro.WithTx(ctx, nil, func(tx txn.Tx) error {
+			return tx.UpdateUser(&models.User{Email: "a@b.com"})
+		})
+		s.Require().ErrorIs(err, errors.ErrReadOnly)
+	})
+
+	// Read-only txs are allowed, but writes inside them still hit requireWrite.
+	s.Run("BeginReadTx", func() {
+		tx, err := ro.BeginReadTx(ctx)
+		s.Require().NoError(err)
+		defer tx.Rollback()
+
+		user, err := tx.RetrieveUser(created.ID)
+		s.Require().NoError(err)
+		s.Require().Equal(created.Email, user.Email)
+
+		err = tx.UpdateUser(user)
+		s.Require().ErrorIs(err, errors.ErrReadOnly)
+	})
+
+	// WithReadTx must propagate ErrReadOnly when the callback attempts a write.
+	s.Run("WithReadTx", func() {
+		err := ro.WithReadTx(ctx, func(tx txn.Tx) error {
+			user, err := tx.RetrieveUserByEmail(created.Email)
+			if err != nil {
+				return err
+			}
+			return tx.VerifyEmail(user.ID)
+		})
+		s.Require().ErrorIs(err, errors.ErrReadOnly)
+	})
+
+	// A read-only callback that only reads should complete without error.
+	s.Run("WithReadTxRead", func() {
+		err := ro.WithReadTx(ctx, func(tx txn.Tx) error {
+			_, err := tx.RetrieveUser(created.ID)
+			return err
+		})
+		s.Require().NoError(err)
+	})
+
+	// List operations use read-only txs internally and should still work.
+	s.Run("ListUsers", func() {
+		cursor, err := ro.ListUsers(ctx, nil)
+		s.Require().NoError(err)
+		defer cursor.Close()
+
+		var count int
+		for cursor.Next() {
+			count++
+		}
+		s.Require().NoError(cursor.Err())
+		s.Require().Positive(count)
+	})
+}
+
+// TestWritableTransactions verifies read-write transaction entry points commit work.
+func (s *openSuite) TestWritableTransactions() {
+	ctx := context.Background()
+	uri := s.DSN()
+	st, err := db.Open(config.DatabaseConfig{URL: uri.String()})
+	s.Require().NoError(err)
+	defer st.Close()
+
+	var userID ulid.ULID
+	err = st.WithTx(ctx, nil, func(tx txn.Tx) error {
+		user, err := tx.CreateUser(&models.User{Email: "tx@b.com", Password: "x"})
+		if err != nil {
+			return err
+		}
+		userID = user.ID
+		return nil
+	})
 	s.Require().NoError(err)
 
-	_, err = st.CreateUser(context.Background(), &models.User{Email: "a@b.com", Password: "x"})
-	// Assert: write is rejected.
-	s.Require().ErrorIs(err, errors.ErrReadOnly, "should not be able to create a user in read-only mode")
-	s.Require().NoError(st.Close())
+	tx, err := st.BeginTx(ctx, nil)
+	s.Require().NoError(err)
+	s.Require().NoError(tx.VerifyEmail(userID))
+	s.Require().NoError(tx.Commit())
+
+	user, err := st.RetrieveUser(ctx, userID)
+	s.Require().NoError(err)
+	s.Require().True(user.EmailVerified)
 }
 
 //=============================================================================

@@ -1,12 +1,12 @@
-package db_test
+package backend_test
 
 import (
 	"database/sql"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	store "go.rtnl.ai/quarterdeck/pkg/store/v2"
-	"go.rtnl.ai/quarterdeck/pkg/store/v2/db"
+	v2store "go.rtnl.ai/quarterdeck/pkg/store/v2"
+	"go.rtnl.ai/quarterdeck/pkg/store/v2/backend"
 	"go.rtnl.ai/quarterdeck/pkg/store/v2/suitetest"
 	tsuite "go.rtnl.ai/tidal/suite"
 	"go.rtnl.ai/x/dsn"
@@ -16,7 +16,7 @@ import (
 // loaded into a v2 store.
 type storeSuite struct {
 	suitetest.BaseSuite
-	store store.Store
+	store v2store.Store
 }
 
 //=============================================================================
@@ -58,7 +58,7 @@ func (s *storeSuite) TearDownTest() {
 
 // runStoreSuite loads migrations, configures the provider, and runs suite tests.
 func runStoreSuite(t *testing.T, provider string, configure func(*testing.T, *storeSuite, tsuite.Migrations)) {
-	migrations, err := store.LoadMigrations(provider)
+	migrations, err := v2store.LoadMigrations(provider)
 	require.NoError(t, err)
 
 	s := &storeSuite{}
@@ -68,7 +68,7 @@ func runStoreSuite(t *testing.T, provider string, configure func(*testing.T, *st
 
 // openStore constructs a store backed by the suite database and loads SQL fixtures.
 func (s *storeSuite) openStore() {
-	s.store = db.New(s.DB)
+	s.store = backend.New(s.DB)
 	suitetest.LoadFixtures(s.T(), s.DB.DB, s.DSN().Provider)
 }
 

@@ -12,6 +12,7 @@ import (
 // UserRole Junction Table
 //===========================================================================
 
+// UserRole is a row in the user_roles junction table.
 type UserRole struct {
 	UserID  ulid.ULID
 	RoleID  int64
@@ -55,6 +56,7 @@ func (ur *UserRole) Prepare(op tidal.Operation) {
 // RolePermission Junction Table
 //===========================================================================
 
+// RolePermission is a row in the role_permissions junction table.
 type RolePermission struct {
 	RoleID       int64
 	PermissionID int64
@@ -98,6 +100,7 @@ func (rp *RolePermission) Prepare(op tidal.Operation) {
 // APIKeyPermission Junction Table
 //===========================================================================
 
+// APIKeyPermission is a row in the api_key_permissions junction table.
 type APIKeyPermission struct {
 	APIKeyID     ulid.ULID
 	PermissionID int64
