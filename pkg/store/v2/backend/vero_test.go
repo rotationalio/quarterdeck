@@ -7,6 +7,7 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/enum"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store/v2/models"
+	"go.rtnl.ai/quarterdeck/pkg/store/v2/suitetest"
 	"go.rtnl.ai/ulid"
 	"go.rtnl.ai/x/vero"
 )
@@ -156,9 +157,9 @@ func (s *storeSuite) TestUpdateVeroToken() {
 		require.Equal(token.TokenType, cmpt.TokenType)
 		require.Equal(token.ResourceID, cmpt.ResourceID)
 		require.Equal(token.Email, cmpt.Email)
-		require.Equal(token.Expiration, cmpt.Expiration)
+		suitetest.EqualTime(s.T(), token.Expiration, cmpt.Expiration)
 		require.Equal(token.Signature, cmpt.Signature)
-		require.Equal(token.SentOn.Time, cmpt.SentOn.Time)
+		suitetest.EqualTime(s.T(), token.SentOn.Time, cmpt.SentOn.Time)
 		require.Equal(staleCreated, cmpt.Created)
 		require.WithinDuration(time.Now(), cmpt.Modified, 5*time.Second)
 	})

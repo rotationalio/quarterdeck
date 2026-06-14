@@ -6,6 +6,7 @@ import (
 
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store/v2/models"
+	"go.rtnl.ai/quarterdeck/pkg/store/v2/suitetest"
 	"go.rtnl.ai/tidal"
 	"go.rtnl.ai/ulid"
 )
@@ -250,7 +251,7 @@ func (s *storeSuite) TestUpdateUser() {
 		cmpt, err := s.store.RetrieveUser(s.Context(), userID)
 		require.NoError(err)
 		require.True(cmpt.LastLogin.Valid)
-		require.Equal(lastLogin, cmpt.LastLogin.Time)
+		suitetest.EqualTime(s.T(), lastLogin, cmpt.LastLogin.Time)
 		require.WithinDuration(cmpt.Modified, time.Now(), time.Minute)
 	})
 

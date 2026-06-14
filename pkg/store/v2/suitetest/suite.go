@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.rtnl.ai/tidal"
@@ -56,6 +57,18 @@ func ConfigurePostgres(t *testing.T, s *tsuite.DatabaseSuite, migrations tsuite.
 		t.Fatal("postgres not configured (set POSTGRES_DATABASE_URL, TEST_DATABASE_URL, TIDAL_DATABASE_URL, DATABASE_URL, or PGHOST)")
 	}
 	require.NoError(t, err)
+}
+
+//============================================================================
+// Assertions
+//============================================================================
+
+// EqualTime compares two times after normalizing to UTC and truncating to
+// microsecond precision, matching Postgres timestamp resolution.
+func EqualTime(tb testing.TB, expected, actual time.Time) {
+	tb.Helper()
+	areEqual := expected.Truncate(time.Microsecond).Equal(actual.Truncate(time.Microsecond))
+	require.True(tb, areEqual, "times must be within microsecond precision")
 }
 
 //============================================================================
