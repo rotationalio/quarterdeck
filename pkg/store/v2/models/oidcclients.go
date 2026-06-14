@@ -2,154 +2,155 @@ package models
 
 import (
 	"database/sql"
-	"encoding/json"
 
+	qerrors "go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/tidal"
+	"go.rtnl.ai/tidal/fields"
 	"go.rtnl.ai/ulid"
 )
 
 type OIDCClient struct {
-	Model
-	CreatedBy ulid.ULID
-
-	// OIDC spec descriptive fields
-
-	ClientName string           // Descriptive name
-	ClientURI  sql.NullString   // Main page, or "about us" type of page
-	LogoURI    sql.NullString   // Logo image
-	PolicyURI  sql.NullString   // Privacy policy page
-	TOSURI     sql.NullString   // Terms of service page
-	Contacts   []sql.NullString // Email addresses for the client
-
-	// OIDC spec technical fields
-
+	tidal.BaseModel
+	CreatedBy    ulid.ULID
+	ClientName   string
+	ClientURI    sql.NullString
+	LogoURI      sql.NullString
+	PolicyURI    sql.NullString
+	TOSURI       sql.NullString
+	RedirectURIs fields.StringArray
+	Contacts     fields.StringArray
 	ClientID     string
 	Secret       string
-	RedirectURIs []string
 }
 
-type OIDCClientList struct {
-	Page        *Page
-	OIDCClients []*OIDCClient
+var _ tidal.Model = (*OIDCClient)(nil)
+var _ tidal.Validator = (*OIDCClient)(nil)
+
+func (c *OIDCClient) Fields(op tidal.Operation) []string {
+	switch op {
+	case tidal.List:
+		return []string{
+			"id",
+			"client_name",
+			"client_uri",
+			"logo_uri",
+			"policy_uri",
+			"tos_uri",
+			"redirect_uris",
+			"contacts",
+			"client_id",
+			"created_by",
+			"created",
+			"modified",
+		}
+	case tidal.Update:
+		return []string{
+			"id",
+			"client_name",
+			"client_uri",
+			"logo_uri",
+			"policy_uri",
+			"tos_uri",
+			"redirect_uris",
+			"contacts",
+			"modified",
+		}
+	default:
+		return []string{
+			"id",
+			"client_name",
+			"client_uri",
+			"logo_uri",
+			"policy_uri",
+			"tos_uri",
+			"redirect_uris",
+			"contacts",
+			"client_id",
+			"secret",
+			"created_by",
+			"created",
+			"modified",
+		}
+	}
 }
 
-//===========================================================================
-// Scanning and Params
-//===========================================================================
+func (c *OIDCClient) Params(op tidal.Operation) []sql.NamedArg {
+	switch op {
+	case tidal.Update:
+		return []sql.NamedArg{
+			sql.Named("id", c.ID),
+			sql.Named("client_name", c.ClientName),
+			sql.Named("client_uri", c.ClientURI),
+			sql.Named("logo_uri", c.LogoURI),
+			sql.Named("policy_uri", c.PolicyURI),
+			sql.Named("tos_uri", c.TOSURI),
+			sql.Named("redirect_uris", c.RedirectURIs),
+			sql.Named("contacts", c.Contacts),
+			sql.Named("modified", c.Modified),
+		}
+	default:
+		return []sql.NamedArg{
+			sql.Named("id", c.ID),
+			sql.Named("client_name", c.ClientName),
+			sql.Named("client_uri", c.ClientURI),
+			sql.Named("logo_uri", c.LogoURI),
+			sql.Named("policy_uri", c.PolicyURI),
+			sql.Named("tos_uri", c.TOSURI),
+			sql.Named("redirect_uris", c.RedirectURIs),
+			sql.Named("contacts", c.Contacts),
+			sql.Named("client_id", c.ClientID),
+			sql.Named("secret", c.Secret),
+			sql.Named("created_by", c.CreatedBy),
+			sql.Named("created", c.Created),
+			sql.Named("modified", c.Modified),
+		}
+	}
+}
 
-// Scanner is an interface for scanning database rows into the OIDCClient struct.
-func (k *OIDCClient) Scan(scanner Scanner) (err error) {
-	var redirectURIsJSON, contactsJSON sql.NullString
+func (c *OIDCClient) Scan(op tidal.Operation, s tidal.Scanner) error {
+	switch op {
+	case tidal.List:
+		return s.Scan(
+			&c.ID,
+			&c.ClientName,
+			&c.ClientURI,
+			&c.LogoURI,
+			&c.PolicyURI,
+			&c.TOSURI,
+			&c.RedirectURIs,
+			&c.Contacts,
+			&c.ClientID,
+			&c.CreatedBy,
+			&c.Created,
+			&c.Modified,
+		)
+	default:
+		return s.Scan(
+			&c.ID,
+			&c.ClientName,
+			&c.ClientURI,
+			&c.LogoURI,
+			&c.PolicyURI,
+			&c.TOSURI,
+			&c.RedirectURIs,
+			&c.Contacts,
+			&c.ClientID,
+			&c.Secret,
+			&c.CreatedBy,
+			&c.Created,
+			&c.Modified,
+		)
+	}
+}
 
-	if err = scanner.Scan(
-		&k.ID,
-		&k.ClientName,
-		&k.ClientURI,
-		&k.LogoURI,
-		&k.PolicyURI,
-		&k.TOSURI,
-		&redirectURIsJSON,
-		&contactsJSON,
-		&k.ClientID,
-		&k.Secret,
-		&k.CreatedBy,
-		&k.Created,
-		&k.Modified,
-	); err != nil {
+func (c *OIDCClient) Validate(op tidal.Operation) error {
+	if err := c.BaseModel.Validate(op); err != nil {
 		return err
 	}
-
-	if redirectURIsJSON.Valid && redirectURIsJSON.String != "" {
-		_ = json.Unmarshal([]byte(redirectURIsJSON.String), &k.RedirectURIs)
-	} else {
-		k.RedirectURIs = nil
-	}
-
-	if contactsJSON.Valid && contactsJSON.String != "" {
-		var strs []string
-		_ = json.Unmarshal([]byte(contactsJSON.String), &strs)
-		k.Contacts = make([]sql.NullString, len(strs))
-		for i, s := range strs {
-			k.Contacts[i] = sql.NullString{Valid: true, String: s}
+	if op == tidal.Create {
+		if c.ClientID == "" || c.Secret == "" {
+			return qerrors.ErrZeroValuedNotNull
 		}
-	} else {
-		k.Contacts = nil
 	}
-
 	return nil
-}
-
-// ScanSummary scans an OIDCClient struct from a database row, excluding the Secret field.
-func (k *OIDCClient) ScanSummary(scanner Scanner) (err error) {
-	var redirectURIsJSON, contactsJSON sql.NullString
-
-	if err = scanner.Scan(
-		&k.ID,
-		&k.ClientName,
-		&k.ClientURI,
-		&k.LogoURI,
-		&k.PolicyURI,
-		&k.TOSURI,
-		&redirectURIsJSON,
-		&contactsJSON,
-		&k.ClientID,
-		&k.CreatedBy,
-		&k.Created,
-		&k.Modified,
-	); err != nil {
-		return err
-	}
-
-	if redirectURIsJSON.Valid && redirectURIsJSON.String != "" {
-		_ = json.Unmarshal([]byte(redirectURIsJSON.String), &k.RedirectURIs)
-	} else {
-		k.RedirectURIs = nil
-	}
-
-	if contactsJSON.Valid && contactsJSON.String != "" {
-		var strs []string
-		_ = json.Unmarshal([]byte(contactsJSON.String), &strs)
-		k.Contacts = make([]sql.NullString, len(strs))
-		for i, s := range strs {
-			k.Contacts[i] = sql.NullString{Valid: true, String: s}
-		}
-	} else {
-		k.Contacts = nil
-	}
-
-	k.Secret = ""
-
-	return nil
-}
-
-// Params returns all OIDCClient fields as named params to be used in a SQL query.
-func (k *OIDCClient) Params() []any {
-	redirectURIs := []string{}
-	if k.RedirectURIs != nil {
-		redirectURIs = k.RedirectURIs
-	}
-	redirectURIsJSON, _ := json.Marshal(redirectURIs)
-
-	contactsStrs := make([]string, 0, len(k.Contacts))
-	for _, c := range k.Contacts {
-		if c.Valid {
-			contactsStrs = append(contactsStrs, c.String)
-		}
-	}
-	contactsJSON, _ := json.Marshal(contactsStrs)
-
-	return []any{
-		sql.Named("id", k.ID),
-		sql.Named("clientName", k.ClientName),
-		sql.Named("clientURI", k.ClientURI),
-		sql.Named("logoURI", k.LogoURI),
-		sql.Named("policyURI", k.PolicyURI),
-		sql.Named("tosURI", k.TOSURI),
-		sql.Named("redirectURIs", string(redirectURIsJSON)),
-		sql.Named("contacts", string(contactsJSON)),
-		sql.Named("clientID", k.ClientID),
-		sql.Named("secret", k.Secret),
-		sql.Named("createdBy", k.CreatedBy),
-		sql.Named("created", k.Created),
-		sql.Named("modified", k.Modified),
-	}
 }

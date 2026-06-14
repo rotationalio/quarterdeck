@@ -1,14 +1,5 @@
--- Initial schema for Quarterdeck authentication service.
--- NOTE: all primary keys are ULIDs but rather than using the 16 byte blob version of
--- the ULIDs we're using the string representation to make database queries easier and
--- because use of the sqlite3 storage backend isn't considered to be performance
--- intensive. NOTE: the oklog/v2 ulid package provides Scan for both []byte and string.
-BEGIN;
+-- Primary schema for Quarterdeck (SQLite).
 
--- Primary authentication table that holds email addresses and argon2 derived key
--- passwords that are used to authenticate users. Authorization data is defined by roles
--- that are assigned to users rather than specific permissions.  Metadata is the user's
--- name and last login but no other profile information is stored in this table.
 CREATE TABLE IF NOT EXISTS users (
     id              TEXT PRIMARY KEY,
     name            TEXT,
@@ -20,12 +11,6 @@ CREATE TABLE IF NOT EXISTS users (
     modified        DATETIME NOT NULL
 );
 
--- Secondary authentication table that holds API keys for machine to machine access.
--- API Keys are identified both by a unique client ID (randomly generated string) and
--- by a Key ID (ULID). The client secret is an argon2 derived key that is used to
--- authenticate the client. APIKeys do not have roles but are specifically associated
--- with specific permissions. Metadat includes a description, the last time the key
--- was used for authentication and the user that created the key.
 CREATE TABLE IF NOT EXISTS api_keys (
     id              TEXT PRIMARY KEY,
     description     TEXT,
@@ -39,8 +24,6 @@ CREATE TABLE IF NOT EXISTS api_keys (
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Roles are essentially a set of permissions that can be assigned to users. Users can
--- have multiple roles and their permissions are the union of all roles assigned to them.
 CREATE TABLE IF NOT EXISTS roles (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     title           TEXT NOT NULL UNIQUE,
@@ -50,7 +33,6 @@ CREATE TABLE IF NOT EXISTS roles (
     modified        DATETIME NOT NULL
 );
 
--- Permissions authorize users and api keys to perform specific actions.
 CREATE TABLE IF NOT EXISTS permissions (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     title           TEXT NOT NULL UNIQUE,
@@ -59,7 +41,6 @@ CREATE TABLE IF NOT EXISTS permissions (
     modified        DATETIME NOT NULL
 );
 
--- Maps permissions to roles
 CREATE TABLE IF NOT EXISTS role_permissions (
     role_id         INTEGER NOT NULL,
     permission_id   INTEGER NOT NULL,
@@ -69,7 +50,6 @@ CREATE TABLE IF NOT EXISTS role_permissions (
     FOREIGN KEY (permission_id) REFERENCES permissions (id) ON DELETE CASCADE
 );
 
--- Maps roles to users
 CREATE TABLE IF NOT EXISTS user_roles (
     user_id         TEXT NOT NULL,
     role_id         INTEGER NOT NULL,
@@ -79,7 +59,6 @@ CREATE TABLE IF NOT EXISTS user_roles (
     FOREIGN KEY (role_id) REFERENCES roles (id) ON DELETE CASCADE
 );
 
--- Maps permissions to api keys
 CREATE TABLE IF NOT EXISTS api_key_permissions (
     api_key_id      TEXT NOT NULL,
     permission_id   INTEGER NOT NULL,
@@ -89,8 +68,6 @@ CREATE TABLE IF NOT EXISTS api_key_permissions (
     FOREIGN KEY (permission_id) REFERENCES permissions (id) ON DELETE CASCADE
 );
 
--- VeroTokens are used to send a one time authentication link to a user via email. This
--- is used for resetting passwords, verifying email addresses, and to invite new users.
 CREATE TABLE IF NOT EXISTS vero_tokens (
     id              TEXT PRIMARY KEY,
     token_type      TEXT NOT NULL,
@@ -103,7 +80,23 @@ CREATE TABLE IF NOT EXISTS vero_tokens (
     modified        DATETIME NOT NULL
 );
 
--- Allows selection of all permissions for a user based on their role
+CREATE TABLE IF NOT EXISTS oidc_clients (
+    id              TEXT PRIMARY KEY,
+    client_name     TEXT NOT NULL,
+    client_uri      TEXT,
+    logo_uri        TEXT,
+    policy_uri      TEXT,
+    tos_uri         TEXT,
+    redirect_uris   BLOB,
+    contacts        BLOB,
+    client_id       TEXT NOT NULL UNIQUE,
+    secret          TEXT NOT NULL UNIQUE,
+    created_by      TEXT NOT NULL,
+    created         DATETIME NOT NULL,
+    modified        DATETIME NOT NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+);
+
 DROP VIEW IF EXISTS user_permissions;
 CREATE VIEW user_permissions AS
     SELECT DISTINCT u.id AS user_id, p.title AS permission
@@ -113,12 +106,9 @@ CREATE VIEW user_permissions AS
         JOIN permissions p ON p.id = rp.permission_id
 ;
 
--- Allows selection of all permissions for an api key by title
 DROP VIEW IF EXISTS api_key_permission_list;
 CREATE VIEW api_key_permission_list AS
     SELECT k.api_key_id, p.title AS permission
         FROM api_key_permissions k
         JOIN permissions p ON p.id = k.permission_id
 ;
-
-COMMIT;

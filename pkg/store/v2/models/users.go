@@ -4,156 +4,128 @@ import (
 	"database/sql"
 
 	"go.rtnl.ai/gimlet/auth"
-	"go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/tidal"
 	"go.rtnl.ai/x/gravatar"
 )
 
-var (
-	gravatarOpts = &gravatar.Options{
-		Size:          256,
-		DefaultImage:  "identicon",
-		ForceDefault:  false,
-		Rating:        "pg",
-		FileExtension: "",
-	}
-)
+var gravatarOpts = &gravatar.Options{
+	Size:          256,
+	DefaultImage:  "identicon",
+	ForceDefault:  false,
+	Rating:        "pg",
+	FileExtension: "",
+}
 
 type User struct {
-	Model
+	tidal.BaseModel
 	Name          sql.NullString
 	Email         string
 	Password      string
 	LastLogin     sql.NullTime
 	EmailVerified bool
-	roles         []*Role
-	permissions   []string
+	Roles         []Role
+	Permissions   []Permission
 }
 
-type UserList struct {
-	Page  *UserPage
-	Users []*User
-}
+var _ tidal.Model = (*User)(nil)
 
-// UserPage allows a list of paginated users to be optionally filtered by role.
-type UserPage struct {
-	Page
-	Role string `json:"role,omitempty"`
-}
-
-func UserPageFrom(in *UserPage) (out *UserPage) {
-	out = &UserPage{
-		Page: Page{
-			PageSize: DefaultPageSize,
-		},
-	}
-
-	if in != nil {
-		if in.PageSize > 0 {
-			out.PageSize = in.PageSize
+func (u *User) Fields(op tidal.Operation) []string {
+	switch op {
+	case tidal.List:
+		return []string{
+			"id",
+			"name",
+			"email",
+			"last_login",
+			"email_verified",
+			"created",
+			"modified",
 		}
-		out.Role = in.Role
-	}
-
-	return out
-}
-
-//===========================================================================
-// Scanning and Params
-//===========================================================================
-
-// Scan the User struct from a database row.
-func (u *User) Scan(scanner Scanner) error {
-	return scanner.Scan(
-		&u.ID,
-		&u.Name,
-		&u.Email,
-		&u.Password,
-		&u.LastLogin,
-		&u.EmailVerified,
-		&u.Created,
-		&u.Modified,
-	)
-}
-
-// ScanSummary scans a User struct from a database row, excluding the Password field.
-func (u *User) ScanSummary(scanner Scanner) error {
-	return scanner.Scan(
-		&u.ID,
-		&u.Name,
-		&u.Email,
-		&u.LastLogin,
-		&u.EmailVerified,
-		&u.Created,
-		&u.Modified,
-	)
-}
-
-// Params returns all user fields as named params to be used in a SQL query.
-func (u User) Params() []any {
-	return []any{
-		sql.Named("id", u.ID),
-		sql.Named("name", u.Name),
-		sql.Named("email", u.Email),
-		sql.Named("password", u.Password),
-		sql.Named("lastLogin", u.LastLogin),
-		sql.Named("emailVerified", u.EmailVerified),
-		sql.Named("created", u.Created),
-		sql.Named("modified", u.Modified),
+	case tidal.Update:
+		return []string{
+			"id",
+			"name",
+			"email",
+			"modified",
+		}
+	default:
+		return []string{
+			"id",
+			"name",
+			"email",
+			"password",
+			"last_login",
+			"email_verified",
+			"created",
+			"modified",
+		}
 	}
 }
 
-//===========================================================================
-// Associations
-//===========================================================================
-
-// Role returns the role associated with the user, if set, otherwise returns
-// ErrMissingAssociation.
-func (u User) Roles() ([]*Role, error) {
-	if u.roles == nil {
-		return nil, errors.ErrMissingAssociation
+func (u *User) Params(op tidal.Operation) []sql.NamedArg {
+	switch op {
+	case tidal.Update:
+		return []sql.NamedArg{
+			sql.Named("id", u.ID),
+			sql.Named("name", u.Name),
+			sql.Named("email", u.Email),
+			sql.Named("modified", u.Modified),
+		}
+	default:
+		return []sql.NamedArg{
+			sql.Named("id", u.ID),
+			sql.Named("name", u.Name),
+			sql.Named("email", u.Email),
+			sql.Named("password", u.Password),
+			sql.Named("last_login", u.LastLogin),
+			sql.Named("email_verified", u.EmailVerified),
+			sql.Named("created", u.Created),
+			sql.Named("modified", u.Modified),
+		}
 	}
-	return u.roles, nil
 }
 
-// SetRole sets the role for the user and updates the RoleID field.
-func (u *User) SetRoles(roles []*Role) {
-	u.roles = roles
+func (u *User) Scan(op tidal.Operation, s tidal.Scanner) error {
+	switch op {
+	case tidal.List:
+		return s.Scan(
+			&u.ID,
+			&u.Name,
+			&u.Email,
+			&u.LastLogin,
+			&u.EmailVerified,
+			&u.Created,
+			&u.Modified,
+		)
+	default:
+		return s.Scan(
+			&u.ID,
+			&u.Name,
+			&u.Email,
+			&u.Password,
+			&u.LastLogin,
+			&u.EmailVerified,
+			&u.Created,
+			&u.Modified,
+		)
+	}
 }
 
-// Permissions returns the permissions associated with the user, if set.
-func (u User) Permissions() []string {
-	return u.permissions
-}
-
-// SetPermissions sets the permissions for the user.
-func (u *User) SetPermissions(permissions []string) {
-	u.permissions = permissions
-}
-
-//===========================================================================
-// Helper Methods
-//===========================================================================
-
-func (u User) Claims() (claims *auth.Claims, err error) {
-	claims = &auth.Claims{
+func (u User) Claims() *auth.Claims {
+	claims := &auth.Claims{
 		Name:        u.Name.String,
 		Email:       u.Email,
 		Gravatar:    u.Gravatar(),
-		Permissions: u.Permissions(),
+		Permissions: PermissionTitles(u.Permissions),
 	}
 
-	var roles []*Role
-	if roles, err = u.Roles(); err != nil {
-		return nil, err
-	}
-
-	claims.Roles = make([]string, 0, len(roles))
-	for _, role := range roles {
+	claims.Roles = make([]string, 0, len(u.Roles))
+	for _, role := range u.Roles {
 		claims.Roles = append(claims.Roles, role.Title)
 	}
 
 	claims.SetSubjectID(auth.SubjectUser, u.ID)
-	return claims, nil
+	return claims
 }
 
 func (u User) Gravatar() string {

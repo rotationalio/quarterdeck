@@ -4,23 +4,8 @@ import (
 	"database/sql"
 	"time"
 
-	"go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/tidal"
 )
-
-type Role struct {
-	ID          int64
-	Title       string
-	Description string
-	IsDefault   bool
-	Created     time.Time
-	Modified    time.Time
-	permissions []*Permission
-}
-
-type RoleList struct {
-	Page  *Page
-	Roles []*Role
-}
 
 type Permission struct {
 	ID          int64
@@ -30,42 +15,50 @@ type Permission struct {
 	Modified    time.Time
 }
 
-type PermissionList struct {
-	Page        *Page
-	Permissions []*Permission
-}
+var _ tidal.Model = (*Permission)(nil)
+var _ tidal.Preparer = (*Permission)(nil)
 
-//===========================================================================
-// Scanning and Params
-//===========================================================================
-
-// Scanner is an interface for scanning database rows into the Role structs.
-func (r *Role) Scan(scanner Scanner) error {
-	return scanner.Scan(
-		&r.ID,
-		&r.Title,
-		&r.Description,
-		&r.IsDefault,
-		&r.Created,
-		&r.Modified,
-	)
-}
-
-// Params returns all Role fields as named params to be used in a SQL query.
-func (r *Role) Params() []any {
-	return []any{
-		sql.Named("id", r.ID),
-		sql.Named("title", r.Title),
-		sql.Named("description", r.Description),
-		sql.Named("isDefault", r.IsDefault),
-		sql.Named("created", r.Created),
-		sql.Named("modified", r.Modified),
+func (p *Permission) Fields(op tidal.Operation) []string {
+	switch op {
+	case tidal.Create:
+		return []string{
+			"title",
+			"description",
+			"created",
+			"modified",
+		}
+	default:
+		return []string{
+			"id",
+			"title",
+			"description",
+			"created",
+			"modified",
+		}
 	}
 }
 
-// Scan the Permission struct from a database row.
-func (p *Permission) Scan(scanner Scanner) error {
-	return scanner.Scan(
+func (p *Permission) Params(op tidal.Operation) []sql.NamedArg {
+	switch op {
+	case tidal.Update:
+		return []sql.NamedArg{
+			sql.Named("id", p.ID),
+			sql.Named("title", p.Title),
+			sql.Named("description", p.Description),
+			sql.Named("modified", p.Modified),
+		}
+	default:
+		return []sql.NamedArg{
+			sql.Named("title", p.Title),
+			sql.Named("description", p.Description),
+			sql.Named("created", p.Created),
+			sql.Named("modified", p.Modified),
+		}
+	}
+}
+
+func (p *Permission) Scan(op tidal.Operation, s tidal.Scanner) error {
+	return s.Scan(
 		&p.ID,
 		&p.Title,
 		&p.Description,
@@ -74,31 +67,24 @@ func (p *Permission) Scan(scanner Scanner) error {
 	)
 }
 
-// Params returns all Permission fields as named params to be used in a SQL query.
-func (p *Permission) Params() []any {
-	return []any{
-		sql.Named("id", p.ID),
-		sql.Named("title", p.Title),
-		sql.Named("description", p.Description),
-		sql.Named("created", p.Created),
-		sql.Named("modified", p.Modified),
+func (p *Permission) Prepare(op tidal.Operation) {
+	switch op {
+	case tidal.Create:
+		p.Created = time.Now().UTC()
+		p.Modified = p.Created
+	case tidal.Update:
+		p.Modified = time.Now().UTC()
 	}
 }
 
-//===========================================================================
-// Associations
-//===========================================================================
-
-// Permissions returns the permissions associated with the role, if set, otherwise
-// returns ErrMissingAssociation.
-func (r Role) Permissions() ([]*Permission, error) {
-	if r.permissions == nil {
-		return nil, errors.ErrMissingAssociation
+// PermissionTitles returns the title of each permission in order.
+func PermissionTitles(permissions []Permission) []string {
+	if len(permissions) == 0 {
+		return []string{}
 	}
-	return r.permissions, nil
-}
-
-// SetPermissions sets the permissions for the role.
-func (r *Role) SetPermissions(permissions []*Permission) {
-	r.permissions = permissions
+	titles := make([]string, len(permissions))
+	for i, permission := range permissions {
+		titles[i] = permission.Title
+	}
+	return titles
 }

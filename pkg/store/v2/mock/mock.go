@@ -9,114 +9,129 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.rtnl.ai/quarterdeck/pkg/enum"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
-	"go.rtnl.ai/quarterdeck/pkg/store/v1/dsn"
-	"go.rtnl.ai/quarterdeck/pkg/store/v1/models"
-	"go.rtnl.ai/quarterdeck/pkg/store/v1/txn"
+	"go.rtnl.ai/quarterdeck/pkg/store/v2/models"
+	"go.rtnl.ai/tidal"
 	"go.rtnl.ai/ulid"
+	"go.rtnl.ai/x/dsn"
 )
 
-// Method names for the Store interface
+// Method names for the Store interface.
 const (
-	Close = "Close"
-	Begin = "Begin"
+	Close                 = "Close"
+	Stats                 = "Stats"
+	CompletePasswordReset = "CompletePasswordReset"
+	CreateAPIKeyFor       = "CreateAPIKeyFor"
 )
 
 // Store implements the store.Store interface with callback functions that tests can
 // specify to simulate a specific behavior. The Store is not thread-safe and one mock
 // store should be used per test.
 type Store struct {
-	calls    map[string]int
-	readonly bool
+	calls map[string]int
 
-	// Store Callbacks
+	// Store callbacks
 	OnClose func() error
-	OnBegin func(context.Context, *sql.TxOptions) (txn.Txn, error)
+	OnStats func() sql.DBStats
 
-	// UserStore Callbacks
-	OnListUsers       func(context.Context, *models.UserPage) (*models.UserList, error)
-	OnCreateUser      func(context.Context, *models.User) error
-	OnRetrieveUser    func(context.Context, any) (*models.User, error)
-	OnUpdateUser      func(context.Context, *models.User) error
-	OnUpdatePassword  func(context.Context, ulid.ULID, string) error
-	OnUpdateLastLogin func(context.Context, ulid.ULID, time.Time) error
-	OnVerifyEmail     func(context.Context, ulid.ULID) error
-	OnDeleteUser      func(context.Context, ulid.ULID) error
+	// Composite callbacks
+	OnCompletePasswordReset  func(context.Context, ulid.ULID, string) error
+	OnCreateAPIKeyForCreator func(context.Context, *models.APIKey, ulid.ULID) (*models.APIKey, error)
 
-	// RoleStore Callbacks
-	OnListRoles                func(context.Context, *models.Page) (*models.RoleList, error)
-	OnCreateRole               func(context.Context, *models.Role) error
-	OnRetrieveRole             func(context.Context, any) (*models.Role, error)
-	OnUpdateRole               func(context.Context, *models.Role) error
-	OnAddPermissionToRole      func(context.Context, int64, any) error
-	OnRemovePermissionFromRole func(context.Context, int64, int64) error
-	OnDeleteRole               func(context.Context, int64) error
+	// UserStore callbacks
+	OnListUsers                 func(context.Context, tidal.ListFilter) (tidal.Cursor[*models.User], error)
+	OnCreateUser                func(context.Context, *models.User) (*models.User, error)
+	OnRetrieveUser              func(context.Context, ulid.ULID) (*models.User, error)
+	OnRetrieveUserByEmail       func(context.Context, string) (*models.User, error)
+	OnUpdateUser                func(context.Context, *models.User) error
+	OnUpdatePassword            func(context.Context, ulid.ULID, string) error
+	OnUpdateLastLogin           func(context.Context, ulid.ULID, time.Time) error
+	OnVerifyEmail               func(context.Context, ulid.ULID) error
+	OnDeleteUser                func(context.Context, ulid.ULID) error
+	OnAddRoleToUser             func(context.Context, ulid.ULID, int64) error
+	OnAddRoleToUserByTitle      func(context.Context, ulid.ULID, string) error
+	OnRemoveRoleFromUser        func(context.Context, ulid.ULID, int64) error
+	OnRemoveRoleFromUserByTitle func(context.Context, ulid.ULID, string) error
+	OnReplaceUserRoles          func(context.Context, ulid.ULID, []int64) error
 
-	// PermissionStore Callbacks
-	OnListPermissions    func(context.Context, *models.Page) (*models.PermissionList, error)
-	OnCreatePermission   func(context.Context, *models.Permission) error
-	OnRetrievePermission func(context.Context, any) (*models.Permission, error)
-	OnUpdatePermission   func(context.Context, *models.Permission) error
-	OnDeletePermission   func(context.Context, int64) error
+	// RoleStore callbacks
+	OnListRoles                  func(context.Context, tidal.ListFilter) (tidal.Cursor[*models.Role], error)
+	OnCreateRole                 func(context.Context, *models.Role) (*models.Role, error)
+	OnRetrieveRole               func(context.Context, int64) (*models.Role, error)
+	OnRetrieveRoleByTitle        func(context.Context, string) (*models.Role, error)
+	OnUpdateRole                 func(context.Context, *models.Role) error
+	OnAddPermissionToRole        func(context.Context, int64, int64) error
+	OnAddPermissionToRoleByTitle func(context.Context, int64, string) error
+	OnRemovePermissionFromRole   func(context.Context, int64, int64) error
+	OnDeleteRole                 func(context.Context, int64) error
 
-	// APIKeyStore Callbacks
-	OnListAPIKeys                func(context.Context, *models.Page) (*models.APIKeyList, error)
-	OnCreateAPIKey               func(context.Context, *models.APIKey) error
-	OnRetrieveAPIKey             func(context.Context, any) (*models.APIKey, error)
-	OnUpdateAPIKey               func(context.Context, *models.APIKey) error
-	OnUpdateLastSeen             func(context.Context, ulid.ULID, time.Time) error
-	OnAddPermissionToAPIKey      func(context.Context, ulid.ULID, any) error
-	OnRemovePermissionFromAPIKey func(context.Context, ulid.ULID, int64) error
-	OnRevokeAPIKey               func(context.Context, ulid.ULID) error
-	OnDeleteAPIKey               func(context.Context, ulid.ULID) error
+	// PermissionStore callbacks
+	OnListPermissions           func(context.Context, tidal.ListFilter) (tidal.Cursor[*models.Permission], error)
+	OnCreatePermission          func(context.Context, *models.Permission) (*models.Permission, error)
+	OnRetrievePermission        func(context.Context, int64) (*models.Permission, error)
+	OnRetrievePermissionByTitle func(context.Context, string) (*models.Permission, error)
+	OnUpdatePermission          func(context.Context, *models.Permission) error
+	OnDeletePermission          func(context.Context, int64) error
 
-	// OIDCClientStore Callbacks
-	OnListOIDCClients    func(context.Context, *models.Page) (*models.OIDCClientList, error)
-	OnCreateOIDCClient   func(context.Context, *models.OIDCClient) error
-	OnRetrieveOIDCClient func(context.Context, any) (*models.OIDCClient, error)
-	OnUpdateOIDCClient   func(context.Context, *models.OIDCClient) error
-	OnDeleteOIDCClient   func(context.Context, ulid.ULID) error
+	// APIKeyStore callbacks
+	OnListAPIKeys                  func(context.Context, tidal.ListFilter) (tidal.Cursor[*models.APIKey], error)
+	OnCreateAPIKey                 func(context.Context, *models.APIKey) (*models.APIKey, error)
+	OnRetrieveAPIKey               func(context.Context, ulid.ULID) (*models.APIKey, error)
+	OnRetrieveAPIKeyByClientID     func(context.Context, string) (*models.APIKey, error)
+	OnUpdateAPIKey                 func(context.Context, *models.APIKey) error
+	OnUpdateLastSeen               func(context.Context, ulid.ULID, time.Time) error
+	OnAddPermissionToAPIKey        func(context.Context, ulid.ULID, int64) error
+	OnAddPermissionToAPIKeyByTitle func(context.Context, ulid.ULID, string) error
+	OnRemovePermissionFromAPIKey   func(context.Context, ulid.ULID, int64) error
+	OnReplaceAPIKeyPermissions     func(context.Context, ulid.ULID, []int64) error
+	OnRevokeAPIKey                 func(context.Context, ulid.ULID) error
+	OnDeleteAPIKey                 func(context.Context, ulid.ULID) error
 
-	// VeroTokenStore Callbacks
-	OnCreateVeroToken              func(context.Context, *models.VeroToken) error
+	// OIDCClientStore callbacks
+	OnListOIDCClients              func(context.Context, tidal.ListFilter) (tidal.Cursor[*models.OIDCClient], error)
+	OnCreateOIDCClient             func(context.Context, *models.OIDCClient) (*models.OIDCClient, error)
+	OnRetrieveOIDCClient           func(context.Context, ulid.ULID) (*models.OIDCClient, error)
+	OnRetrieveOIDCClientByClientID func(context.Context, string) (*models.OIDCClient, error)
+	OnUpdateOIDCClient             func(context.Context, *models.OIDCClient) error
+	OnDeleteOIDCClient             func(context.Context, ulid.ULID) error
+
+	// VeroTokenStore callbacks
+	OnCreateVeroToken              func(context.Context, *models.VeroToken) (*models.VeroToken, error)
 	OnRetrieveVeroToken            func(context.Context, ulid.ULID) (*models.VeroToken, error)
+	OnRetrieveVeroTokenByResource  func(context.Context, ulid.ULID, enum.TokenType) (*models.VeroToken, error)
 	OnUpdateVeroToken              func(context.Context, *models.VeroToken) error
 	OnDeleteVeroToken              func(context.Context, ulid.ULID) error
-	OnCreateResetPasswordVeroToken func(context.Context, *models.VeroToken) error
-	OnCreateTeamInviteVeroToken    func(context.Context, *models.VeroToken) error
-	OnRetrieveTeamInviteVeroToken  func(context.Context, ulid.ULID) (*models.VeroToken, error)
+	OnCreateResetPasswordVeroToken func(context.Context, *models.VeroToken) (*models.VeroToken, error)
+	OnCreateTeamInviteVeroToken    func(context.Context, *models.VeroToken) (*models.VeroToken, error)
 }
 
 func Open(uri *dsn.DSN) (*Store, error) {
-	if uri != nil && uri.Scheme != dsn.Mock {
+	if uri != nil && uri.Provider != dsn.Mock {
 		return nil, errors.ErrUnknownScheme
 	}
 
 	if uri == nil {
-		uri = &dsn.DSN{ReadOnly: false, Scheme: dsn.Mock}
+		uri = &dsn.DSN{Provider: dsn.Mock}
 	}
 
 	return &Store{
-		calls:    make(map[string]int),
-		readonly: uri.ReadOnly,
+		calls: make(map[string]int),
 	}, nil
 }
 
 //===========================================================================
-// Mock Helper Methods
+// Mock helper methods
 //===========================================================================
 
 // Reset all the calls and callbacks in the store.
 func (s *Store) Reset() {
-	// reset the call counts
 	s.calls = nil
 	s.calls = make(map[string]int)
 
-	// reset the callbacks using reflection
 	v := reflect.ValueOf(s).Elem()
 	t := v.Type()
 	for _, f := range reflect.VisibleFields(t) {
-		// only reset functions named `OnSomething`
 		if strings.HasPrefix(f.Name, "On") && f.Type.Kind() == reflect.Func {
 			fv := v.FieldByIndex(f.Index)
 			fv.SetZero()
@@ -130,7 +145,7 @@ func (s *Store) AssertCalls(t testing.TB, method string, expected int) {
 }
 
 //===========================================================================
-// Store Interface Methods
+// Store interface methods
 //===========================================================================
 
 func (s *Store) Close() error {
@@ -141,22 +156,28 @@ func (s *Store) Close() error {
 	return nil
 }
 
-func (s *Store) Begin(ctx context.Context, opts *sql.TxOptions) (txn.Txn, error) {
-	s.calls[Begin]++
-	if s.OnBegin != nil {
-		return s.OnBegin(ctx, opts)
+func (s *Store) Stats() sql.DBStats {
+	s.calls[Stats]++
+	if s.OnStats != nil {
+		return s.OnStats()
 	}
+	return sql.DBStats{}
+}
 
-	if opts == nil {
-		opts = &sql.TxOptions{ReadOnly: s.readonly}
-	} else if s.readonly && !opts.ReadOnly {
-		return nil, errors.ErrReadOnly
+func (s *Store) CompletePasswordReset(ctx context.Context, veroTokenID ulid.ULID, newPassword string) error {
+	s.calls[CompletePasswordReset]++
+	if s.OnCompletePasswordReset != nil {
+		return s.OnCompletePasswordReset(ctx, veroTokenID, newPassword)
 	}
+	panic(errors.Fmt("%s callback is not mocked", CompletePasswordReset))
+}
 
-	return &Tx{
-		opts:  opts,
-		calls: make(map[string]int),
-	}, nil
+func (s *Store) CreateAPIKeyFor(ctx context.Context, key *models.APIKey, creatorAPIKeyID ulid.ULID) (*models.APIKey, error) {
+	s.calls[CreateAPIKeyFor]++
+	if s.OnCreateAPIKeyForCreator != nil {
+		return s.OnCreateAPIKeyForCreator(ctx, key, creatorAPIKeyID)
+	}
+	panic(errors.Fmt("%s callback is not mocked", CreateAPIKeyFor))
 }
 
 //===========================================================================
@@ -164,25 +185,31 @@ func (s *Store) Begin(ctx context.Context, opts *sql.TxOptions) (txn.Txn, error)
 //===========================================================================
 
 const (
-	ListUsers       = "ListUsers"
-	CreateUser      = "CreateUser"
-	RetrieveUser    = "RetrieveUser"
-	UpdateUser      = "UpdateUser"
-	UpdatePassword  = "UpdatePassword"
-	UpdateLastLogin = "UpdateLastLogin"
-	VerifyEmail     = "VerifyEmail"
-	DeleteUser      = "DeleteUser"
+	ListUsers                 = "ListUsers"
+	CreateUser                = "CreateUser"
+	RetrieveUser              = "RetrieveUser"
+	RetrieveUserByEmail       = "RetrieveUserByEmail"
+	UpdateUser                = "UpdateUser"
+	UpdatePassword            = "UpdatePassword"
+	UpdateLastLogin           = "UpdateLastLogin"
+	VerifyEmail               = "VerifyEmail"
+	DeleteUser                = "DeleteUser"
+	AddRoleToUser             = "AddRoleToUser"
+	AddRoleToUserByTitle      = "AddRoleToUserByTitle"
+	RemoveRoleFromUser        = "RemoveRoleFromUser"
+	RemoveRoleFromUserByTitle = "RemoveRoleFromUserByTitle"
+	ReplaceUserRoles          = "ReplaceUserRoles"
 )
 
-func (s *Store) ListUsers(ctx context.Context, page *models.UserPage) (*models.UserList, error) {
+func (s *Store) ListUsers(ctx context.Context, filter tidal.ListFilter) (tidal.Cursor[*models.User], error) {
 	s.calls[ListUsers]++
 	if s.OnListUsers != nil {
-		return s.OnListUsers(ctx, page)
+		return s.OnListUsers(ctx, filter)
 	}
 	panic(errors.Fmt("%s callback is not mocked", ListUsers))
 }
 
-func (s *Store) CreateUser(ctx context.Context, user *models.User) error {
+func (s *Store) CreateUser(ctx context.Context, user *models.User) (*models.User, error) {
 	s.calls[CreateUser]++
 	if s.OnCreateUser != nil {
 		return s.OnCreateUser(ctx, user)
@@ -190,12 +217,20 @@ func (s *Store) CreateUser(ctx context.Context, user *models.User) error {
 	panic(errors.Fmt("%s callback is not mocked", CreateUser))
 }
 
-func (s *Store) RetrieveUser(ctx context.Context, id any) (*models.User, error) {
+func (s *Store) RetrieveUser(ctx context.Context, id ulid.ULID) (*models.User, error) {
 	s.calls[RetrieveUser]++
 	if s.OnRetrieveUser != nil {
 		return s.OnRetrieveUser(ctx, id)
 	}
 	panic(errors.Fmt("%s callback is not mocked", RetrieveUser))
+}
+
+func (s *Store) RetrieveUserByEmail(ctx context.Context, email string) (*models.User, error) {
+	s.calls[RetrieveUserByEmail]++
+	if s.OnRetrieveUserByEmail != nil {
+		return s.OnRetrieveUserByEmail(ctx, email)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RetrieveUserByEmail))
 }
 
 func (s *Store) UpdateUser(ctx context.Context, user *models.User) error {
@@ -238,29 +273,71 @@ func (s *Store) DeleteUser(ctx context.Context, id ulid.ULID) error {
 	panic(errors.Fmt("%s callback is not mocked", DeleteUser))
 }
 
+func (s *Store) AddRoleToUser(ctx context.Context, userID ulid.ULID, roleID int64) error {
+	s.calls[AddRoleToUser]++
+	if s.OnAddRoleToUser != nil {
+		return s.OnAddRoleToUser(ctx, userID, roleID)
+	}
+	panic(errors.Fmt("%s callback is not mocked", AddRoleToUser))
+}
+
+func (s *Store) AddRoleToUserByTitle(ctx context.Context, userID ulid.ULID, title string) error {
+	s.calls[AddRoleToUserByTitle]++
+	if s.OnAddRoleToUserByTitle != nil {
+		return s.OnAddRoleToUserByTitle(ctx, userID, title)
+	}
+	panic(errors.Fmt("%s callback is not mocked", AddRoleToUserByTitle))
+}
+
+func (s *Store) RemoveRoleFromUser(ctx context.Context, userID ulid.ULID, roleID int64) error {
+	s.calls[RemoveRoleFromUser]++
+	if s.OnRemoveRoleFromUser != nil {
+		return s.OnRemoveRoleFromUser(ctx, userID, roleID)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RemoveRoleFromUser))
+}
+
+func (s *Store) RemoveRoleFromUserByTitle(ctx context.Context, userID ulid.ULID, title string) error {
+	s.calls[RemoveRoleFromUserByTitle]++
+	if s.OnRemoveRoleFromUserByTitle != nil {
+		return s.OnRemoveRoleFromUserByTitle(ctx, userID, title)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RemoveRoleFromUserByTitle))
+}
+
+func (s *Store) ReplaceUserRoles(ctx context.Context, userID ulid.ULID, roleIDs []int64) error {
+	s.calls[ReplaceUserRoles]++
+	if s.OnReplaceUserRoles != nil {
+		return s.OnReplaceUserRoles(ctx, userID, roleIDs)
+	}
+	panic(errors.Fmt("%s callback is not mocked", ReplaceUserRoles))
+}
+
 //===========================================================================
 // RoleStore
 //===========================================================================
 
 const (
-	ListRoles                = "ListRoles"
-	CreateRole               = "CreateRole"
-	RetrieveRole             = "RetrieveRole"
-	UpdateRole               = "UpdateRole"
-	AddPermissionToRole      = "AddPermissionToRole"
-	RemovePermissionFromRole = "RemovePermissionFromRole"
-	DeleteRole               = "DeleteRole"
+	ListRoles                  = "ListRoles"
+	CreateRole                 = "CreateRole"
+	RetrieveRole               = "RetrieveRole"
+	RetrieveRoleByTitle        = "RetrieveRoleByTitle"
+	UpdateRole                 = "UpdateRole"
+	AddPermissionToRole        = "AddPermissionToRole"
+	AddPermissionToRoleByTitle = "AddPermissionToRoleByTitle"
+	RemovePermissionFromRole   = "RemovePermissionFromRole"
+	DeleteRole                 = "DeleteRole"
 )
 
-func (s *Store) ListRoles(ctx context.Context, page *models.Page) (*models.RoleList, error) {
+func (s *Store) ListRoles(ctx context.Context, filter tidal.ListFilter) (tidal.Cursor[*models.Role], error) {
 	s.calls[ListRoles]++
 	if s.OnListRoles != nil {
-		return s.OnListRoles(ctx, page)
+		return s.OnListRoles(ctx, filter)
 	}
 	panic(errors.Fmt("%s callback is not mocked", ListRoles))
 }
 
-func (s *Store) CreateRole(ctx context.Context, role *models.Role) error {
+func (s *Store) CreateRole(ctx context.Context, role *models.Role) (*models.Role, error) {
 	s.calls[CreateRole]++
 	if s.OnCreateRole != nil {
 		return s.OnCreateRole(ctx, role)
@@ -268,12 +345,20 @@ func (s *Store) CreateRole(ctx context.Context, role *models.Role) error {
 	panic(errors.Fmt("%s callback is not mocked", CreateRole))
 }
 
-func (s *Store) RetrieveRole(ctx context.Context, id any) (*models.Role, error) {
+func (s *Store) RetrieveRole(ctx context.Context, id int64) (*models.Role, error) {
 	s.calls[RetrieveRole]++
 	if s.OnRetrieveRole != nil {
 		return s.OnRetrieveRole(ctx, id)
 	}
 	panic(errors.Fmt("%s callback is not mocked", RetrieveRole))
+}
+
+func (s *Store) RetrieveRoleByTitle(ctx context.Context, title string) (*models.Role, error) {
+	s.calls[RetrieveRoleByTitle]++
+	if s.OnRetrieveRoleByTitle != nil {
+		return s.OnRetrieveRoleByTitle(ctx, title)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RetrieveRoleByTitle))
 }
 
 func (s *Store) UpdateRole(ctx context.Context, role *models.Role) error {
@@ -284,18 +369,26 @@ func (s *Store) UpdateRole(ctx context.Context, role *models.Role) error {
 	panic(errors.Fmt("%s callback is not mocked", UpdateRole))
 }
 
-func (s *Store) AddPermissionToRole(ctx context.Context, roleID int64, permission any) error {
+func (s *Store) AddPermissionToRole(ctx context.Context, roleID int64, permissionID int64) error {
 	s.calls[AddPermissionToRole]++
 	if s.OnAddPermissionToRole != nil {
-		return s.OnAddPermissionToRole(ctx, roleID, permission)
+		return s.OnAddPermissionToRole(ctx, roleID, permissionID)
 	}
 	panic(errors.Fmt("%s callback is not mocked", AddPermissionToRole))
 }
 
-func (s *Store) RemovePermissionFromRole(ctx context.Context, roleID int64, permission int64) error {
+func (s *Store) AddPermissionToRoleByTitle(ctx context.Context, roleID int64, title string) error {
+	s.calls[AddPermissionToRoleByTitle]++
+	if s.OnAddPermissionToRoleByTitle != nil {
+		return s.OnAddPermissionToRoleByTitle(ctx, roleID, title)
+	}
+	panic(errors.Fmt("%s callback is not mocked", AddPermissionToRoleByTitle))
+}
+
+func (s *Store) RemovePermissionFromRole(ctx context.Context, roleID int64, permissionID int64) error {
 	s.calls[RemovePermissionFromRole]++
 	if s.OnRemovePermissionFromRole != nil {
-		return s.OnRemovePermissionFromRole(ctx, roleID, permission)
+		return s.OnRemovePermissionFromRole(ctx, roleID, permissionID)
 	}
 	panic(errors.Fmt("%s callback is not mocked", RemovePermissionFromRole))
 }
@@ -313,22 +406,23 @@ func (s *Store) DeleteRole(ctx context.Context, id int64) error {
 //===========================================================================
 
 const (
-	ListPermissions    = "ListPermissions"
-	CreatePermission   = "CreatePermission"
-	RetrievePermission = "RetrievePermission"
-	UpdatePermission   = "UpdatePermission"
-	DeletePermission   = "DeletePermission"
+	ListPermissions           = "ListPermissions"
+	CreatePermission          = "CreatePermission"
+	RetrievePermission        = "RetrievePermission"
+	RetrievePermissionByTitle = "RetrievePermissionByTitle"
+	UpdatePermission          = "UpdatePermission"
+	DeletePermission          = "DeletePermission"
 )
 
-func (s *Store) ListPermissions(ctx context.Context, page *models.Page) (*models.PermissionList, error) {
+func (s *Store) ListPermissions(ctx context.Context, filter tidal.ListFilter) (tidal.Cursor[*models.Permission], error) {
 	s.calls[ListPermissions]++
 	if s.OnListPermissions != nil {
-		return s.OnListPermissions(ctx, page)
+		return s.OnListPermissions(ctx, filter)
 	}
 	panic(errors.Fmt("%s callback is not mocked", ListPermissions))
 }
 
-func (s *Store) CreatePermission(ctx context.Context, permission *models.Permission) error {
+func (s *Store) CreatePermission(ctx context.Context, permission *models.Permission) (*models.Permission, error) {
 	s.calls[CreatePermission]++
 	if s.OnCreatePermission != nil {
 		return s.OnCreatePermission(ctx, permission)
@@ -336,12 +430,20 @@ func (s *Store) CreatePermission(ctx context.Context, permission *models.Permiss
 	panic(errors.Fmt("%s callback is not mocked", CreatePermission))
 }
 
-func (s *Store) RetrievePermission(ctx context.Context, id any) (*models.Permission, error) {
+func (s *Store) RetrievePermission(ctx context.Context, id int64) (*models.Permission, error) {
 	s.calls[RetrievePermission]++
 	if s.OnRetrievePermission != nil {
 		return s.OnRetrievePermission(ctx, id)
 	}
 	panic(errors.Fmt("%s callback is not mocked", RetrievePermission))
+}
+
+func (s *Store) RetrievePermissionByTitle(ctx context.Context, title string) (*models.Permission, error) {
+	s.calls[RetrievePermissionByTitle]++
+	if s.OnRetrievePermissionByTitle != nil {
+		return s.OnRetrievePermissionByTitle(ctx, title)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RetrievePermissionByTitle))
 }
 
 func (s *Store) UpdatePermission(ctx context.Context, permission *models.Permission) error {
@@ -365,45 +467,56 @@ func (s *Store) DeletePermission(ctx context.Context, id int64) error {
 //===========================================================================
 
 const (
-	ListAPIKeys                = "ListAPIKeys"
-	CreateAPIKey               = "CreateAPIKey"
-	RetrieveAPIKey             = "RetrieveAPIKey"
-	UpdateAPIKey               = "UpdateAPIKey"
-	UpdateLastSeen             = "UpdateLastSeen"
-	AddPermissionToAPIKey      = "AddPermissionToAPIKey"
-	RemovePermissionFromAPIKey = "RemovePermissionFromAPIKey"
-	RevokeAPIKey               = "RevokeAPIKey"
-	DeleteAPIKey               = "DeleteAPIKey"
+	ListAPIKeys                  = "ListAPIKeys"
+	CreateAPIKey                 = "CreateAPIKey"
+	RetrieveAPIKey               = "RetrieveAPIKey"
+	RetrieveAPIKeyByClientID     = "RetrieveAPIKeyByClientID"
+	UpdateAPIKey                 = "UpdateAPIKey"
+	UpdateLastSeen               = "UpdateLastSeen"
+	AddPermissionToAPIKey        = "AddPermissionToAPIKey"
+	AddPermissionToAPIKeyByTitle = "AddPermissionToAPIKeyByTitle"
+	RemovePermissionFromAPIKey   = "RemovePermissionFromAPIKey"
+	ReplaceAPIKeyPermissions     = "ReplaceAPIKeyPermissions"
+	RevokeAPIKey                 = "RevokeAPIKey"
+	DeleteAPIKey                 = "DeleteAPIKey"
 )
 
-func (s *Store) ListAPIKeys(ctx context.Context, page *models.Page) (*models.APIKeyList, error) {
+func (s *Store) ListAPIKeys(ctx context.Context, filter tidal.ListFilter) (tidal.Cursor[*models.APIKey], error) {
 	s.calls[ListAPIKeys]++
 	if s.OnListAPIKeys != nil {
-		return s.OnListAPIKeys(ctx, page)
+		return s.OnListAPIKeys(ctx, filter)
 	}
 	panic(errors.Fmt("%s callback is not mocked", ListAPIKeys))
 }
 
-func (s *Store) CreateAPIKey(ctx context.Context, in *models.APIKey) error {
+func (s *Store) CreateAPIKey(ctx context.Context, key *models.APIKey) (*models.APIKey, error) {
 	s.calls[CreateAPIKey]++
 	if s.OnCreateAPIKey != nil {
-		return s.OnCreateAPIKey(ctx, in)
+		return s.OnCreateAPIKey(ctx, key)
 	}
 	panic(errors.Fmt("%s callback is not mocked", CreateAPIKey))
 }
 
-func (s *Store) RetrieveAPIKey(ctx context.Context, in any) (*models.APIKey, error) {
+func (s *Store) RetrieveAPIKey(ctx context.Context, id ulid.ULID) (*models.APIKey, error) {
 	s.calls[RetrieveAPIKey]++
 	if s.OnRetrieveAPIKey != nil {
-		return s.OnRetrieveAPIKey(ctx, in)
+		return s.OnRetrieveAPIKey(ctx, id)
 	}
 	panic(errors.Fmt("%s callback is not mocked", RetrieveAPIKey))
 }
 
-func (s *Store) UpdateAPIKey(ctx context.Context, in *models.APIKey) error {
+func (s *Store) RetrieveAPIKeyByClientID(ctx context.Context, clientID string) (*models.APIKey, error) {
+	s.calls[RetrieveAPIKeyByClientID]++
+	if s.OnRetrieveAPIKeyByClientID != nil {
+		return s.OnRetrieveAPIKeyByClientID(ctx, clientID)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RetrieveAPIKeyByClientID))
+}
+
+func (s *Store) UpdateAPIKey(ctx context.Context, key *models.APIKey) error {
 	s.calls[UpdateAPIKey]++
 	if s.OnUpdateAPIKey != nil {
-		return s.OnUpdateAPIKey(ctx, in)
+		return s.OnUpdateAPIKey(ctx, key)
 	}
 	panic(errors.Fmt("%s callback is not mocked", UpdateAPIKey))
 }
@@ -416,12 +529,20 @@ func (s *Store) UpdateLastSeen(ctx context.Context, id ulid.ULID, lastSeen time.
 	panic(errors.Fmt("%s callback is not mocked", UpdateLastSeen))
 }
 
-func (s *Store) AddPermissionToAPIKey(ctx context.Context, id ulid.ULID, permission any) error {
+func (s *Store) AddPermissionToAPIKey(ctx context.Context, id ulid.ULID, permissionID int64) error {
 	s.calls[AddPermissionToAPIKey]++
 	if s.OnAddPermissionToAPIKey != nil {
-		return s.OnAddPermissionToAPIKey(ctx, id, permission)
+		return s.OnAddPermissionToAPIKey(ctx, id, permissionID)
 	}
 	panic(errors.Fmt("%s callback is not mocked", AddPermissionToAPIKey))
+}
+
+func (s *Store) AddPermissionToAPIKeyByTitle(ctx context.Context, id ulid.ULID, title string) error {
+	s.calls[AddPermissionToAPIKeyByTitle]++
+	if s.OnAddPermissionToAPIKeyByTitle != nil {
+		return s.OnAddPermissionToAPIKeyByTitle(ctx, id, title)
+	}
+	panic(errors.Fmt("%s callback is not mocked", AddPermissionToAPIKeyByTitle))
 }
 
 func (s *Store) RemovePermissionFromAPIKey(ctx context.Context, id ulid.ULID, permissionID int64) error {
@@ -430,6 +551,14 @@ func (s *Store) RemovePermissionFromAPIKey(ctx context.Context, id ulid.ULID, pe
 		return s.OnRemovePermissionFromAPIKey(ctx, id, permissionID)
 	}
 	panic(errors.Fmt("%s callback is not mocked", RemovePermissionFromAPIKey))
+}
+
+func (s *Store) ReplaceAPIKeyPermissions(ctx context.Context, id ulid.ULID, permissionIDs []int64) error {
+	s.calls[ReplaceAPIKeyPermissions]++
+	if s.OnReplaceAPIKeyPermissions != nil {
+		return s.OnReplaceAPIKeyPermissions(ctx, id, permissionIDs)
+	}
+	panic(errors.Fmt("%s callback is not mocked", ReplaceAPIKeyPermissions))
 }
 
 func (s *Store) RevokeAPIKey(ctx context.Context, id ulid.ULID) error {
@@ -453,41 +582,50 @@ func (s *Store) DeleteAPIKey(ctx context.Context, id ulid.ULID) error {
 //===========================================================================
 
 const (
-	ListOIDCClients    = "ListOIDCClients"
-	CreateOIDCClient   = "CreateOIDCClient"
-	RetrieveOIDCClient = "RetrieveOIDCClient"
-	UpdateOIDCClient   = "UpdateOIDCClient"
-	DeleteOIDCClient   = "DeleteOIDCClient"
+	ListOIDCClients              = "ListOIDCClients"
+	CreateOIDCClient             = "CreateOIDCClient"
+	RetrieveOIDCClient           = "RetrieveOIDCClient"
+	RetrieveOIDCClientByClientID = "RetrieveOIDCClientByClientID"
+	UpdateOIDCClient             = "UpdateOIDCClient"
+	DeleteOIDCClient             = "DeleteOIDCClient"
 )
 
-func (s *Store) ListOIDCClients(ctx context.Context, page *models.Page) (*models.OIDCClientList, error) {
+func (s *Store) ListOIDCClients(ctx context.Context, filter tidal.ListFilter) (tidal.Cursor[*models.OIDCClient], error) {
 	s.calls[ListOIDCClients]++
 	if s.OnListOIDCClients != nil {
-		return s.OnListOIDCClients(ctx, page)
+		return s.OnListOIDCClients(ctx, filter)
 	}
 	panic(errors.Fmt("%s callback is not mocked", ListOIDCClients))
 }
 
-func (s *Store) CreateOIDCClient(ctx context.Context, in *models.OIDCClient) error {
+func (s *Store) CreateOIDCClient(ctx context.Context, client *models.OIDCClient) (*models.OIDCClient, error) {
 	s.calls[CreateOIDCClient]++
 	if s.OnCreateOIDCClient != nil {
-		return s.OnCreateOIDCClient(ctx, in)
+		return s.OnCreateOIDCClient(ctx, client)
 	}
 	panic(errors.Fmt("%s callback is not mocked", CreateOIDCClient))
 }
 
-func (s *Store) RetrieveOIDCClient(ctx context.Context, in any) (*models.OIDCClient, error) {
+func (s *Store) RetrieveOIDCClient(ctx context.Context, id ulid.ULID) (*models.OIDCClient, error) {
 	s.calls[RetrieveOIDCClient]++
 	if s.OnRetrieveOIDCClient != nil {
-		return s.OnRetrieveOIDCClient(ctx, in)
+		return s.OnRetrieveOIDCClient(ctx, id)
 	}
 	panic(errors.Fmt("%s callback is not mocked", RetrieveOIDCClient))
 }
 
-func (s *Store) UpdateOIDCClient(ctx context.Context, in *models.OIDCClient) error {
+func (s *Store) RetrieveOIDCClientByClientID(ctx context.Context, clientID string) (*models.OIDCClient, error) {
+	s.calls[RetrieveOIDCClientByClientID]++
+	if s.OnRetrieveOIDCClientByClientID != nil {
+		return s.OnRetrieveOIDCClientByClientID(ctx, clientID)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RetrieveOIDCClientByClientID))
+}
+
+func (s *Store) UpdateOIDCClient(ctx context.Context, client *models.OIDCClient) error {
 	s.calls[UpdateOIDCClient]++
 	if s.OnUpdateOIDCClient != nil {
-		return s.OnUpdateOIDCClient(ctx, in)
+		return s.OnUpdateOIDCClient(ctx, client)
 	}
 	panic(errors.Fmt("%s callback is not mocked", UpdateOIDCClient))
 }
@@ -507,65 +645,65 @@ func (s *Store) DeleteOIDCClient(ctx context.Context, id ulid.ULID) error {
 const (
 	CreateVeroToken              = "CreateVeroToken"
 	RetrieveVeroToken            = "RetrieveVeroToken"
+	RetrieveVeroTokenByResource  = "RetrieveVeroTokenByResource"
 	UpdateVeroToken              = "UpdateVeroToken"
 	DeleteVeroToken              = "DeleteVeroToken"
 	CreateResetPasswordVeroToken = "CreateResetPasswordVeroToken"
 	CreateTeamInviteVeroToken    = "CreateTeamInviteVeroToken"
-	RetrieveTeamInviteVeroToken  = "RetrieveTeamInviteVeroToken"
 )
 
-func (s *Store) CreateVeroToken(ctx context.Context, in *models.VeroToken) error {
+func (s *Store) CreateVeroToken(ctx context.Context, token *models.VeroToken) (*models.VeroToken, error) {
 	s.calls[CreateVeroToken]++
 	if s.OnCreateVeroToken != nil {
-		return s.OnCreateVeroToken(ctx, in)
+		return s.OnCreateVeroToken(ctx, token)
 	}
 	panic(errors.Fmt("%s callback is not mocked", CreateVeroToken))
 }
 
-func (s *Store) RetrieveVeroToken(ctx context.Context, in ulid.ULID) (*models.VeroToken, error) {
+func (s *Store) RetrieveVeroToken(ctx context.Context, id ulid.ULID) (*models.VeroToken, error) {
 	s.calls[RetrieveVeroToken]++
 	if s.OnRetrieveVeroToken != nil {
-		return s.OnRetrieveVeroToken(ctx, in)
+		return s.OnRetrieveVeroToken(ctx, id)
 	}
 	panic(errors.Fmt("%s callback is not mocked", RetrieveVeroToken))
 }
 
-func (s *Store) UpdateVeroToken(ctx context.Context, in *models.VeroToken) error {
+func (s *Store) RetrieveVeroTokenByResource(ctx context.Context, resourceID ulid.ULID, tokenType enum.TokenType) (*models.VeroToken, error) {
+	s.calls[RetrieveVeroTokenByResource]++
+	if s.OnRetrieveVeroTokenByResource != nil {
+		return s.OnRetrieveVeroTokenByResource(ctx, resourceID, tokenType)
+	}
+	panic(errors.Fmt("%s callback is not mocked", RetrieveVeroTokenByResource))
+}
+
+func (s *Store) UpdateVeroToken(ctx context.Context, token *models.VeroToken) error {
 	s.calls[UpdateVeroToken]++
 	if s.OnUpdateVeroToken != nil {
-		return s.OnUpdateVeroToken(ctx, in)
+		return s.OnUpdateVeroToken(ctx, token)
 	}
 	panic(errors.Fmt("%s callback is not mocked", UpdateVeroToken))
 }
 
-func (s *Store) DeleteVeroToken(ctx context.Context, in ulid.ULID) error {
+func (s *Store) DeleteVeroToken(ctx context.Context, id ulid.ULID) error {
 	s.calls[DeleteVeroToken]++
 	if s.OnDeleteVeroToken != nil {
-		return s.OnDeleteVeroToken(ctx, in)
+		return s.OnDeleteVeroToken(ctx, id)
 	}
 	panic(errors.Fmt("%s callback is not mocked", DeleteVeroToken))
 }
 
-func (s *Store) CreateResetPasswordVeroToken(ctx context.Context, in *models.VeroToken) error {
+func (s *Store) CreateResetPasswordVeroToken(ctx context.Context, token *models.VeroToken) (*models.VeroToken, error) {
 	s.calls[CreateResetPasswordVeroToken]++
 	if s.OnCreateResetPasswordVeroToken != nil {
-		return s.OnCreateResetPasswordVeroToken(ctx, in)
+		return s.OnCreateResetPasswordVeroToken(ctx, token)
 	}
-	panic(errors.Fmt("%s callback is not mocked", CreateVeroToken))
+	panic(errors.Fmt("%s callback is not mocked", CreateResetPasswordVeroToken))
 }
 
-func (s *Store) CreateTeamInviteVeroToken(ctx context.Context, in *models.VeroToken) error {
+func (s *Store) CreateTeamInviteVeroToken(ctx context.Context, token *models.VeroToken) (*models.VeroToken, error) {
 	s.calls[CreateTeamInviteVeroToken]++
 	if s.OnCreateTeamInviteVeroToken != nil {
-		return s.OnCreateTeamInviteVeroToken(ctx, in)
+		return s.OnCreateTeamInviteVeroToken(ctx, token)
 	}
-	panic(errors.Fmt("%s callback is not mocked", CreateVeroToken))
-}
-
-func (s *Store) RetrieveTeamInviteVeroToken(ctx context.Context, userID ulid.ULID) (*models.VeroToken, error) {
-	s.calls[RetrieveTeamInviteVeroToken]++
-	if s.OnRetrieveTeamInviteVeroToken != nil {
-		return s.OnRetrieveTeamInviteVeroToken(ctx, userID)
-	}
-	panic(errors.Fmt("%s callback is not mocked", RetrieveTeamInviteVeroToken))
+	panic(errors.Fmt("%s callback is not mocked", CreateTeamInviteVeroToken))
 }

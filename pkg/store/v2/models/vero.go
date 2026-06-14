@@ -5,15 +5,13 @@ import (
 	"time"
 
 	"go.rtnl.ai/quarterdeck/pkg/enum"
+	"go.rtnl.ai/tidal"
 	"go.rtnl.ai/ulid"
 	"go.rtnl.ai/x/vero"
 )
 
-// VeroTokens are sent via email to a user to allow them to securely authenticate to
-// Quarterdeck for a one-time task such as resetting a password, verifying an email
-// address, or accepting an invitation to a team.
 type VeroToken struct {
-	Model
+	tidal.BaseModel
 	TokenType  enum.TokenType
 	ResourceID ulid.NullULID
 	Email      string
@@ -22,13 +20,38 @@ type VeroToken struct {
 	SentOn     sql.NullTime
 }
 
-//===========================================================================
-// Scanning and Params
-//===========================================================================
+var _ tidal.Model = (*VeroToken)(nil)
 
-// Scan is an interface for scanning database rows into the VeroToken struct.
-func (v *VeroToken) Scan(scanner Scanner) error {
-	return scanner.Scan(
+func (v *VeroToken) Fields(op tidal.Operation) []string {
+	return []string{
+		"id",
+		"token_type",
+		"resource_id",
+		"email",
+		"expiration",
+		"signature",
+		"sent_on",
+		"created",
+		"modified",
+	}
+}
+
+func (v *VeroToken) Params(op tidal.Operation) []sql.NamedArg {
+	return []sql.NamedArg{
+		sql.Named("id", v.ID),
+		sql.Named("token_type", v.TokenType),
+		sql.Named("resource_id", v.ResourceID),
+		sql.Named("email", v.Email),
+		sql.Named("expiration", v.Expiration),
+		sql.Named("signature", v.Signature),
+		sql.Named("sent_on", v.SentOn),
+		sql.Named("created", v.Created),
+		sql.Named("modified", v.Modified),
+	}
+}
+
+func (v *VeroToken) Scan(op tidal.Operation, s tidal.Scanner) error {
+	return s.Scan(
 		&v.ID,
 		&v.TokenType,
 		&v.ResourceID,
@@ -40,25 +63,6 @@ func (v *VeroToken) Scan(scanner Scanner) error {
 		&v.Modified,
 	)
 }
-
-// Params returns all VeroToken fields as named params to be used in a SQL query.
-func (v *VeroToken) Params() []any {
-	return []any{
-		sql.Named("id", v.ID),
-		sql.Named("tokenType", v.TokenType),
-		sql.Named("resourceID", v.ResourceID),
-		sql.Named("email", v.Email),
-		sql.Named("expiration", v.Expiration),
-		sql.Named("signature", v.Signature),
-		sql.Named("sentOn", v.SentOn),
-		sql.Named("created", v.Created),
-		sql.Named("modified", v.Modified),
-	}
-}
-
-//===========================================================================
-// Helpers
-//===========================================================================
 
 func (v *VeroToken) IsExpired() bool {
 	return v.Expiration.IsZero() || time.Now().After(v.Expiration)

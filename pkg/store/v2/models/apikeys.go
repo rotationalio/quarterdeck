@@ -6,98 +6,127 @@ import (
 
 	"go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/quarterdeck/pkg/enum"
+	qerrors "go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/tidal"
 	"go.rtnl.ai/ulid"
 )
 
+// The duration after which an API key is considered stale.
+const APIKeyStalenessThreshold = 90 * 24 * time.Hour
+
 type APIKey struct {
-	Model
+	tidal.BaseModel
 	Description sql.NullString
 	ClientID    string
 	Secret      string
 	CreatedBy   ulid.ULID
 	LastSeen    sql.NullTime
 	Revoked     sql.NullTime
-	permissions []string
+	Permissions []Permission
 }
 
-type APIKeyList struct {
-	Page    *Page
-	APIKeys []*APIKey
-}
+var _ tidal.Model = (*APIKey)(nil)
+var _ tidal.Validator = (*APIKey)(nil)
 
-//===========================================================================
-// Scanning and Params
-//===========================================================================
-
-// Scanner is an interface for scanning database rows into the APIKey struct.
-func (k *APIKey) Scan(scanner Scanner) error {
-	return scanner.Scan(
-		&k.ID,
-		&k.Description,
-		&k.ClientID,
-		&k.Secret,
-		&k.CreatedBy,
-		&k.LastSeen,
-		&k.Revoked,
-		&k.Created,
-		&k.Modified,
-	)
-}
-
-// ScanSummary scans an APIKey struct from a database row, excluding the Secret field.
-func (k *APIKey) ScanSummary(scanner Scanner) error {
-	return scanner.Scan(
-		&k.ID,
-		&k.Description,
-		&k.ClientID,
-		&k.CreatedBy,
-		&k.LastSeen,
-		&k.Revoked,
-		&k.Created,
-		&k.Modified,
-	)
-}
-
-// Params returns all APIKey fields as named params to be used in a SQL query.
-func (k *APIKey) Params() []any {
-	return []any{
-		sql.Named("id", k.ID),
-		sql.Named("description", k.Description),
-		sql.Named("clientID", k.ClientID),
-		sql.Named("secret", k.Secret),
-		sql.Named("createdBy", k.CreatedBy),
-		sql.Named("lastSeen", k.LastSeen),
-		sql.Named("revoked", k.Revoked),
-		sql.Named("created", k.Created),
-		sql.Named("modified", k.Modified),
+func (k *APIKey) Fields(op tidal.Operation) []string {
+	switch op {
+	case tidal.List:
+		return []string{
+			"id",
+			"description",
+			"client_id",
+			"created_by",
+			"last_seen",
+			"revoked",
+			"created",
+			"modified",
+		}
+	case tidal.Update:
+		return []string{
+			"id",
+			"description",
+			"modified",
+		}
+	default:
+		return []string{
+			"id",
+			"description",
+			"client_id",
+			"secret",
+			"created_by",
+			"last_seen",
+			"revoked",
+			"created",
+			"modified",
+		}
 	}
 }
 
-//===========================================================================
-// Associations
-//===========================================================================
-
-// Permissions returns the permissions associated with the APIKey, if set.
-func (k APIKey) Permissions() []string {
-	return k.permissions
+func (k *APIKey) Params(op tidal.Operation) []sql.NamedArg {
+	switch op {
+	case tidal.Update:
+		return []sql.NamedArg{
+			sql.Named("id", k.ID),
+			sql.Named("description", k.Description),
+			sql.Named("modified", k.Modified),
+		}
+	default:
+		return []sql.NamedArg{
+			sql.Named("id", k.ID),
+			sql.Named("description", k.Description),
+			sql.Named("client_id", k.ClientID),
+			sql.Named("secret", k.Secret),
+			sql.Named("created_by", k.CreatedBy),
+			sql.Named("last_seen", k.LastSeen),
+			sql.Named("revoked", k.Revoked),
+			sql.Named("created", k.Created),
+			sql.Named("modified", k.Modified),
+		}
+	}
 }
 
-// SetPermissions sets the permissions for the APIKey.
-func (k *APIKey) SetPermissions(permissions []string) {
-	k.permissions = permissions
+func (k *APIKey) Scan(op tidal.Operation, s tidal.Scanner) error {
+	switch op {
+	case tidal.List:
+		return s.Scan(
+			&k.ID,
+			&k.Description,
+			&k.ClientID,
+			&k.CreatedBy,
+			&k.LastSeen,
+			&k.Revoked,
+			&k.Created,
+			&k.Modified,
+		)
+	default:
+		return s.Scan(
+			&k.ID,
+			&k.Description,
+			&k.ClientID,
+			&k.Secret,
+			&k.CreatedBy,
+			&k.LastSeen,
+			&k.Revoked,
+			&k.Created,
+			&k.Modified,
+		)
+	}
 }
 
-//===========================================================================
-// APIKey Status
-//===========================================================================
+// Validates that ClientID, Secret, and CreatedBy are set on create; default
+// [tidal.BaseModel.Validate] runs first.
+func (k *APIKey) Validate(op tidal.Operation) error {
+	if err := k.BaseModel.Validate(op); err != nil {
+		return err
+	}
+	if op == tidal.Create {
+		if k.ClientID == "" || k.Secret == "" || k.CreatedBy.IsZero() {
+			return qerrors.ErrZeroValuedNotNull
+		}
+	}
+	return nil
+}
 
-// API Keys are considered stale if they have not been used in the last 3 months or so.
-const APIKeyStalenessThreshold = 90 * 24 * time.Hour
-
-// Status of the APIKey based on the LastUsed timestamp if the api keys have not been
-// revoked. If the keys have never been used the unused status is returned; if they have
-// not been used in 90 days then the stale status is returned; otherwise the apikey is
-// considered active unless it has been revoked.
 func (k *APIKey) Status() enum.APIKeyStatus {
 	if k.Revoked.Valid || !k.Revoked.Time.IsZero() {
 		return enum.APIKeyStatusRevoked
@@ -114,18 +143,10 @@ func (k *APIKey) Status() enum.APIKeyStatus {
 	return enum.APIKeyStatusActive
 }
 
-//===========================================================================
-// Helper Methods
-//===========================================================================
-
 func (k APIKey) Claims() *auth.Claims {
 	claims := &auth.Claims{
 		ClientID:    k.ClientID,
-		Permissions: k.Permissions(),
-	}
-
-	if len(k.permissions) > 0 {
-		claims.Permissions = k.permissions
+		Permissions: PermissionTitles(k.Permissions),
 	}
 
 	claims.SetSubjectID(auth.SubjectAPIKey, k.ID)

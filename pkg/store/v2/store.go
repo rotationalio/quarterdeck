@@ -6,48 +6,17 @@ import (
 	"io"
 	"time"
 
-	"go.rtnl.ai/quarterdeck/pkg/config"
-	"go.rtnl.ai/quarterdeck/pkg/errors"
-	"go.rtnl.ai/quarterdeck/pkg/store/v1/dsn"
-	"go.rtnl.ai/quarterdeck/pkg/store/v1/mock"
-	"go.rtnl.ai/quarterdeck/pkg/store/v1/models"
-	"go.rtnl.ai/quarterdeck/pkg/store/v1/sqlite"
-	"go.rtnl.ai/quarterdeck/pkg/store/v1/txn"
+	"go.rtnl.ai/quarterdeck/pkg/enum"
+	"go.rtnl.ai/quarterdeck/pkg/store/v2/models"
+	"go.rtnl.ai/tidal"
 	"go.rtnl.ai/ulid"
 )
 
-// Open a directory storage provider with the specified URI. Database URLs should either
-// specify protocol+transport://user:pass@host/dbname?opt1=a&opt2=b for servers or
-// protocol:///relative/path/to/file for embedded databases (for absolute paths, specify
-// protocol:////absolute/path/to/file).
-func Open(conf config.DatabaseConfig) (s Store, err error) {
-	var uri *dsn.DSN
-	if uri, err = dsn.Parse(conf.URL); err != nil {
-		return nil, err
-	}
-
-	// The configuration overrides any read-only setting in the DSN.
-	uri.ReadOnly = conf.ReadOnly
-
-	switch uri.Scheme {
-	case dsn.Mock:
-		return mock.Open(uri)
-	case dsn.SQLite, dsn.SQLite3:
-		return sqlite.Open(uri)
-	default:
-		return nil, errors.Fmt("unhandled database scheme %q", uri.Scheme)
-	}
-}
-
-// Store is a generic storage interface allowing multiple storage backends such as
-// SQLite or Postgres to be used based on the preference of the user.
-// NOTE: to prevent import cycles, the txn.Tx interface is in its own package. If an
-// interface is added to the Store interface, it should be added to the txn.Tx interface
-// as well (to ensure the Txn has the same methods as the Store).
 type Store interface {
-	Begin(context.Context, *sql.TxOptions) (txn.Txn, error)
-
 	io.Closer
+
+	Stats() sql.DBStats
+
 	UserStore
 	RoleStore
 	PermissionStore
@@ -56,66 +25,76 @@ type Store interface {
 	VeroTokenStore
 }
 
-// The Stats interface exposes database statistics if it is available from the backend.
-type Stats interface {
-	Stats() sql.DBStats
-}
-
 type UserStore interface {
-	ListUsers(context.Context, *models.UserPage) (*models.UserList, error)
-	CreateUser(context.Context, *models.User) error
-	RetrieveUser(context.Context, any) (*models.User, error)
-	UpdateUser(context.Context, *models.User) error
-	UpdatePassword(context.Context, ulid.ULID, string) error
-	UpdateLastLogin(context.Context, ulid.ULID, time.Time) error
-	VerifyEmail(context.Context, ulid.ULID) error
-	DeleteUser(context.Context, ulid.ULID) error
+	ListUsers(ctx context.Context, filter tidal.ListFilter) (tidal.Cursor[*models.User], error)
+	CreateUser(ctx context.Context, user *models.User) (*models.User, error)
+	RetrieveUser(ctx context.Context, id ulid.ULID) (*models.User, error)
+	RetrieveUserByEmail(ctx context.Context, email string) (*models.User, error)
+	UpdateUser(ctx context.Context, user *models.User) error
+	UpdatePassword(ctx context.Context, userID ulid.ULID, password string) error
+	UpdateLastLogin(ctx context.Context, userID ulid.ULID, lastLogin time.Time) error
+	VerifyEmail(ctx context.Context, userID ulid.ULID) error
+	DeleteUser(ctx context.Context, userID ulid.ULID) error
+	AddRoleToUser(ctx context.Context, userID ulid.ULID, roleID int64) error
+	AddRoleToUserByTitle(ctx context.Context, userID ulid.ULID, title string) error
+	RemoveRoleFromUser(ctx context.Context, userID ulid.ULID, roleID int64) error
+	RemoveRoleFromUserByTitle(ctx context.Context, userID ulid.ULID, title string) error
+	ReplaceUserRoles(ctx context.Context, userID ulid.ULID, roleIDs []int64) error
 }
 
 type RoleStore interface {
-	ListRoles(context.Context, *models.Page) (*models.RoleList, error)
-	CreateRole(context.Context, *models.Role) error
-	RetrieveRole(context.Context, any) (*models.Role, error)
-	UpdateRole(context.Context, *models.Role) error
-	AddPermissionToRole(context.Context, int64, any) error
-	RemovePermissionFromRole(context.Context, int64, int64) error
-	DeleteRole(context.Context, int64) error
+	ListRoles(ctx context.Context, filter tidal.ListFilter) (tidal.Cursor[*models.Role], error)
+	CreateRole(ctx context.Context, role *models.Role) (*models.Role, error)
+	RetrieveRole(ctx context.Context, id int64) (*models.Role, error)
+	RetrieveRoleByTitle(ctx context.Context, title string) (*models.Role, error)
+	UpdateRole(ctx context.Context, role *models.Role) error
+	AddPermissionToRole(ctx context.Context, roleID int64, permissionID int64) error
+	AddPermissionToRoleByTitle(ctx context.Context, roleID int64, title string) error
+	RemovePermissionFromRole(ctx context.Context, roleID int64, permissionID int64) error
+	DeleteRole(ctx context.Context, id int64) error
 }
 
 type PermissionStore interface {
-	ListPermissions(context.Context, *models.Page) (*models.PermissionList, error)
-	CreatePermission(context.Context, *models.Permission) error
-	RetrievePermission(context.Context, any) (*models.Permission, error)
-	UpdatePermission(context.Context, *models.Permission) error
-	DeletePermission(context.Context, int64) error
+	ListPermissions(ctx context.Context, filter tidal.ListFilter) (tidal.Cursor[*models.Permission], error)
+	CreatePermission(ctx context.Context, permission *models.Permission) (*models.Permission, error)
+	RetrievePermission(ctx context.Context, id int64) (*models.Permission, error)
+	RetrievePermissionByTitle(ctx context.Context, title string) (*models.Permission, error)
+	UpdatePermission(ctx context.Context, permission *models.Permission) error
+	DeletePermission(ctx context.Context, id int64) error
 }
 
 type APIKeyStore interface {
-	ListAPIKeys(context.Context, *models.Page) (*models.APIKeyList, error)
-	CreateAPIKey(context.Context, *models.APIKey) error
-	RetrieveAPIKey(context.Context, any) (*models.APIKey, error)
-	UpdateAPIKey(context.Context, *models.APIKey) error
-	UpdateLastSeen(context.Context, ulid.ULID, time.Time) error
-	AddPermissionToAPIKey(context.Context, ulid.ULID, any) error
-	RemovePermissionFromAPIKey(context.Context, ulid.ULID, int64) error
-	RevokeAPIKey(context.Context, ulid.ULID) error
-	DeleteAPIKey(context.Context, ulid.ULID) error
+	ListAPIKeys(ctx context.Context, filter tidal.ListFilter) (tidal.Cursor[*models.APIKey], error)
+	CreateAPIKey(ctx context.Context, key *models.APIKey) (*models.APIKey, error)
+	RetrieveAPIKey(ctx context.Context, id ulid.ULID) (*models.APIKey, error)
+	RetrieveAPIKeyByClientID(ctx context.Context, clientID string) (*models.APIKey, error)
+	UpdateAPIKey(ctx context.Context, key *models.APIKey) error
+	UpdateLastSeen(ctx context.Context, keyID ulid.ULID, lastSeen time.Time) error
+	AddPermissionToAPIKey(ctx context.Context, keyID ulid.ULID, permissionID int64) error
+	AddPermissionToAPIKeyByTitle(ctx context.Context, keyID ulid.ULID, title string) error
+	RemovePermissionFromAPIKey(ctx context.Context, keyID ulid.ULID, permissionID int64) error
+	ReplaceAPIKeyPermissions(ctx context.Context, keyID ulid.ULID, permissionIDs []int64) error
+	RevokeAPIKey(ctx context.Context, keyID ulid.ULID) error
+	DeleteAPIKey(ctx context.Context, keyID ulid.ULID) error
+	CreateAPIKeyFor(ctx context.Context, key *models.APIKey, creator ulid.ULID) (*models.APIKey, error)
 }
 
 type OIDCClientStore interface {
-	ListOIDCClients(context.Context, *models.Page) (*models.OIDCClientList, error)
-	CreateOIDCClient(context.Context, *models.OIDCClient) error
-	RetrieveOIDCClient(context.Context, any) (*models.OIDCClient, error)
-	UpdateOIDCClient(context.Context, *models.OIDCClient) error
-	DeleteOIDCClient(context.Context, ulid.ULID) error
+	ListOIDCClients(ctx context.Context, filter tidal.ListFilter) (tidal.Cursor[*models.OIDCClient], error)
+	CreateOIDCClient(ctx context.Context, client *models.OIDCClient) (*models.OIDCClient, error)
+	RetrieveOIDCClient(ctx context.Context, id ulid.ULID) (*models.OIDCClient, error)
+	RetrieveOIDCClientByClientID(ctx context.Context, clientID string) (*models.OIDCClient, error)
+	UpdateOIDCClient(ctx context.Context, client *models.OIDCClient) error
+	DeleteOIDCClient(ctx context.Context, id ulid.ULID) error
 }
 
 type VeroTokenStore interface {
-	CreateVeroToken(context.Context, *models.VeroToken) error
-	RetrieveVeroToken(context.Context, ulid.ULID) (*models.VeroToken, error)
-	UpdateVeroToken(context.Context, *models.VeroToken) error
-	DeleteVeroToken(context.Context, ulid.ULID) error
-	CreateResetPasswordVeroToken(context.Context, *models.VeroToken) error
-	CreateTeamInviteVeroToken(context.Context, *models.VeroToken) error
-	RetrieveTeamInviteVeroToken(context.Context, ulid.ULID) (*models.VeroToken, error)
+	CreateVeroToken(ctx context.Context, token *models.VeroToken) (*models.VeroToken, error)
+	RetrieveVeroToken(ctx context.Context, id ulid.ULID) (*models.VeroToken, error)
+	RetrieveVeroTokenByResource(ctx context.Context, resourceID ulid.ULID, tokenType enum.TokenType) (*models.VeroToken, error)
+	UpdateVeroToken(ctx context.Context, token *models.VeroToken) error
+	DeleteVeroToken(ctx context.Context, id ulid.ULID) error
+	CreateResetPasswordVeroToken(ctx context.Context, token *models.VeroToken) (*models.VeroToken, error)
+	CreateTeamInviteVeroToken(ctx context.Context, token *models.VeroToken) (*models.VeroToken, error)
+	CompletePasswordReset(ctx context.Context, veroTokenID ulid.ULID, newPassword string) error
 }
