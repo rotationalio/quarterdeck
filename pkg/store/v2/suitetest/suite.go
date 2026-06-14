@@ -63,12 +63,12 @@ func ConfigurePostgres(t *testing.T, s *tsuite.DatabaseSuite, migrations tsuite.
 // Assertions
 //============================================================================
 
-// EqualTime compares two times after normalizing to UTC and truncating to
+// EqualTime compares two times after normalizing to UTC and rounding to
 // microsecond precision, matching Postgres timestamp resolution.
 func EqualTime(tb testing.TB, expected, actual time.Time) {
 	tb.Helper()
-	areEqual := expected.Truncate(time.Microsecond).Equal(actual.Truncate(time.Microsecond))
-	require.True(tb, areEqual, "times must be within microsecond precision")
+	areEqual := expected.UTC().Round(time.Microsecond).Equal(actual.UTC().Round(time.Microsecond))
+	require.Truef(tb, areEqual, "times must be within microsecond precision: %s != %s", expected, actual)
 }
 
 //============================================================================
