@@ -31,7 +31,7 @@ type Config struct {
 	LogLevel     rlog.LevelDecoder `split_words:"true" default:"info" desc:"specify the verbosity of logging (trace, debug, info, warn, error, fatal panic)"`
 	ConsoleLog   bool              `split_words:"true" default:"false" desc:"if true logs colorized human readable output instead of json"`
 	AllowOrigins []string          `split_words:"true" default:"http://localhost:8000" desc:"a list of allowed origins (domains including port) for CORS requests"`
-	DocsName     string            `split_words:"true" default:"Quarterdeck API Reference" desc:"the display title for the API docs (OpenAPI info.title and Scalar sidebar label)"`
+	DocsName     string            `split_words:"true" default:"Quarterdeck API Reference" desc:"the display title for the API docs"`
 	Org          OrgConfig         `split_words:"true"`
 	App          AppConfig         `split_words:"true"`
 	Database     DatabaseConfig    `split_words:"true"`
