@@ -1,6 +1,6 @@
 package api
 
-import "go.rtnl.ai/quarterdeck/pkg/store/models"
+import "go.rtnl.ai/quarterdeck/pkg/store/v1/models"
 
 type Role struct {
 	ID    int    `json:"id,omitempty"`

@@ -12,6 +12,11 @@ var (
 	ErrUnknownScheme = errors.New("database scheme not handled by this package")
 	ErrPathRequired  = errors.New("a path is required for this database scheme")
 
+	// Database errors
+	ErrDatabase          = errors.New("database error")
+	ErrSQLiteForeignKeys = errors.New("could not enable sqlite foreign keys")
+	ErrSQLiteQueryOnly   = errors.New("could not set sqlite to query_only mode")
+
 	// Database constraint errors
 	ErrReadOnly           = errors.New("cannot perform operation in read-only mode")
 	ErrMissingAssociation = errors.New("associated record(s) not cached on model")
@@ -59,6 +64,14 @@ var (
 	// Email errors
 	ErrEmptyWelcomeEmailBody = errors.New("welcome email body text or html is empty")
 )
+
+// UnhandledProvider is returned when Open or LoadMigrations is called with an
+// unsupported database provider.
+type UnhandledProvider string
+
+func (e UnhandledProvider) Error() string {
+	return fmt.Sprintf("unhandled database provider %q", string(e))
+}
 
 // Reduce namespacing conflicts by adding error functions from the errors package.
 var (

@@ -3,7 +3,7 @@ package api
 import (
 	"context"
 
-	"go.rtnl.ai/quarterdeck/pkg/store/models"
+	"go.rtnl.ai/quarterdeck/pkg/store/v1/models"
 	"go.rtnl.ai/ulid"
 )
 

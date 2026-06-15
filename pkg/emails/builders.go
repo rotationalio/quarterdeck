@@ -8,7 +8,7 @@ import (
 	texttemplate "text/template"
 
 	"go.rtnl.ai/commo"
-	"go.rtnl.ai/quarterdeck/pkg/store/models"
+	"go.rtnl.ai/quarterdeck/pkg/store/v1/models"
 	"go.rtnl.ai/x/vero"
 )
 
