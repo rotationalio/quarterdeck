@@ -1,191 +1,663 @@
 openapi: 3.1.0
 info:
-  version: '1.0'
-  title: Quarterdeck
+  version: '{{ .Version }}'
+  title: '{{ .Title }}'
+  summary: Quarterdeck is a distributed authentication and authorization service that issues JWTs, serves JWKS, and provides user and API key management for Rotational applications.
+  description: Quarterdeck is a distributed authentication and authorization service that issues JWTs, serves JWKS, and provides user and API key management for Rotational applications.
+servers:
+  - url: /
+tags:
+  - name: Users
+    description: User account management
+  - name: API Keys
+    description: API key management
+  - name: OIDC
+    description: OpenID Connect endpoints and client registration
+  - name: System
+    description: Service status and diagnostics
 paths:
-  '/users/{userId}':
+  /v1/status:
     get:
-      summary: Get User Info by User ID
-      description: Retrieve the information of the user with the matching user ID.
-      operationId: get-users-userId
-      parameters:
-        - name: userId
-          in: path
-          description: Id of an existing user.
-          required: true
-          schema:
-            type: integer
+      summary: Service status
+      description: Returns service health and version information.
+      operationId: get-status
       responses:
         '200':
-          description: User Found
+          description: OK
+      tags:
+        - System
+  /v1/users:
+    get:
+      summary: List Users
+      description: List user accounts.
+      operationId: list-users
+      parameters:
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+        - name: next_page_token
+          in: query
+          schema:
+            type: string
+        - name: role
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
-              examples:
-                Get User Alice Smith:
-                  value:
-                    id: 142
-                    firstName: Alice
-                    lastName: Smith
-                    email: alice.smith@gmail.com
-                    dateOfBirth: '1997-10-31'
-                    emailVerified: true
-                    signUpDate: '2019-08-24'
-        '404':
-          description: User Not Found
-    patch:
-      summary: Update User Information
-      description: Update the information of an existing user.
-      operationId: patch-users-userId
-      parameters:
-        - name: userId
-          in: path
-          description: Id of an existing user.
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        description: Patch user properties to update.
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                firstName:
-                  type: string
-                lastName:
-                  type: string
-                email:
-                  type: string
-                  description: 'If a new email is given, the user''s email verified property will be set to false.'
-                dateOfBirth:
-                  type: string
-            examples:
-              Update First Name:
-                value:
-                  firstName: Rebecca
-              Update Email:
-                value:
-                  email: rebecca@gmail.com
-              Update Last Name & Date of Birth:
-                value:
-                  lastName: Baker
-                  dateOfBirth: '1985-10-02'
-      responses:
-        '200':
-          description: User Updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-              examples:
-                Updated User Rebecca Baker:
-                  value:
-                    id: 13
-                    firstName: Rebecca
-                    lastName: Baker
-                    email: rebecca@gmail.com
-                    dateOfBirth: '1985-10-02'
-                    emailVerified: false
-                    createDate: '2019-08-24'
-        '404':
-          description: User Not Found
-        '409':
-          description: Email Already Taken
-  /user:
+                $ref: '#/components/schemas/UserList'
+        '401':
+          description: Unauthorized
+      tags:
+        - Users
     post:
-      summary: Create New User
-      description: Create a new user.
-      operationId: post-user
+      summary: Create User
+      description: Create a new user account.
+      operationId: create-user
       requestBody:
-        description: Post the necessary fields for the API to create a new user.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+      tags:
+        - Users
+  '/v1/users/{userID}':
+    get:
+      summary: Get User
+      description: Retrieve a user by ID.
+      operationId: get-user
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: Not Found
+      tags:
+        - Users
+    put:
+      summary: Update User
+      description: Update a user account.
+      operationId: update-user
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: Not Found
+      tags:
+        - Users
+    delete:
+      summary: Delete User
+      description: Delete a user account.
+      operationId: delete-user
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: No Content
+        '404':
+          description: Not Found
+      tags:
+        - Users
+  '/v1/users/{userID}/password':
+    post:
+      summary: Change Password
+      description: Change a user's password.
+      operationId: change-password
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
         content:
           application/json:
             schema:
               type: object
               properties:
-                firstName:
+                password:
                   type: string
-                lastName:
-                  type: string
-                email:
-                  type: string
-                dateOfBirth:
-                  type: string
-                  format: date
               required:
-                - firstName
-                - lastName
-                - email
-                - dateOfBirth
-            examples:
-              Create User Bob Fellow:
-                value:
-                  firstName: Bob
-                  lastName: Fellow
-                  email: bob.fellow@gmail.com
-                  dateOfBirth: '1996-08-24'
+                - password
+      responses:
+        '204':
+          description: No Content
+        '404':
+          description: Not Found
+      tags:
+        - Users
+  /v1/apikeys:
+    get:
+      summary: List API Keys
+      description: List API keys.
+      operationId: list-apikeys
+      parameters:
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+        - name: next_page_token
+          in: query
+          schema:
+            type: string
       responses:
         '200':
-          description: User Created
+          description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
-              examples:
-                New User Bob Fellow:
-                  value:
-                    id: 12
-                    firstName: Bob
-                    lastName: Fellow
-                    email: bob.fellow@gmail.com
-                    dateOfBirth: '1996-08-24'
-                    emailVerified: false
-                    createDate: '2020-11-18'
-        '400':
-          description: Missing Required Information
-        '409':
-          description: Email Already Taken
+                $ref: '#/components/schemas/APIKeyList'
+      tags:
+        - API Keys
+    post:
+      summary: Create API Key
+      description: Create a new API key.
+      operationId: create-apikey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/APIKeyCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKey'
+      tags:
+        - API Keys
+  '/v1/apikeys/{keyID}':
+    get:
+      summary: Get API Key
+      description: Retrieve an API key by ID.
+      operationId: get-apikey
+      parameters:
+        - name: keyID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKey'
+        '404':
+          description: Not Found
+      tags:
+        - API Keys
+    put:
+      summary: Update API Key
+      description: Update an API key.
+      operationId: update-apikey
+      parameters:
+        - name: keyID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/APIKeyUpdate'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKey'
+      tags:
+        - API Keys
+    delete:
+      summary: Delete API Key
+      description: Delete an API key.
+      operationId: delete-apikey
+      parameters:
+        - name: keyID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: No Content
+        '404':
+          description: Not Found
+      tags:
+        - API Keys
+  /v1/oidc/userinfo:
+    get:
+      summary: OIDC UserInfo
+      description: OpenID Connect UserInfo endpoint.
+      operationId: oidc-userinfo-get
+      responses:
+        '200':
+          description: OK
+      tags:
+        - OIDC
+    post:
+      summary: OIDC UserInfo
+      description: OpenID Connect UserInfo endpoint.
+      operationId: oidc-userinfo-post
+      responses:
+        '200':
+          description: OK
+      tags:
+        - OIDC
+  /v1/oidc/oidcclients:
+    get:
+      summary: List OIDC Clients
+      description: List registered OIDC clients.
+      operationId: list-oidc-clients
+      parameters:
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+        - name: next_page_token
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OIDCClientList'
+      tags:
+        - OIDC
+    post:
+      summary: Create OIDC Client
+      description: Register a new OIDC client.
+      operationId: create-oidc-client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OIDCClientCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OIDCClient'
+      tags:
+        - OIDC
+  '/v1/oidc/oidcclients/{id}':
+    get:
+      summary: Get OIDC Client
+      description: Retrieve an OIDC client by ID.
+      operationId: get-oidc-client
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OIDCClient'
+      tags:
+        - OIDC
+    put:
+      summary: Update OIDC Client
+      description: Update an OIDC client.
+      operationId: update-oidc-client
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OIDCClientUpdate'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OIDCClient'
+      tags:
+        - OIDC
+    delete:
+      summary: Delete OIDC Client
+      description: Delete an OIDC client.
+      operationId: delete-oidc-client
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: No Content
+      tags:
+        - OIDC
+  /v1/dbinfo:
+    get:
+      summary: Database info
+      description: Returns database statistics. Requires config view permission.
+      operationId: get-dbinfo
+      responses:
+        '200':
+          description: OK
+        '403':
+          description: Forbidden
+      tags:
+        - System
 components:
   schemas:
-    User:
+    PageInfo:
       type: object
-      title: User
+      properties:
+        page_size:
+          type: integer
+        prev_page_token:
+          type: string
+        next_page_token:
+          type: string
+    Role:
+      type: object
       properties:
         id:
           type: integer
-          description: Unique identifier for the given user.
-        firstName:
+        title:
           type: string
-        lastName:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
           type: string
         email:
           type: string
           format: email
-        dateOfBirth:
+        avatar:
           type: string
-          format: date
-          examples:
-            - '1997-10-31'
-        emailVerified:
-          type: boolean
-          description: Set to true if the user's email has been verified.
-        createDate:
+        last_login:
           type: string
-          description: The date that the user was created.
-          format: date
+          format: date-time
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Role'
+        permissions:
+          type: array
+          items:
+            type: string
+        created:
+          type: string
+          format: date-time
+        modified:
+          type: string
+          format: date-time
+      required:
+        - email
+    UserList:
+      type: object
+      properties:
+        page:
+          $ref: '#/components/schemas/PageInfo'
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+    UserCreate:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        password:
+          type: string
+        roles:
+          type: array
+          items:
+            type: integer
+      required:
+        - email
+        - password
+    UserUpdate:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        roles:
+          type: array
+          items:
+            type: integer
       required:
         - id
-        - firstName
-        - lastName
         - email
-        - emailVerified
-      examples:
-        - id: 142
-          firstName: Alice
-          lastName: Smith
-          email: alice.smith@gmail.com
-          dateOfBirth: '1997-10-31'
-          emailVerified: true
-          signUpDate: '2019-08-24'
+    APIKey:
+      type: object
+      properties:
+        id:
+          type: string
+        description:
+          type: string
+        client_id:
+          type: string
+        secret:
+          type: string
+        created_by:
+          type: string
+        last_seen:
+          type: string
+          format: date-time
+        permissions:
+          type: array
+          items:
+            type: string
+        created:
+          type: string
+          format: date-time
+        modified:
+          type: string
+          format: date-time
+    APIKeyList:
+      type: object
+      properties:
+        page:
+          $ref: '#/components/schemas/PageInfo'
+        apikeys:
+          type: array
+          items:
+            $ref: '#/components/schemas/APIKey'
+    APIKeyCreate:
+      type: object
+      properties:
+        description:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+      required:
+        - description
+    APIKeyUpdate:
+      type: object
+      properties:
+        id:
+          type: string
+        description:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+    OIDCClient:
+      type: object
+      properties:
+        id:
+          type: string
+        client_name:
+          type: string
+        client_uri:
+          type: string
+        logo_uri:
+          type: string
+        policy_uri:
+          type: string
+        tos_uri:
+          type: string
+        contacts:
+          type: array
+          items:
+            type: string
+        redirect_uris:
+          type: array
+          items:
+            type: string
+        client_id:
+          type: string
+        secret:
+          type: string
+        created_by:
+          type: string
+        created:
+          type: string
+          format: date-time
+        modified:
+          type: string
+          format: date-time
+      required:
+        - client_name
+        - redirect_uris
+    OIDCClientList:
+      type: object
+      properties:
+        page:
+          $ref: '#/components/schemas/PageInfo'
+        oidc_clients:
+          type: array
+          items:
+            $ref: '#/components/schemas/OIDCClient'
+    OIDCClientCreate:
+      type: object
+      properties:
+        client_name:
+          type: string
+        redirect_uris:
+          type: array
+          items:
+            type: string
+        client_uri:
+          type: string
+        logo_uri:
+          type: string
+        policy_uri:
+          type: string
+        tos_uri:
+          type: string
+        contacts:
+          type: array
+          items:
+            type: string
+      required:
+        - client_name
+        - redirect_uris
+    OIDCClientUpdate:
+      type: object
+      properties:
+        id:
+          type: string
+        client_name:
+          type: string
+        redirect_uris:
+          type: array
+          items:
+            type: string
+        client_uri:
+          type: string
+        logo_uri:
+          type: string
+        policy_uri:
+          type: string
+        tos_uri:
+          type: string
+        contacts:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - client_name
+        - redirect_uris
