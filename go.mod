@@ -36,6 +36,9 @@ require (
 	golang.org/x/text v0.37.0
 )
 
+//TODO: replace with a proper version
+replace go.rtnl.ai/tidal => ../tidal
+
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bytedance/gopkg v0.1.4 // indirect
