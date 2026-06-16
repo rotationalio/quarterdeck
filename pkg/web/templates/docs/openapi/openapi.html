@@ -1,45 +1,173 @@
 {{ template "base" . }}
 {{ define "head" }}
 <head>
-  <meta charset="utf-8"> <!-- Important: rapi-doc uses utf-8 characters -->
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <meta name="robots" content="noindex,follow">
 
-  <meta name="description" content="OpenAPI documentation for the Endeavor API." />
+  <meta name="description" content="OpenAPI documentation for the Quarterdeck API." />
   <meta name="author" content="Rotational Labs" />
 
-  <!-- Favicon -->
   <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon"/>
 
   <title>Quarterdeck API Documentation</title>
 
-  <script type="module" src="/static/js/rapidoc/rapidoc.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    html, body { margin: 0; min-height: 100%; }
+    #scalar-api-reference { min-height: 100vh; }
+  </style>
+
+  <script src="/static/js/scalar/standalone.js"></script>
 </head>
 {{ end }}
 {{ define "body" }}
 <body>
-  <rapi-doc
-    spec-url="/v1/docs/openapi.json"
-    theme = "light"
-    show-header = "false"
-    allow-spec-url-load = "false"
-    allow-spec-file-load = "false"
-    allow-spec-file-download = "true"
-    schema-style = "table"
-    schema-description-expanded	= "true"
-    render-style = "focused"
-    text-color = "#e2e8ee"
-    primary-color = "#55ACD8"
-    font-size = "default"
-    nav-bg-color = "#293042"
-    nav-item-spacing = "compact"
-    fill-request-fields-with-example = "false"
-  >
-    <img
-      slot="nav-logo"
-      src="/static/img/white-logo.png"
-    />
-  </rapi-doc>
+  <div id="scalar-api-reference" data-docs-label="{{ .Title }}"></div>
+  <script>
+    (function () {
+      var logoURL = '/static/img/white-logo.png';
+      var docsLabel = document.getElementById('scalar-api-reference').dataset.docsLabel || 'Quarterdeck API Reference';
+
+      var methodOrder = ['get', 'post', 'put', 'delete'];
+      var methodRank = {};
+      methodOrder.forEach(function (name, i) { methodRank[name] = i; });
+
+      var tagOrder = ['Users', 'API Keys', 'OIDC', 'System'];
+      var tagRank = {};
+      tagOrder.forEach(function (name, i) { tagRank[name] = i; });
+
+      function rankLookup(rank, key) {
+        var r = rank[key];
+        return r === undefined ? 999 : r;
+      }
+
+      function pathEndsWithParam(path) {
+        return /\{[^}]+\}$/.test(String(path || ''));
+      }
+
+      function operationsSorter(a, b) {
+        a = a || {};
+        b = b || {};
+        var ma = rankLookup(methodRank, String(a.method || a.httpVerb || '').toLowerCase());
+        var mb = rankLookup(methodRank, String(b.method || b.httpVerb || '').toLowerCase());
+        if (ma !== mb) return ma - mb;
+
+        var pathA = String(a.path || a.ref || '');
+        var pathB = String(b.path || b.ref || '');
+        var ra = pathEndsWithParam(pathA) ? 1 : 0;
+        var rb = pathEndsWithParam(pathB) ? 1 : 0;
+        if (ra !== rb) return ra - rb;
+
+        return pathA.localeCompare(pathB);
+      }
+
+      function tagsSorter(a, b) {
+        a = a || {};
+        b = b || {};
+        var na = String(a.name || '');
+        var nb = String(b.name || '');
+        var ra = rankLookup(tagRank, na);
+        var rb = rankLookup(tagRank, nb);
+        if (ra !== rb) return ra - rb;
+        return na.localeCompare(nb);
+      }
+
+      var themeCss = [
+        '.light-mode {',
+        '  --scalar-font: "Poppins", system-ui, -apple-system, sans-serif;',
+        '  --scalar-font-code: "Roboto Mono", ui-monospace, monospace;',
+        '  --scalar-color-1: #212529;',
+        '  --scalar-color-2: #495057;',
+        '  --scalar-color-accent: #55ACD8;',
+        '  --scalar-background-1: #ffffff;',
+        '  --scalar-background-2: #f4f7f9;',
+        '  --scalar-background-3: #e2e8ee;',
+        '  --scalar-sidebar-background-1: #293042;',
+        '  --scalar-sidebar-color-1: #eff2f6;',
+        '  --scalar-sidebar-color-2: #adb5bd;',
+        '  --scalar-sidebar-item-hover-background: rgba(255, 255, 255, 0.06);',
+        '  --scalar-sidebar-item-active-background: rgba(85, 172, 216, 0.22);',
+        '  --scalar-sidebar-color-active: #9fd4ef;',
+        '  --scalar-sidebar-border-color: rgba(255, 255, 255, 0.08);',
+        '  --scalar-border-color: rgba(0, 0, 0, 0.08);',
+        '  font-family: var(--scalar-font);',
+        '}',
+        '.light-mode .t-doc__sidebar .quarterdeck-home-link {',
+        '  display: flex;',
+        '  align-items: center;',
+        '  gap: 0.5rem;',
+        '  padding: 1rem;',
+        '  color: var(--scalar-sidebar-color-1);',
+        '  text-decoration: none;',
+        '  font-size: 0.875rem;',
+        '  font-weight: 500;',
+        '  line-height: 1.5rem;',
+        '}',
+        '.light-mode .t-doc__sidebar .quarterdeck-home-link:hover {',
+        '  color: var(--scalar-sidebar-color-active);',
+        '}',
+        '.light-mode .t-doc__sidebar .quarterdeck-home-link img {',
+        '  width: 1.5rem;',
+        '  height: 1.5rem;',
+        '}',
+        '.light-mode .t-doc__sidebar .scalar-mcp-layer-link,',
+        '.light-mode .t-doc__sidebar .open-api-client-button {',
+        '  background: var(--scalar-sidebar-background-1);',
+        '  border-color: var(--scalar-sidebar-border-color);',
+        '  box-shadow: 0 0 0 0.5px var(--scalar-sidebar-border-color);',
+        '}',
+        '.light-mode .t-doc__sidebar .scalar-mcp-layer-link:hover,',
+        '.light-mode .t-doc__sidebar .open-api-client-button:hover {',
+        '  background: var(--scalar-sidebar-item-hover-background);',
+        '}',
+      ].join('\n');
+
+      Scalar.createApiReference('#scalar-api-reference', {
+        url: '/v1/docs/openapi.json',
+        metaData: { title: 'Quarterdeck API Documentation' },
+
+        layout: 'modern',
+        darkMode: false,
+        theme: 'default',
+        modelsSectionLabel: 'Models',
+        defaultOpenFirstTag: false,
+        operationsSorter: operationsSorter,
+        tagsSorter: tagsSorter,
+
+        agent: { disabled: true },
+        telemetry: false,
+        withDefaultFonts: false,
+        showDeveloperTools: 'localhost',
+
+        customCss: themeCss,
+
+        onLoaded: function () {
+          var sidebar = document.querySelector('#scalar-api-reference .t-doc__sidebar');
+          if (!sidebar || sidebar.querySelector('.quarterdeck-home-link')) return;
+          var link = document.createElement('a');
+          link.className = 'quarterdeck-home-link';
+          link.href = '/';
+          link.setAttribute('aria-label', 'Back to Quarterdeck');
+          link.innerHTML = '<img src="' + logoURL + '" alt="" width="24" height="24"><span>' + docsLabel + '</span>';
+          sidebar.prepend(link);
+        },
+
+        customFetch: function (input, init) {
+          init = init || {};
+          var headers = new Headers(init.headers || {});
+          headers.set('Accept', 'application/json');
+          return window.fetch(input, Object.assign({}, init, {
+            credentials: 'include',
+            headers: headers,
+          }));
+        },
+      });
+    })();
+  </script>
 </body>
 {{ end }}
