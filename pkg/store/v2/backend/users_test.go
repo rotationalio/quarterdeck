@@ -27,7 +27,7 @@ func (s *storeSuite) TestUserList() {
 
 // TestUserListWithRoleFilter verifies role-based filtering on user list.
 func (s *storeSuite) TestUserListWithRoleFilter() {
-	filter := &tidal.Clause{
+	filter := &tidal.CustomFilter{
 		SQL: "WHERE id IN (SELECT ur.user_id FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE LOWER(r.title) = LOWER(:role))",
 		Args: []sql.NamedArg{
 			sql.Named("role", "admin"),

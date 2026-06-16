@@ -29,7 +29,7 @@ func (s *storeSuite) TestAPIKeyList() {
 }
 
 // TestAPIKeyListRevokedFilter verifies ListAPIKeys revoked-key filtering for nil,
-// tidal.Filter, and tidal.Clause filters as documented on ListAPIKeys.
+// tidal.Filter, and tidal.CustomFilter filters as documented on ListAPIKeys.
 func (s *storeSuite) TestAPIKeyListRevokedFilter() {
 	const (
 		activeKeys  = 3
@@ -79,15 +79,15 @@ func (s *storeSuite) TestAPIKeyListRevokedFilter() {
 		s.Equal(0, countRevoked(keys), "should return only active keys")
 	})
 
-	s.Run("ClauseWithoutRevokedFilter", func() {
-		filter := &tidal.Clause{SQL: "ORDER BY created"}
+	s.Run("CustomFilterWithoutRevokedFilter", func() {
+		filter := &tidal.CustomFilter{SQL: "ORDER BY created"}
 		keys := listKeys(filter)
 		s.Len(keys, totalKeys)
 		s.Equal(revokedKeys, countRevoked(keys), "should return all keys")
 	})
 
-	s.Run("ClauseWithRevokedFilter", func() {
-		filter := &tidal.Clause{SQL: "WHERE revoked IS NULL ORDER BY created"}
+	s.Run("CustomFilterWithRevokedFilter", func() {
+		filter := &tidal.CustomFilter{SQL: "WHERE revoked IS NULL ORDER BY created"}
 		keys := listKeys(filter)
 		s.Len(keys, activeKeys)
 		s.Equal(0, countRevoked(keys), "should return only active keys")

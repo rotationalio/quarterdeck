@@ -28,9 +28,9 @@ const (
 // Store Methods
 //===========================================================================
 
-// NOTE: when using [tidal.Clause] as filter, the user is responsible for
+// NOTE: when using [tidal.CustomFilter] as filter, the user is responsible for
 // filtering out revoked keys, because this function does not modify a
-// [tidal.Clause] to do so. If a [tidal.Filter] is used, then this function will
+// [tidal.CustomFilter] to do so. If a [tidal.Filter] is used, then this function will
 // automatically filter out revoked keys.
 func (s *Store) ListAPIKeys(ctx context.Context, filter tidal.ListFilter) (tidal.Cursor[*models.APIKey], error) {
 	return list(s, ctx, apiKeys, apiKeyListFilter(filter))
@@ -367,7 +367,7 @@ func (t *tx) addPermissionToAPIKeyByTitle(keyID ulid.ULID, title string) error {
 
 func apiKeyListFilter(filter tidal.ListFilter) tidal.ListFilter {
 	switch f := filter.(type) {
-	case *tidal.Clause:
+	case *tidal.CustomFilter:
 		// We don't want to mess up the user's SQL, so we'll just pass it
 		// through; they may get revoked keys back in this case, so it's up
 		// to them to handle that.
