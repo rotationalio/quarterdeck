@@ -46,12 +46,6 @@ func (s *storeSuite) SetupTest() {
 	s.openStore()
 }
 
-func (s *storeSuite) TearDownTest() {
-	// The suite owns the database connection; do not close it via the store.
-	s.store = nil
-	suitetest.FinishTest(s.T(), &s.DatabaseSuite)
-}
-
 //=============================================================================
 // Helpers
 //=============================================================================

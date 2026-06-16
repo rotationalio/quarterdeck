@@ -62,10 +62,6 @@ func (s *modelSuite) SetupTest() {
 	suitetest.LoadFixtures(s.T(), s.DB.DB, s.DSN().Provider)
 }
 
-func (s *modelSuite) TearDownTest() {
-	suitetest.FinishTest(s.T(), &s.DatabaseSuite)
-}
-
 //=============================================================================
 // Helpers
 //=============================================================================

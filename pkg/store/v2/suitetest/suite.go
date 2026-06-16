@@ -34,6 +34,14 @@ func (s *BaseSuite) SetupSuite() {
 	require.NoError(s.T(), prepareDB(context.Background(), s.DB, s.DSN().Provider))
 }
 
+func (s *BaseSuite) TearDownTest() {
+	s.DatabaseSuite.TearDownTest()
+
+	if !s.ReadOnly() {
+		require.NoError(s.T(), prepareDB(context.Background(), s.DB, s.DSN().Provider))
+	}
+}
+
 //============================================================================
 // Configuration
 //============================================================================
@@ -43,6 +51,7 @@ func ConfigureSQLite(t *testing.T, s *tsuite.DatabaseSuite, migrations tsuite.Mi
 	t.Helper()
 	s.Provider = &tsuite.SQLiteProvider{}
 	s.Migrations = migrations
+	s.Teardown = tsuite.TeardownTruncate
 }
 
 // ConfigurePostgres prepares a DatabaseSuite for Postgres-backed tests.
@@ -51,6 +60,7 @@ func ConfigurePostgres(t *testing.T, s *tsuite.DatabaseSuite, migrations tsuite.
 	t.Helper()
 	s.Provider = &tsuite.PostgresProvider{}
 	s.Migrations = migrations
+	s.Teardown = tsuite.TeardownTruncate
 
 	_, err := s.ResolveDSN("")
 	if errors.Is(err, tsuite.ErrNoDatabaseURL) {
@@ -74,15 +84,6 @@ func EqualTime(tb testing.TB, expected, actual time.Time) {
 //============================================================================
 // Test Lifecycle
 //============================================================================
-
-// FinishTest truncates table data and cancels the per-test context without the
-// expensive DropTables+Migrate cycle in tidal's DatabaseSuite.TearDownTest.
-func FinishTest(t testing.TB, s *tsuite.DatabaseSuite) {
-	t.Helper()
-
-	TruncateAndPrepare(t, s)
-	s.TearDownSubTest()
-}
 
 // TruncateAndPrepare clears all table data and reapplies provider-specific settings.
 func TruncateAndPrepare(t testing.TB, s *tsuite.DatabaseSuite) {
