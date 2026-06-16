@@ -2,12 +2,9 @@ package suitetest
 
 import (
 	"context"
-	"database/sql"
 	"errors"
-	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.rtnl.ai/tidal"
 	tsuite "go.rtnl.ai/tidal/suite"
+	tfixtures "go.rtnl.ai/tidal/suite/fixtures"
 	"go.rtnl.ai/x/dsn"
 )
 
@@ -107,26 +105,17 @@ func TruncateAndPrepare(t testing.TB, s *tsuite.DatabaseSuite) {
 // Files are loaded from testdata/<provider>/ in sorted filename order
 // (0001_permissions.sql, 0002_users.sql, …). Provider-specific SQL syntax is
 // required: postgres/ uses decode(…, 'hex'); sqlite3/ uses x'…' literals.
-//
-// Fixtures run on a raw [sql.DB] so literal timestamps (e.g. T11:21:42) are not
-// rewritten as tidal named bind parameters.
-func LoadFixtures(t testing.TB, db *sql.DB, provider string) {
+func LoadFixtures(t testing.TB, db *tidal.DB, provider string) {
 	t.Helper()
+	require.NotNil(t, db)
 
 	_, filename, _, ok := runtime.Caller(0)
 	require.True(t, ok, "resolve suitetest package path")
-	dir := filepath.Join(filepath.Dir(filename), "testdata", strings.ToLower(provider))
-	paths, err := filepath.Glob(filepath.Join(dir, "*.sql"))
+	pattern := filepath.Join(filepath.Dir(filename), "testdata", strings.ToLower(provider), "*.sql")
+	fs, err := tfixtures.Glob(pattern)
 	require.NoError(t, err)
-	require.NotEmpty(t, paths, "no fixture SQL files in %s", dir)
-	sort.Strings(paths)
-
-	for _, path := range paths {
-		stmt, err := os.ReadFile(path)
-		require.NoError(t, err)
-		_, err = db.Exec(string(stmt))
-		require.NoError(t, err, "fixture %s", path)
-	}
+	require.NotEmpty(t, fs, "no fixture SQL files matching %s", pattern)
+	require.NoError(t, fs.Apply(context.Background(), db, "test"))
 }
 
 //============================================================================

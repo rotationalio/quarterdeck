@@ -63,7 +63,7 @@ func runStoreSuite(t *testing.T, provider string, configure func(*testing.T, *st
 // openStore constructs a store backed by the suite database and loads SQL fixtures.
 func (s *storeSuite) openStore() {
 	s.store = backend.New(s.DB)
-	suitetest.LoadFixtures(s.T(), s.DB.DB, s.DSN().Provider)
+	suitetest.LoadFixtures(s.T(), s.DB, s.DSN().Provider)
 }
 
 // resetStore truncates tables, reapplies provider settings, and reloads fixtures.
