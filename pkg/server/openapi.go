@@ -20,9 +20,9 @@ import (
 )
 
 const (
-	keyVersion     = "Version"
-	keyOrigin      = "Origin"
-	keyDescription = "Description"
+	keyVersion = "Version"
+	keyOrigin  = "Origin"
+	keyTitle   = "Title"
 )
 
 // If this is an HTML request it renders the OpenAPI documentation page; otherwise if
@@ -30,7 +30,9 @@ const (
 func (s *Server) APIDocs(c *gin.Context) {
 	switch c.NegotiateFormat(binding.MIMEHTML, binding.MIMEJSON) {
 	case binding.MIMEHTML:
-		c.HTML(http.StatusOK, "docs/openapi/openapi.html", gin.H{})
+		c.HTML(http.StatusOK, "docs/openapi/openapi.html", gin.H{
+			keyTitle: s.conf.DocsName,
+		})
 	case binding.MIMEJSON:
 		data := make(gin.H, 2)
 		data["openapi.json"] = c.Request.URL.ResolveReference(&url.URL{Path: "/v1/docs/openapi.json"}).String()
@@ -55,9 +57,9 @@ func (s *Server) OpenAPI() gin.HandlerFunc {
 	// processing stops and the error causes an abort handler to be returned.
 	initialize.Do(func() {
 		data = gin.H{
-			keyVersion:     pkg.Version(false),
-			keyOrigin:      s.conf.Auth.Issuer,
-			keyDescription: s.conf.DocsName,
+			keyVersion: pkg.Version(false),
+			keyOrigin:  s.conf.Auth.Issuer,
+			keyTitle:   s.conf.DocsName,
 		}
 
 		var files fs.FS
