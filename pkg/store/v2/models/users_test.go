@@ -34,10 +34,7 @@ func (s *modelSuite) TestUserCRUDConformance() {
 		Update: func(u *User) {
 			u.Name = sql.NullString{Valid: true, String: "Updated Conformance User"}
 		},
-		// CRUDScan skipped: Update Fields omit password/last_login but Scan reads the full Retrieve
-		// row, so tidal's generic Scan phase fails on Update. TestUserScan covers List projection,
-		// nullables, and scanner errors with explicit mock rows.
-		Phases: []tsuite.CRUDPhase{tsuite.CRUDShape, tsuite.CRUDRoundTrip},
+		Phases: []tsuite.CRUDPhase{tsuite.CRUDShape, tsuite.CRUDScan, tsuite.CRUDRoundTrip},
 	})
 }
 

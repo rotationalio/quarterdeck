@@ -36,10 +36,15 @@ func (s *modelSuite) TestOIDCClientCRUDConformance() {
 			c.ClientName = "Updated Conformance OIDC Client"
 		},
 		Equal: equalOIDCClientConformance,
-		// CRUDScan skipped: Update Fields omit secret/client_id but Scan always reads the full Retrieve
-		// row (13 columns), so tidal's generic Scan phase fails on Update. TestOIDCClientScan covers
-		// List projection and scanner errors with explicit mock rows.
-		Phases: []tsuite.CRUDPhase{tsuite.CRUDShape, tsuite.CRUDRoundTrip},
+		FieldMap: map[string]string{
+			"client_uri":    "ClientURI",
+			"logo_uri":      "LogoURI",
+			"policy_uri":    "PolicyURI",
+			"tos_uri":       "TOSURI",
+			"redirect_uris": "RedirectURIs",
+			"client_id":     "ClientID",
+		},
+		Phases: []tsuite.CRUDPhase{tsuite.CRUDShape, tsuite.CRUDScan, tsuite.CRUDRoundTrip},
 	})
 }
 
