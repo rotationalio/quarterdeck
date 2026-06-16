@@ -69,6 +69,16 @@ func (s *storeSuite) TestAPIKeyListRevokedFilter() {
 		s.Equal(0, countRevoked(keys), "should return only active keys")
 	})
 
+	s.Run("FilterWithWhere", func() {
+		filter := (&tidal.Filter{}).
+			Where("client_id", tidal.Eq, "TPAkoalHEorqAENISHvxYY").
+			OrderBy("-created")
+		keys := listKeys(filter)
+		s.Len(keys, 1)
+		s.Equal("TPAkoalHEorqAENISHvxYY", keys[0].ClientID)
+		s.Equal(0, countRevoked(keys), "should return only active keys")
+	})
+
 	s.Run("ClauseWithoutRevokedFilter", func() {
 		filter := &tidal.Clause{SQL: "ORDER BY created"}
 		keys := listKeys(filter)

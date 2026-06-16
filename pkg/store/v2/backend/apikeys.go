@@ -29,7 +29,7 @@ const (
 //===========================================================================
 
 // NOTE: when using [tidal.Clause] as filter, the user is responsible for
-// filtering out revoked keys, because this function does attempt to modify a
+// filtering out revoked keys, because this function does not modify a
 // [tidal.Clause] to do so. If a [tidal.Filter] is used, then this function will
 // automatically filter out revoked keys.
 func (s *Store) ListAPIKeys(ctx context.Context, filter tidal.ListFilter) (tidal.Cursor[*models.APIKey], error) {
@@ -366,21 +366,15 @@ func (t *tx) addPermissionToAPIKeyByTitle(keyID ulid.ULID, title string) error {
 }
 
 func apiKeyListFilter(filter tidal.ListFilter) tidal.ListFilter {
-	switch filter.(type) {
+	switch f := filter.(type) {
 	case *tidal.Clause:
 		// We don't want to mess up the user's SQL, so we'll just pass it
 		// through; they may get revoked keys back in this case, so it's up
 		// to them to handle that.
+		return filter
 	case *tidal.Filter:
-		// TODO: currently, [tidal.Filter] does not support WHERE clauses,
-		// so we have to add it manually via a [tidal.Clause] that we build
-		// knowing that the user's [tidal.Filter] only has the ordering,
-		// limit, and offset filters. In the future when [tidal.Filter]
-		// supports WHERE clauses, we need to add a where clause  to that
-		// filter here rather than manually templating a [tidal.Clause].
-		filter = &tidal.Clause{SQL: "WHERE revoked IS NULL " + filter.Clause()}
+		return f.And("revoked", tidal.IsNull, nil)
 	default:
-		filter = &tidal.Clause{SQL: "WHERE revoked IS NULL"}
+		return (&tidal.Filter{}).Where("revoked", tidal.IsNull, nil)
 	}
-	return filter
 }
