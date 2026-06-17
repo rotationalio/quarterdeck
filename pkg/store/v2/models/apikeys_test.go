@@ -34,10 +34,10 @@ func (s *modelSuite) TestAPIKeyCRUDConformance() {
 		Update: func(k *APIKey) {
 			k.Description = sql.NullString{Valid: true, String: "Updated conformance key"}
 		},
-		// CRUDScan skipped: Update uses a 3-column Fields shape but Scan always reads the full
-		// Retrieve row (9 columns), so tidal's generic Scan phase fails on Update. TestAPIKeyScan
-		// covers List projection, nullables, and scanner errors with explicit mock rows.
-		Phases: []tsuite.CRUDPhase{tsuite.CRUDShape, tsuite.CRUDRoundTrip},
+		FieldMap: map[string]string{
+			"client_id": "ClientID",
+		},
+		Phases: []tsuite.CRUDPhase{tsuite.CRUDShape, tsuite.CRUDScan, tsuite.CRUDRoundTrip},
 	})
 }
 

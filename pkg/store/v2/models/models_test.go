@@ -59,11 +59,7 @@ func TestModelsPostgres(t *testing.T) {
 
 func (s *modelSuite) SetupTest() {
 	s.DatabaseSuite.SetupTest()
-	suitetest.LoadFixtures(s.T(), s.DB.DB, s.DSN().Provider)
-}
-
-func (s *modelSuite) TearDownTest() {
-	suitetest.FinishTest(s.T(), &s.DatabaseSuite)
+	suitetest.LoadFixtures(s.T(), s.DB, s.DSN().Provider)
 }
 
 //=============================================================================

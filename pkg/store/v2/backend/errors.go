@@ -6,6 +6,7 @@ import (
 
 	qerrors "go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/tidal"
+	"go.rtnl.ai/tidal/conn"
 
 	"github.com/lib/pq"
 	"github.com/lib/pq/pqerror"
@@ -50,6 +51,9 @@ func tidalErr(err error) error {
 	}
 	if errors.Is(err, tidal.ErrMissingID) {
 		return qerrors.ErrMissingID
+	}
+	if errors.Is(err, conn.ErrReadOnly) {
+		return qerrors.ErrReadOnly
 	}
 
 	// sqlite specific errors that we need to break down

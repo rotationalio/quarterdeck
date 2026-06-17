@@ -104,10 +104,12 @@ func (s *openSuite) TestReadOnlyStore() {
 		s.Require().ErrorIs(err, errors.ErrReadOnly)
 	})
 
-	// RW transactions must be rejected at open time, not only when a write runs.
+	// RW transactions must be rejected when run; opening them is allowed.
 	s.Run("BeginTx", func() {
-		_, err := ro.BeginTx(ctx, nil)
-		s.Require().ErrorIs(err, errors.ErrReadOnly)
+		tx, err := ro.BeginTx(ctx, nil)
+		s.Require().NoError(err)
+		defer tx.Rollback()
+		s.Require().ErrorIs(tx.UpdateUser(&models.User{Email: "a@b.com"}), errors.ErrReadOnly)
 	})
 
 	// WithTx without ReadOnly opts should fail the same way as BeginTx.

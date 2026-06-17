@@ -35,14 +35,50 @@ func (s *modelSuite) TestOIDCClientCRUDConformance() {
 		Update: func(c *OIDCClient) {
 			c.ClientName = "Updated Conformance OIDC Client"
 		},
-		// CRUDScan skipped: Update Fields omit secret/client_id but Scan always reads the full Retrieve
-		// row (13 columns), so tidal's generic Scan phase fails on Update. TestOIDCClientScan covers
-		// List projection and scanner errors with explicit mock rows.
-		//
-		// CRUDRoundTrip skipped: custom Equal fixes Retrieve comparisons, but tidal's List step still
-		// uses defaultEqual (StringArray/timestamp normalization). Round-trip is covered in db/oidcclients_test.
-		Phases: []tsuite.CRUDPhase{tsuite.CRUDShape},
+		Equal: equalOIDCClientConformance,
+		FieldMap: map[string]string{
+			"client_uri":    "ClientURI",
+			"logo_uri":      "LogoURI",
+			"policy_uri":    "PolicyURI",
+			"tos_uri":       "TOSURI",
+			"redirect_uris": "RedirectURIs",
+			"client_id":     "ClientID",
+		},
+		Phases: []tsuite.CRUDPhase{tsuite.CRUDShape, tsuite.CRUDScan, tsuite.CRUDRoundTrip},
 	})
+}
+
+// equalOIDCClientConformance compares OIDC clients for tidal conformance runs,
+// accounting for list projection differences and timestamp precision.
+func equalOIDCClientConformance(a, b *OIDCClient) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+
+	if a.ID != b.ID || a.ClientName != b.ClientName {
+		return false
+	}
+	if a.ClientURI != b.ClientURI || a.LogoURI != b.LogoURI || a.PolicyURI != b.PolicyURI || a.TOSURI != b.TOSURI {
+		return false
+	}
+	if !a.RedirectURIs.Equal(b.RedirectURIs) || !a.Contacts.Equal(b.Contacts) {
+		return false
+	}
+	if a.ClientID != b.ClientID || a.CreatedBy != b.CreatedBy {
+		return false
+	}
+
+	// List projection omits secret; require equality only when both sides include it.
+	if a.Secret != "" && b.Secret != "" && a.Secret != b.Secret {
+		return false
+	}
+
+	return timeEqual(a.Created, b.Created) && timeEqual(a.Modified, b.Modified)
+}
+
+// timeEqual normalizes UTC location and second precision for DB round-trip checks.
+func timeEqual(a, b time.Time) bool {
+	return a.UTC().Truncate(time.Second).Equal(b.UTC().Truncate(time.Second))
 }
 
 //=============================================================================

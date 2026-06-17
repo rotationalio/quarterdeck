@@ -43,40 +43,32 @@ func (s *Store) Stats() sql.DBStats {
 
 // When the database is opened read-only, opts must set ReadOnly or ErrReadOnly is returned.
 func (s *Store) BeginTx(ctx context.Context, opts *sql.TxOptions) (txn.Tx, error) {
-	if s.DSN().Options.ReadOnly() && (opts == nil || !opts.ReadOnly) {
-		return nil, qerrors.ErrReadOnly
-	}
-
-	readOnly := opts != nil && opts.ReadOnly
 	tidalTx, err := s.DB.BeginTx(ctx, opts)
 	if err != nil {
 		return nil, tidalErr(err)
 	}
-
-	return &tx{ctx: ctx, store: s, tx: tidalTx, readOnly: readOnly}, nil
+	return &tx{ctx: ctx, store: s, tx: tidalTx, readOnly: opts != nil && opts.ReadOnly}, nil
 }
 
 func (s *Store) BeginReadTx(ctx context.Context) (txn.Tx, error) {
-	return s.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tidalTx, err := s.DB.BeginReadTx(ctx)
+	if err != nil {
+		return nil, tidalErr(err)
+	}
+	return &tx{ctx: ctx, store: s, tx: tidalTx, readOnly: true}, nil
 }
 
-// When the database is opened read-only, opts must set ReadOnly.
+// When the database is opened read-only, opts must set ReadOnly or ErrReadOnly is returned.
 func (s *Store) WithTx(ctx context.Context, opts *sql.TxOptions, fn func(txn.Tx) error) error {
-	t, err := s.BeginTx(ctx, opts)
-	if err != nil {
-		return err
-	}
-
-	if err = fn(t); err != nil {
-		_ = t.Rollback()
-		return err
-	}
-
-	return t.Commit()
+	return s.DB.WithTx(ctx, opts, func(tidalTx tidal.Tx) error {
+		return fn(&tx{ctx: ctx, store: s, tx: tidalTx, readOnly: opts != nil && opts.ReadOnly})
+	})
 }
 
 func (s *Store) WithReadTx(ctx context.Context, fn func(txn.Tx) error) error {
-	return s.WithTx(ctx, &sql.TxOptions{ReadOnly: true}, fn)
+	return s.DB.WithReadTx(ctx, func(tidalTx tidal.Tx) error {
+		return fn(&tx{ctx: ctx, store: s, tx: tidalTx, readOnly: true})
+	})
 }
 
 //===========================================================================
