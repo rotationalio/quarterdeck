@@ -8,8 +8,7 @@ import (
 	"go.rtnl.ai/tidal"
 	"go.rtnl.ai/tidal/conn"
 
-	"github.com/lib/pq"
-	"github.com/lib/pq/pqerror"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/mattn/go-sqlite3"
 )
 
@@ -69,12 +68,12 @@ func tidalErr(err error) error {
 	}
 
 	// postgres specific errors that we need to break down
-	var pgErr *pq.Error
+	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
 		switch pgErr.Code {
-		case pqerror.ReadOnlySQLTransaction:
+		case "25006": // read_only_sql_transaction
 			return qerrors.ErrReadOnly
-		case pqerror.UniqueViolation:
+		case "23505": // unique_violation
 			return qerrors.ErrAlreadyExists
 		}
 	}
