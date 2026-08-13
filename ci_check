@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+###################
+# CI Check Script #
+###################
+
+# Description: Runs CI checks for the quarterdeck repository.
+# Usage: ./ci_check [-c]
+#
+# This script runs the following checks after source'ing the .env file if it exists:
+# - go fmt
+# - go vet
+# - staticcheck
+# - go test (if -c is set, runs go test with regular caching behavior, otherwise
+#   runs go test with '-count=1' for clean testing)
+
+set -u -o pipefail
+
+cd "$(dirname "$0")" || exit 1
+
+if [[ -f .env ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+fi
+
+if [[ "${1:-}" == "-c" ]]; then
+  cached=true
+  gotestargs=("-race" "-v")
+else
+  cached=false
+  gotestargs=("-race" "-v" "-count=1")
+fi
+
+failed=()
+
+run_step() {
+  local name="$1"
+  shift
+
+  echo -e "\033[33mRunning: $name\033[0m"
+  if "$@"; then
+    echo -e "\033[32mPASS: $name\033[0m"
+  else
+    echo -e "\033[31mFAIL: $name\033[0m"
+    failed+=("$name")
+  fi
+}
+
+run_step "gofmt check" bash -c "[[ -z \"$(gofmt -l .)\" ]]"
+run_step "go vet" go vet ./...
+run_step "staticcheck" bash -c 'command -v staticcheck >/dev/null 2>&1 && staticcheck ./...'
+run_step "go test (cached: $cached)" go test ./... "${gotestargs[@]}"
+
+if [[ "${#failed[@]}" -eq 0 ]]; then
+  echo -e "\n\033[32mAll checks passed.\033[0m"
+  exit 0
+fi
+
+echo -e "\n\033[31mFailed steps:\033[0m"
+for step in "${failed[@]}"; do
+  echo "- $step"
+done
+exit 1

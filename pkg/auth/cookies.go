@@ -31,9 +31,10 @@ const (
 // Set/Clear Secure Cookies
 //=============================================================================
 
-func SetSecureCookie(c *gin.Context, name, value string, maxAge int, domain string, httpOnly bool) {
+// SetSecureCookie sets a secure cookie.
+func SetSecureCookie(c *gin.Context, name, value string, maxAge time.Duration, domain string, httpOnly bool) {
 	secure := !IsLocalhost(domain) // Secure is true unless the domain is localhost or ends in .local
-	c.SetCookie(name, value, maxAge, "/", domain, secure, httpOnly)
+	c.SetCookie(name, value, int(maxAge.Seconds()), "/", domain, secure, httpOnly)
 }
 
 func ClearSecureCookie(c *gin.Context, name, domain string, httpOnly bool) {
@@ -75,7 +76,7 @@ func SetAuthCookies(c *gin.Context, accessToken, refreshToken string) (err error
 
 	// Compute the access token max age based on the expiration time of the access token
 	// The access token cannot be accessed by javascript so it is set as an http only cookie.
-	accessMaxAge := int(time.Until(claims.ExpiresAt.Time.Add(CookieMaxAgeBuffer)).Seconds())
+	accessMaxAge := time.Until(claims.ExpiresAt.Time.Add(CookieMaxAgeBuffer))
 	for _, domain := range cookieDomains {
 		SetSecureCookie(c, AccessTokenCookie, accessToken, accessMaxAge, domain, true)
 	}
@@ -87,7 +88,7 @@ func SetAuthCookies(c *gin.Context, accessToken, refreshToken string) (err error
 	}
 
 	// Set the refresh token cookie; httpOnly is false it can be accessed by javascript.
-	refreshMaxAge := int(time.Until(refreshExpires.Add(CookieMaxAgeBuffer)).Seconds())
+	refreshMaxAge := time.Until(refreshExpires.Add(CookieMaxAgeBuffer))
 	for _, domain := range cookieDomains {
 		SetSecureCookie(c, RefreshTokenCookie, refreshToken, refreshMaxAge, domain, false)
 	}
@@ -118,7 +119,7 @@ func ClearAuthCookies(c *gin.Context, audience []string) {
 //=============================================================================
 
 func SetResetPasswordTokenCookie(c *gin.Context, token, domain string) {
-	SetSecureCookie(c, ResetPasswordTokenCookie, token, int(ResetPasswordTokenCookieTTL), domain, false)
+	SetSecureCookie(c, ResetPasswordTokenCookie, token, ResetPasswordTokenCookieTTL, domain, false)
 }
 
 func ClearResetPasswordTokenCookie(c *gin.Context, domain string) {
