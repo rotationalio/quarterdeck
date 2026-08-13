@@ -11,10 +11,10 @@ import (
 // Version component constants for the current build.
 const (
 	VersionMajor         = 0
-	VersionMinor         = 13
+	VersionMinor         = 14
 	VersionPatch         = 0
 	VersionReleaseLevel  = "alpha"
-	VersionReleaseNumber = 19
+	VersionReleaseNumber = 20
 )
 
 // Set the GitVersion via -ldflags="-X 'go.rtnl.ai/quarterdeck/pkg.GitVersion=$(git rev-parse --short HEAD)'"
