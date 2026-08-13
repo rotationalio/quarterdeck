@@ -25,9 +25,9 @@ func TestValidateWelcomeUserEmailHappy(t *testing.T) {
 			OrgName:        "TestOrg",
 			OrgHomepageURL: orgHomepage,
 		},
-		Role:             "Analyst",
-		PasswordResetURL: resetURL,
-		Token:            vero.VerificationToken("abc123"),
+		Role:                 "Analyst",
+		PasswordResetURL:     resetURL,
+		Token:                vero.VerificationToken("abc123"),
 		WelcomeEmailBodyText: "Role: {{ if .Role }}{{ .Role }}{{ else }}Team Member{{ end }}",
 		WelcomeEmailBodyHTML: template.HTML(
 			`<p>Role: {{ if .Role }}{{ .Role }}{{ else }}Team Member{{ end }}</p>`,

@@ -31,9 +31,10 @@ const (
 // Set/Clear Secure Cookies
 //=============================================================================
 
-func SetSecureCookie(c *gin.Context, name, value string, maxAge int, domain string, httpOnly bool) {
+// SetSecureCookie sets a secure cookie.
+func SetSecureCookie(c *gin.Context, name, value string, maxAge time.Duration, domain string, httpOnly bool) {
 	secure := !IsLocalhost(domain) // Secure is true unless the domain is localhost or ends in .local
-	c.SetCookie(name, value, maxAge, "/", domain, secure, httpOnly)
+	c.SetCookie(name, value, int(maxAge.Seconds()), "/", domain, secure, httpOnly)
 }
 
 func ClearSecureCookie(c *gin.Context, name, domain string, httpOnly bool) {
@@ -49,10 +50,9 @@ func ClearSecureCookie(c *gin.Context, name, domain string, httpOnly bool) {
 //=============================================================================
 
 // SetAuthCookies is a helper function to set authentication cookies on a gin request.
-// The access token cookie (access_token) is an http only cookie that expires when the
-// access token expires. The refresh token cookie is not an http only cookie (it can be
-// accessed by client-side scripts) and it expires when the refresh token expires. Both
-// cookies require https and will not be set (silently) over http connections.
+// The access and refresh token cookies are http only cookies that expire when their
+// respective tokens expire. Both cookies require https and will not be set (silently)
+// over http connections.
 //
 // The cookie domains are set based on the access token audience (the refresh token
 // audience is the issuer so must duplicate the access token audience).
@@ -73,9 +73,8 @@ func SetAuthCookies(c *gin.Context, accessToken, refreshToken string) (err error
 		cookieDomains = append(cookieDomains, url.Hostname())
 	}
 
-	// Compute the access token max age based on the expiration time of the access token
-	// The access token cannot be accessed by javascript so it is set as an http only cookie.
-	accessMaxAge := int(time.Until(claims.ExpiresAt.Time.Add(CookieMaxAgeBuffer)).Seconds())
+	// Compute the access token max age based on the expiration time of the access token.
+	accessMaxAge := time.Until(claims.ExpiresAt.Time.Add(CookieMaxAgeBuffer))
 	for _, domain := range cookieDomains {
 		SetSecureCookie(c, AccessTokenCookie, accessToken, accessMaxAge, domain, true)
 	}
@@ -86,10 +85,10 @@ func SetAuthCookies(c *gin.Context, accessToken, refreshToken string) (err error
 		return errors.Fmt("could not parse refresh token: %w", err)
 	}
 
-	// Set the refresh token cookie; httpOnly is false it can be accessed by javascript.
-	refreshMaxAge := int(time.Until(refreshExpires.Add(CookieMaxAgeBuffer)).Seconds())
+	// Set the refresh token as an http only cookie so it cannot be accessed by javascript.
+	refreshMaxAge := time.Until(refreshExpires.Add(CookieMaxAgeBuffer))
 	for _, domain := range cookieDomains {
-		SetSecureCookie(c, RefreshTokenCookie, refreshToken, refreshMaxAge, domain, false)
+		SetSecureCookie(c, RefreshTokenCookie, refreshToken, refreshMaxAge, domain, true)
 	}
 
 	return nil
@@ -109,7 +108,7 @@ func ClearAuthCookies(c *gin.Context, audience []string) {
 
 	for _, domain := range cookieDomains {
 		ClearSecureCookie(c, AccessTokenCookie, domain, true)
-		ClearSecureCookie(c, RefreshTokenCookie, domain, false)
+		ClearSecureCookie(c, RefreshTokenCookie, domain, true)
 	}
 }
 
@@ -118,11 +117,11 @@ func ClearAuthCookies(c *gin.Context, audience []string) {
 //=============================================================================
 
 func SetResetPasswordTokenCookie(c *gin.Context, token, domain string) {
-	SetSecureCookie(c, ResetPasswordTokenCookie, token, int(ResetPasswordTokenCookieTTL), domain, false)
+	SetSecureCookie(c, ResetPasswordTokenCookie, token, ResetPasswordTokenCookieTTL, domain, true)
 }
 
 func ClearResetPasswordTokenCookie(c *gin.Context, domain string) {
-	ClearSecureCookie(c, ResetPasswordTokenCookie, domain, false)
+	ClearSecureCookie(c, ResetPasswordTokenCookie, domain, true)
 }
 
 //=============================================================================
