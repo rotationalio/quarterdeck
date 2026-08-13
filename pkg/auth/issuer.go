@@ -209,12 +209,18 @@ func (tm *Issuer) AddKey(keyID ulid.ULID, key SigningKey) (err error) {
 // better protect refresh tokens from being used in other contexts.
 func (tm *Issuer) RefreshAudience() string {
 	if tm.refreshAudience == "" {
-		if aud, err := url.Parse(tm.conf.Issuer); err == nil && tm.conf.Issuer != "" {
-			tm.refreshAudience = aud.ResolveReference(&url.URL{Path: refreshPath}).String()
-		} else {
+		if tm.conf.Issuer == "" {
+			// The issuer URL should have been validated in the config.
+			panic("issuer URL is empty")
+		}
+
+		aud, err := url.Parse(tm.conf.Issuer)
+		if err != nil {
 			// The issuer URL should have been validated in the config.
 			panic("could not parse issuer URL: " + err.Error())
 		}
+
+		tm.refreshAudience = aud.ResolveReference(&url.URL{Path: refreshPath}).String()
 	}
 	return tm.refreshAudience
 }
