@@ -140,7 +140,7 @@ func main() {
 
 func serve(c *cli.Context) (err error) {
 	var srv *server.Server
-	if srv, err = server.New(nil); err != nil {
+	if srv, err = server.New(); err != nil {
 		return cli.Exit(err, 1)
 	}
 

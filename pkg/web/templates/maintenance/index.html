@@ -1,6 +1,10 @@
-{{ template "error.html" . }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maintenance | Quarterdeck</title>
 
-{{ block "styles" . }}
   <style>
     body {
       background-color: #f7f9fc;
@@ -83,11 +87,19 @@
       font-size: 1.03125rem;
     }
   </style>
-{{ end }}
-
-{{ define "title" }}Maintenance | Quarterdeck{{ end }}
-{{ define "status" }}503{{ end }}
-{{ define "heading" }}Temporary Maintenance 🚧{{ end }}
-{{ define "subheading" }}Quarterdeck v{{ .Version }} has been in maintenance mode for {{ .Uptime }} and should be available soon. Please try again later.{{ end }}
-{{ define "actions" }}<br />{{ end }}
-{{ block "scripts" . }}<br />{{ end }}
+</head>
+<body>
+  <div class="auth-full-page d-flex">
+    <div class="auth-form p-3">
+      <div class="text-center">
+        <h1 class="display-1 fw-bold">503</h1>
+        <p class="h2">Temporary Maintenance 🚧</p>
+        <p class="lead fw-normal mt-3 mb-4">
+          Quarterdeck v{{ .Version }} is in maintenance mode but should be available soon.
+          Please try again later.
+        </p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

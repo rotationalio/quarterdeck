@@ -153,8 +153,8 @@ func (s *storeSuite) TestCreateOIDCClient() {
 		created, err := s.store.CreateOIDCClient(s.Context(), client)
 		require.NoError(err)
 		require.False(created.ID.IsZero())
-		require.WithinDuration(time.Now(), created.Created, 3*time.Second)
-		require.WithinDuration(time.Now(), created.Modified, 3*time.Second)
+		require.WithinDuration(time.Now(), created.Created.Time(), 3*time.Second)
+		require.WithinDuration(time.Now(), created.Modified.Time(), 3*time.Second)
 
 		got, err := s.store.RetrieveOIDCClientByClientID(s.Context(), client.ClientID)
 		require.NoError(err)
@@ -172,8 +172,8 @@ func (s *storeSuite) TestCreateOIDCClient() {
 		require.Equal(client.ClientID, got.ClientID)
 		require.Equal(client.Secret, got.Secret)
 		require.Equal(client.CreatedBy, got.CreatedBy)
-		require.WithinDuration(created.Created, got.Created, time.Second)
-		require.WithinDuration(created.Modified, got.Modified, time.Second)
+		require.WithinDuration(created.Created.Time(), got.Created.Time(), time.Second)
+		require.WithinDuration(created.Modified.Time(), got.Modified.Time(), time.Second)
 	})
 
 	s.Run("Minimal", func() {
@@ -304,7 +304,7 @@ func (s *storeSuite) TestUpdateOIDCClient() {
 		require.Equal(client.Secret, got.Secret)
 		require.Equal(client.CreatedBy, got.CreatedBy)
 		require.Equal(client.Created, got.Created)
-		require.WithinDuration(time.Now(), got.Modified, 3*time.Second)
+		require.WithinDuration(time.Now(), got.Modified.Time(), 3*time.Second)
 	})
 
 	s.Run("ErrMissingID", func() {

@@ -55,57 +55,62 @@ type Server struct {
 	errc    chan error
 }
 
-func New(conf *config.Config) (s *Server, err error) {
+func New() (s *Server, err error) {
 	// Create a new server instance and prepare to serve.
 	s = &Server{
 		errc: make(chan error, 1),
 	}
 
-	if conf == nil {
-		// Load the default configuration from the environment if it is not set.
-		// Ensure that the global config is set when loading from the environment.
-		if s.conf, err = config.Get(); err != nil {
-			return nil, err
-		}
-	} else {
-		// Set the global configuration from the user-specificed config.
-		s.conf = *conf
-		if err = config.Set(s.conf); err != nil {
-			return nil, err
-		}
+	// Load the default configuration from the environment if it is not set.
+	// Ensure that the global config is set when loading from the environment.
+	if s.conf, err = config.Get(); err != nil {
+		return nil, err
 	}
 
 	// Initialize telemetry and logging before any other initialization.
 	if err = telemetry.Setup(context.Background()); err != nil {
 		return nil, err
 	}
+
 	// NOTE: telemetry must be initialized before logging to ensure the otelslog
 	// handler is bound to the real (or noop) LoggerProvider.
 	ConfigureLogging(&s.conf)
 
+	// If in maintenance mode, stop the server configuration (no database connections,
+	// no setup of subcomponents, no gin routers or middleware) and run only a
+	// maintenance server with probez routes and and a 503 response.
+	if s.conf.Maintenance {
+		if err = s.Maintenance(); err != nil {
+			return nil, fmt.Errorf("could not initialize maintenance mode: %w", err)
+		}
+		return s, nil
+	}
+
+	// NOTE: anything below this line assumes the server is not in maintenance mode.
+
 	// Initialize the commo module for email sending and load welcome email
 	// template content from filesystem
 	if err = commo.Initialize(s.conf.Email, emails.LoadTemplates()); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not initialize commo: %w", err)
 	}
 
 	if err = s.conf.App.WelcomeEmail.LoadTemplateContent(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not load welcome email template content: %w", err)
 	}
 
 	// Connect to the configured database store.
 	if s.store, err = store.Open(s.conf.Database); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not open database store: %w", err)
 	}
 
 	// Initialize the claims issuer for JWT tokens.
 	if s.issuer, err = auth.NewIssuer(s.conf.Auth); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not initialize claims issuer: %w", err)
 	}
 
 	// Initialize the CSRF token handler if enabled.
 	if s.csrf, err = csrf.NewTokenHandler(s.conf.CSRF.CookieTTL, "/", s.conf.CookieDomains(), s.conf.CSRF.GetSecret()); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not initialize CSRF token handler: %w", err)
 	}
 
 	// Configure the gin router
@@ -131,23 +136,13 @@ func New(conf *config.Config) (s *Server, err error) {
 		IdleTimeout:       IdleTimeout,
 	}
 
-	// Set a fatal hook after the server is created to ensure the server is
-	// shutdown when a fatal error occurs.
-	rlog.SetFatalHook(func() {
-		// Runs after rlog.Fatal output; hook replaces os.Exit(1), so we must exit.
-		if s.srv != nil {
-			_ = s.Shutdown()
-		}
-		os.Exit(1)
-	})
-
 	return s, nil
 }
 
 // Debug returns a server that uses the specified http server instead of creating one.
 // This is primarily used to create test servers that can be used in unit tests.
-func Debug(conf *config.Config, srv *http.Server) (s *Server, err error) {
-	if s, err = New(conf); err != nil {
+func Debug(srv *http.Server) (s *Server, err error) {
+	if s, err = New(); err != nil {
 		return nil, err
 	}
 
@@ -166,6 +161,13 @@ func (s *Server) Serve() (err error) {
 		<-quit
 		s.errc <- s.Shutdown()
 	}()
+
+	// Catch fatal log errors and shutdown the server
+	// Runs after rlog.Fatal output; hook replaces os.Exit(1), so we must exit.
+	rlog.SetFatalHook(func() {
+		_ = s.Shutdown()
+		os.Exit(1)
+	})
 
 	// Create a socket to listen on and infer the final URL.
 	// NOTE: if the bindaddr is 127.0.0.1:0 for testing, a random port will be assigned,

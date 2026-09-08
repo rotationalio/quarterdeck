@@ -161,7 +161,7 @@ func (s *storeSuite) TestUpdateVeroToken() {
 		require.Equal(token.Signature, cmpt.Signature)
 		suitetest.EqualTime(s.T(), token.SentOn.Time, cmpt.SentOn.Time)
 		require.Equal(staleCreated, cmpt.Created)
-		require.WithinDuration(time.Now(), cmpt.Modified, 5*time.Second)
+		require.WithinDuration(time.Now(), cmpt.Modified.Time(), 5*time.Second)
 	})
 
 	s.Run("NotFound", func() {
@@ -347,7 +347,9 @@ func (s *storeSuite) TestCompletePasswordReset() {
 	})
 
 	s.Run("HappyPath", func() {
+		// cSpell:disable
 		newPassword := "$argon2id$v=19$m=65536,t=1,p=2$DT/LSMZjHhVlprmPaBSCcg==$UKT1g5gqWvKhiBC8gywVU6zepCEew0x3IW9vTWnlVlg="
+		// cSpell:enable
 
 		// Setup: valid reset-password token for fixture user.
 		token := &models.VeroToken{

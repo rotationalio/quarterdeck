@@ -10,7 +10,7 @@ import (
 	. "go.rtnl.ai/quarterdeck/pkg/store/v2/models"
 	"go.rtnl.ai/tidal"
 	"go.rtnl.ai/tidal/fields"
-	tsuite "go.rtnl.ai/tidal/suite"
+	"go.rtnl.ai/tidal/suite"
 	"go.rtnl.ai/ulid"
 )
 
@@ -20,7 +20,7 @@ import (
 
 // TestOIDCClientCRUDConformance verifies OIDCClient satisfies tidal CRUD shape expectations against the oidc_clients table.
 func (s *modelSuite) TestOIDCClientCRUDConformance() {
-	tsuite.ConformsCRUD(&s.DatabaseSuite, tsuite.CRUDConformance[*OIDCClient]{
+	suite.ConformsCRUD(&s.DatabaseSuite, suite.CRUDConformance[*OIDCClient]{
 		Table: "oidc_clients",
 		Create: func() *OIDCClient {
 			return &OIDCClient{
@@ -44,7 +44,7 @@ func (s *modelSuite) TestOIDCClientCRUDConformance() {
 			"redirect_uris": "RedirectURIs",
 			"client_id":     "ClientID",
 		},
-		Phases: []tsuite.CRUDPhase{tsuite.CRUDShape, tsuite.CRUDScan, tsuite.CRUDRoundTrip},
+		Phases: []suite.CRUDPhase{suite.CRUDShape, suite.CRUDScan, suite.CRUDRoundTrip},
 	})
 }
 
@@ -73,7 +73,7 @@ func equalOIDCClientConformance(a, b *OIDCClient) bool {
 		return false
 	}
 
-	return timeEqual(a.Created, b.Created) && timeEqual(a.Modified, b.Modified)
+	return timeEqual(a.Created.Time(), b.Created.Time()) && timeEqual(a.Modified.Time(), b.Modified.Time())
 }
 
 // timeEqual normalizes UTC location and second precision for DB round-trip checks.
@@ -93,6 +93,7 @@ func TestOIDCClientScan(t *testing.T) {
 		redirectURIsJSON := `["https://example.com/callback"]`
 		contactsJSON := `["first@example.com"]`
 
+		// cSpell:ignore XUiRZrNDUnLjeenQQmblpv
 		data := []any{
 			ulid.MakeSecure().String(),
 			"Test OIDC client",

@@ -7,6 +7,7 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store/v2/models"
 	"go.rtnl.ai/tidal"
+	"go.rtnl.ai/tidal/fields"
 	"go.rtnl.ai/ulid"
 )
 
@@ -69,6 +70,7 @@ func (s *storeSuite) TestAPIKeyListRevokedFilter() {
 		s.Equal(0, countRevoked(keys), "should return only active keys")
 	})
 
+	// cSpell:ignore TPAkoalHEorqAENISHvxYY
 	s.Run("FilterWithWhere", func() {
 		filter := (&tidal.Filter{}).
 			Where("client_id", tidal.Eq, "TPAkoalHEorqAENISHvxYY").
@@ -96,6 +98,7 @@ func (s *storeSuite) TestAPIKeyListRevokedFilter() {
 
 // TestCreateAPIKey verifies validation, permission assignment, and duplicate client ID rejection.
 func (s *storeSuite) TestCreateAPIKey() {
+	// cSpell:ignore DtptIgWgzkwaibktjczVwr
 	s.Run("NoIDOnCreate", func() {
 		key := &models.APIKey{
 			Description: sql.NullString{String: "Test API Key", Valid: true},
@@ -124,8 +127,8 @@ func (s *storeSuite) TestCreateAPIKey() {
 		created, err := s.store.CreateAPIKey(s.Context(), key)
 		require.NoError(err)
 		require.False(created.ID.IsZero())
-		require.WithinDuration(time.Now(), created.Created, 3*time.Second)
-		require.WithinDuration(time.Now(), created.Modified, 3*time.Second)
+		require.WithinDuration(time.Now(), created.Created.Time(), 3*time.Second)
+		require.WithinDuration(time.Now(), created.Modified.Time(), 3*time.Second)
 		require.Equal(keyCount+1, s.count("api_keys"))
 		require.Equal(keyPermsCount, s.count("api_key_permissions"))
 	})
@@ -151,8 +154,8 @@ func (s *storeSuite) TestCreateAPIKey() {
 		created, err := s.store.CreateAPIKey(s.Context(), key)
 		require.NoError(err)
 		require.False(created.ID.IsZero())
-		require.WithinDuration(time.Now(), created.Created, 3*time.Second)
-		require.WithinDuration(time.Now(), created.Modified, 3*time.Second)
+		require.WithinDuration(time.Now(), created.Created.Time(), 3*time.Second)
+		require.WithinDuration(time.Now(), created.Modified.Time(), 3*time.Second)
 		require.Equal(keyCount+1, s.count("api_keys"))
 		require.Equal(keyPermsCount+4, s.count("api_key_permissions"))
 	})
@@ -178,6 +181,7 @@ func (s *storeSuite) TestRetrieveAPIKey() {
 		require.NoError(err)
 		require.NotNil(key)
 
+		// cSpell:disable
 		require.Equal("01JNH8ZKWFJ2Z8E3GJTQTFPQCT", key.ID.String())
 		require.Equal("Read/view only keys", key.Description.String)
 		require.Equal("TPAkoalHEorqAENISHvxYY", key.ClientID)
@@ -187,6 +191,7 @@ func (s *storeSuite) TestRetrieveAPIKey() {
 		require.False(key.Revoked.Valid)
 		require.Equal(time.Date(2025, time.March, 4, 19, 9, 6, 0, time.UTC), key.Created)
 		require.Equal(time.Date(2025, time.May, 24, 18, 41, 58, 0, time.UTC), key.Modified)
+		// cSpell:enable
 
 		permissions := models.PermissionTitles(key.Permissions)
 		require.Len(permissions, 3)
@@ -201,6 +206,7 @@ func (s *storeSuite) TestRetrieveAPIKey() {
 		require.NoError(err)
 		require.NotNil(key)
 
+		// cSpell:disable
 		require.Equal("01JNH8ZKWFJ2Z8E3GJTQTFPQCT", key.ID.String())
 		require.Equal("Read/view only keys", key.Description.String)
 		require.Equal("TPAkoalHEorqAENISHvxYY", key.ClientID)
@@ -210,6 +216,7 @@ func (s *storeSuite) TestRetrieveAPIKey() {
 		require.False(key.Revoked.Valid)
 		require.Equal(time.Date(2025, time.March, 4, 19, 9, 6, 0, time.UTC), key.Created)
 		require.Equal(time.Date(2025, time.May, 24, 18, 41, 58, 0, time.UTC), key.Modified)
+		// cSpell:enable
 
 		permissions := models.PermissionTitles(key.Permissions)
 		require.Len(permissions, 3)
@@ -243,8 +250,8 @@ func (s *storeSuite) TestUpdateAPIKey() {
 		key.CreatedBy = ulid.Make()
 		key.LastSeen = sql.NullTime{Time: time.Now(), Valid: true}
 		key.Revoked = sql.NullTime{Time: time.Now(), Valid: true}
-		key.Created = time.Date(2025, time.January, 26, 14, 13, 12, 0, time.UTC)
-		key.Modified = time.Date(2025, time.January, 26, 14, 13, 12, 0, time.UTC)
+		key.Created = fields.Time(time.Date(2025, time.January, 26, 14, 13, 12, 0, time.UTC))
+		key.Modified = fields.Time(time.Date(2025, time.January, 26, 14, 13, 12, 0, time.UTC))
 
 		// Action: update key metadata.
 		err := s.store.UpdateAPIKey(s.Context(), key)
@@ -262,7 +269,7 @@ func (s *storeSuite) TestUpdateAPIKey() {
 		require.NotEqual(key.LastSeen.Time, cmpt.LastSeen.Time)
 		require.False(cmpt.Revoked.Valid)
 		require.NotEqual(key.Created, cmpt.Created)
-		require.WithinDuration(time.Now(), cmpt.Modified, 3*time.Second)
+		require.WithinDuration(time.Now(), cmpt.Modified.Time(), 3*time.Second)
 	})
 
 	s.Run("UpdateLastSeen", func() {
@@ -386,6 +393,7 @@ func (s *storeSuite) TestCreateAPIKeyForCreator() {
 	})
 
 	s.Run("RevokedCreator", func() {
+		// cSpell:ignore yfoPxjgVyleDkpOPnNfsBG
 		creator, err := s.store.RetrieveAPIKeyByClientID(s.Context(), "yfoPxjgVyleDkpOPnNfsBG")
 		s.Require().NoError(err)
 

@@ -32,8 +32,9 @@ var (
 	partialsInclude = []string{} // TODO: include partialsComponents if needed
 
 	excludes = map[string]struct{}{
-		"partials":   {},
-		"components": {},
+		"partials":    {},
+		"components":  {},
+		"maintenance": {},
 	}
 )
 

@@ -8,6 +8,7 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/store/v2/models"
 	"go.rtnl.ai/quarterdeck/pkg/store/v2/suitetest"
 	"go.rtnl.ai/tidal"
+	"go.rtnl.ai/tidal/fields"
 	"go.rtnl.ai/ulid"
 )
 
@@ -142,6 +143,7 @@ func (s *storeSuite) TestRetrieveUser() {
 		require.NoError(err)
 		require.NotNil(user)
 
+		// cSpell:disable
 		require.Equal("01JQNPQ1CHG36SV7NRQKTZB20R", user.ID.String())
 		require.Equal("Editor User", user.Name.String)
 		require.Equal("editor@example.com", user.Email)
@@ -149,6 +151,7 @@ func (s *storeSuite) TestRetrieveUser() {
 		require.Equal(time.Date(2025, time.April, 29, 15, 2, 51, 0, time.UTC), user.LastLogin.Time)
 		require.Equal(time.Date(2025, time.March, 31, 8, 57, 27, 0, time.UTC), user.Created)
 		require.Equal(time.Date(2025, time.April, 29, 15, 2, 51, 0, time.UTC), user.Modified)
+		// cSpell:enable
 
 		roles := user.Roles
 		require.Len(roles, 1)
@@ -164,6 +167,7 @@ func (s *storeSuite) TestRetrieveUser() {
 		require.NoError(err)
 		require.NotNil(user)
 
+		// cSpell:disable
 		require.Equal(userID, user.ID)
 		require.Equal("Editor User", user.Name.String)
 		require.Equal("editor@example.com", user.Email)
@@ -171,6 +175,7 @@ func (s *storeSuite) TestRetrieveUser() {
 		require.Equal(time.Date(2025, time.April, 29, 15, 2, 51, 0, time.UTC), user.LastLogin.Time)
 		require.Equal(time.Date(2025, time.March, 31, 8, 57, 27, 0, time.UTC), user.Created)
 		require.Equal(time.Date(2025, time.April, 29, 15, 2, 51, 0, time.UTC), user.Modified)
+		// cSpell:enable
 
 		roles := user.Roles
 		require.Len(roles, 1)
@@ -206,8 +211,8 @@ func (s *storeSuite) TestUpdateUser() {
 		user.EmailVerified = true
 		staleCreated := user.Created
 		staleModified := user.Modified
-		user.Created = time.Date(2025, time.January, 26, 14, 13, 12, 0, time.UTC)
-		user.Modified = time.Date(2025, time.January, 26, 14, 13, 12, 0, time.UTC)
+		user.Created = fields.Time(time.Date(2025, time.January, 26, 14, 13, 12, 0, time.UTC))
+		user.Modified = fields.Time(time.Date(2025, time.January, 26, 14, 13, 12, 0, time.UTC))
 
 		// Action: update user metadata.
 		err = s.store.UpdateUser(s.Context(), user)
@@ -225,11 +230,14 @@ func (s *storeSuite) TestUpdateUser() {
 		require.NotEqual(user.EmailVerified, cmpt.EmailVerified)
 		require.Equal(staleCreated, cmpt.Created)
 		require.NotEqual(staleModified, cmpt.Modified)
-		require.WithinDuration(cmpt.Modified, time.Now(), time.Minute)
+		require.WithinDuration(cmpt.Modified.Time(), time.Now(), time.Minute)
 	})
 
 	s.Run("UpdatePassword", func() {
+		// cSpell:disable
 		password := "$argon2id$v=19$m=65536,t=1,p=2$DT/LSMZjHhVlprmPaBSCcg==$UKT1g5gqWvKhiBC8gywVU6zepCEew0x3IW9vTWnlVlg="
+		// cSpell:enable
+
 		// Action: set new password hash.
 		err := s.store.UpdatePassword(s.Context(), userID, password)
 		require.NoError(err)
@@ -238,7 +246,7 @@ func (s *storeSuite) TestUpdateUser() {
 		cmpt, err := s.store.RetrieveUser(s.Context(), userID)
 		require.NoError(err)
 		require.Equal(password, cmpt.Password)
-		require.WithinDuration(cmpt.Modified, time.Now(), time.Minute)
+		require.WithinDuration(cmpt.Modified.Time(), time.Now(), time.Minute)
 	})
 
 	s.Run("UpdateLastLogin", func() {
@@ -252,7 +260,7 @@ func (s *storeSuite) TestUpdateUser() {
 		require.NoError(err)
 		require.True(cmpt.LastLogin.Valid)
 		suitetest.EqualTime(s.T(), lastLogin, cmpt.LastLogin.Time)
-		require.WithinDuration(cmpt.Modified, time.Now(), time.Minute)
+		require.WithinDuration(cmpt.Modified.Time(), time.Now(), time.Minute)
 	})
 
 	s.Run("VerifyEmail", func() {
@@ -264,7 +272,7 @@ func (s *storeSuite) TestUpdateUser() {
 		cmpt, err := s.store.RetrieveUser(s.Context(), userID)
 		require.NoError(err)
 		require.True(cmpt.EmailVerified)
-		require.WithinDuration(cmpt.Modified, time.Now(), time.Minute)
+		require.WithinDuration(cmpt.Modified.Time(), time.Now(), time.Minute)
 	})
 
 	s.Run("AddRole", func() {

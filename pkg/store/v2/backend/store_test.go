@@ -5,10 +5,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	v2store "go.rtnl.ai/quarterdeck/pkg/store/v2"
+	"go.rtnl.ai/quarterdeck/pkg/store/v2"
 	"go.rtnl.ai/quarterdeck/pkg/store/v2/backend"
 	"go.rtnl.ai/quarterdeck/pkg/store/v2/suitetest"
-	tsuite "go.rtnl.ai/tidal/suite"
+	"go.rtnl.ai/tidal/suite"
 	"go.rtnl.ai/x/dsn"
 )
 
@@ -16,7 +16,7 @@ import (
 // loaded into a v2 store.
 type storeSuite struct {
 	suitetest.BaseSuite
-	store v2store.Store
+	store store.Store
 }
 
 //=============================================================================
@@ -25,14 +25,14 @@ type storeSuite struct {
 
 // TestStoreSQLite runs the full store integration suite against SQLite.
 func TestStoreSQLite(t *testing.T) {
-	runStoreSuite(t, dsn.SQLite3, func(t *testing.T, s *storeSuite, m tsuite.Migrations) {
+	runStoreSuite(t, dsn.SQLite3, func(t *testing.T, s *storeSuite, m suite.Migrations) {
 		suitetest.ConfigureSQLite(t, &s.DatabaseSuite, m)
 	})
 }
 
 // TestStorePostgres runs the full store integration suite against Postgres.
 func TestStorePostgres(t *testing.T) {
-	runStoreSuite(t, dsn.Postgres, func(t *testing.T, s *storeSuite, m tsuite.Migrations) {
+	runStoreSuite(t, dsn.Postgres, func(t *testing.T, s *storeSuite, m suite.Migrations) {
 		suitetest.ConfigurePostgres(t, &s.DatabaseSuite, m)
 	})
 }
@@ -51,13 +51,13 @@ func (s *storeSuite) SetupTest() {
 //=============================================================================
 
 // runStoreSuite loads migrations, configures the provider, and runs suite tests.
-func runStoreSuite(t *testing.T, provider string, configure func(*testing.T, *storeSuite, tsuite.Migrations)) {
-	migrations, err := v2store.LoadMigrations(provider)
+func runStoreSuite(t *testing.T, provider string, configure func(*testing.T, *storeSuite, suite.Migrations)) {
+	migrations, err := store.LoadMigrations(provider)
 	require.NoError(t, err)
 
 	s := &storeSuite{}
 	configure(t, s, migrations)
-	tsuite.Run(t, s)
+	suite.Run(t, s)
 }
 
 // openStore constructs a store backed by the suite database and loads SQL fixtures.
