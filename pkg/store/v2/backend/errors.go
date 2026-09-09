@@ -53,6 +53,9 @@ func tidalErr(err error) error {
 	if errors.Is(err, tidal.ErrReadOnly) {
 		return errors.ErrReadOnly
 	}
+	if errors.Is(err, tidal.ErrAlreadyExists) {
+		return errors.ErrAlreadyExists
+	}
 
 	// sqlite specific errors that we need to break down
 	var sqliteErr sqlite3.Error

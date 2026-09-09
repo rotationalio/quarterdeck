@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"time"
 
-	qerrors "go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store/v2/models"
 	"go.rtnl.ai/quarterdeck/pkg/store/v2/txn"
 	"go.rtnl.ai/tidal"
@@ -137,7 +137,7 @@ func (t *tx) CreateUser(user *models.User) (*models.User, error) {
 		return nil, err
 	}
 	if !user.ID.IsZero() {
-		return nil, qerrors.ErrNoIDOnCreate
+		return nil, errors.ErrNoIDOnCreate
 	}
 
 	if _, err := users.Create(t.tx, user); err != nil {
@@ -200,7 +200,7 @@ func (t *tx) UpdatePassword(userID ulid.ULID, password string) error {
 	}
 	n, _ := result.RowsAffected()
 	if n == 0 {
-		return qerrors.ErrNotFound
+		return errors.ErrNotFound
 	}
 	return nil
 }
@@ -220,7 +220,7 @@ func (t *tx) UpdateLastLogin(userID ulid.ULID, lastLogin time.Time) error {
 	}
 	n, _ := result.RowsAffected()
 	if n == 0 {
-		return qerrors.ErrNotFound
+		return errors.ErrNotFound
 	}
 	return nil
 }
@@ -240,7 +240,7 @@ func (t *tx) VerifyEmail(userID ulid.ULID) error {
 	}
 	n, _ := result.RowsAffected()
 	if n == 0 {
-		return qerrors.ErrNotFound
+		return errors.ErrNotFound
 	}
 	return nil
 }
@@ -250,7 +250,7 @@ func (t *tx) DeleteUser(userID ulid.ULID) error {
 		return err
 	}
 	if userID.IsZero() {
-		return qerrors.ErrMissingID
+		return errors.ErrMissingID
 	}
 	result, err := users.Delete(t.tx, sql.Named("id", userID))
 	if err != nil {
@@ -258,7 +258,7 @@ func (t *tx) DeleteUser(userID ulid.ULID) error {
 	}
 	n, _ := result.RowsAffected()
 	if n == 0 {
-		return qerrors.ErrNotFound
+		return errors.ErrNotFound
 	}
 	return nil
 }

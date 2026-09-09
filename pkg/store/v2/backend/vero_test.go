@@ -7,7 +7,6 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/enum"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store/v2/models"
-	"go.rtnl.ai/quarterdeck/pkg/store/v2/suitetest"
 	"go.rtnl.ai/ulid"
 	"go.rtnl.ai/x/vero"
 )
@@ -113,8 +112,8 @@ func (s *storeSuite) TestRetrieveVeroToken() {
 		require.Equal(time.Date(2024, time.November, 16, 17, 43, 53, 0, time.UTC), token.Expiration)
 		require.Len(token.Signature.Signature(), 32)
 		require.Equal(time.Date(2024, time.November, 16, 17, 28, 45, 0, time.UTC), token.SentOn.Time)
-		require.Equal(time.Date(2024, time.November, 16, 17, 28, 57, 0, time.UTC), token.Created)
-		require.Equal(time.Date(2024, time.November, 16, 17, 28, 57, 0, time.UTC), token.Modified)
+		s.TimeEqual(time.Date(2024, time.November, 16, 17, 28, 57, 0, time.UTC), token.Created.Time())
+		s.TimeEqual(time.Date(2024, time.November, 16, 17, 28, 57, 0, time.UTC), token.Modified.Time())
 	})
 
 	s.Run("NotFound", func() {
@@ -157,9 +156,9 @@ func (s *storeSuite) TestUpdateVeroToken() {
 		require.Equal(token.TokenType, cmpt.TokenType)
 		require.Equal(token.ResourceID, cmpt.ResourceID)
 		require.Equal(token.Email, cmpt.Email)
-		suitetest.EqualTime(s.T(), token.Expiration, cmpt.Expiration)
+		s.TimeEqual(token.Expiration, cmpt.Expiration)
 		require.Equal(token.Signature, cmpt.Signature)
-		suitetest.EqualTime(s.T(), token.SentOn.Time, cmpt.SentOn.Time)
+		s.TimeEqual(token.SentOn.Time, cmpt.SentOn.Time)
 		require.Equal(staleCreated, cmpt.Created)
 		require.WithinDuration(time.Now(), cmpt.Modified.Time(), 5*time.Second)
 	})

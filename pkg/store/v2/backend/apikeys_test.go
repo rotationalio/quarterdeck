@@ -189,8 +189,8 @@ func (s *storeSuite) TestRetrieveAPIKey() {
 		require.Equal("01JMJMGHQSA2SHQ8S1T4JXABFJ", key.CreatedBy.String())
 		require.Equal(time.Date(2025, time.May, 24, 18, 41, 58, 0, time.UTC), key.LastSeen.Time)
 		require.False(key.Revoked.Valid)
-		require.Equal(time.Date(2025, time.March, 4, 19, 9, 6, 0, time.UTC), key.Created)
-		require.Equal(time.Date(2025, time.May, 24, 18, 41, 58, 0, time.UTC), key.Modified)
+		s.TimeEqual(time.Date(2025, time.March, 4, 19, 9, 6, 0, time.UTC), key.Created.Time())
+		s.TimeEqual(time.Date(2025, time.May, 24, 18, 41, 58, 0, time.UTC), key.Modified.Time())
 		// cSpell:enable
 
 		permissions := models.PermissionTitles(key.Permissions)
@@ -214,8 +214,8 @@ func (s *storeSuite) TestRetrieveAPIKey() {
 		require.Equal("01JMJMGHQSA2SHQ8S1T4JXABFJ", key.CreatedBy.String())
 		require.Equal(time.Date(2025, time.May, 24, 18, 41, 58, 0, time.UTC), key.LastSeen.Time)
 		require.False(key.Revoked.Valid)
-		require.Equal(time.Date(2025, time.March, 4, 19, 9, 6, 0, time.UTC), key.Created)
-		require.Equal(time.Date(2025, time.May, 24, 18, 41, 58, 0, time.UTC), key.Modified)
+		s.TimeEqual(time.Date(2025, time.March, 4, 19, 9, 6, 0, time.UTC), key.Created.Time())
+		s.TimeEqual(time.Date(2025, time.May, 24, 18, 41, 58, 0, time.UTC), key.Modified.Time())
 		// cSpell:enable
 
 		permissions := models.PermissionTitles(key.Permissions)

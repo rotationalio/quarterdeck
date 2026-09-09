@@ -73,8 +73,8 @@ func TestUserScan(t *testing.T) {
 		require.Zero(t, model.Password)
 		require.Equal(t, data[3], model.LastLogin.Time)
 		require.Equal(t, data[4], model.EmailVerified)
-		require.Equal(t, data[5], model.Created)
-		require.Equal(t, data[6], model.Modified)
+		TimeEqual(t, data[5], model.Created)
+		TimeEqual(t, data[6], model.Modified)
 	})
 
 	t.Run("Nulls", func(t *testing.T) {

@@ -6,7 +6,6 @@ import (
 
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/quarterdeck/pkg/store/v2/models"
-	"go.rtnl.ai/quarterdeck/pkg/store/v2/suitetest"
 	"go.rtnl.ai/tidal"
 	"go.rtnl.ai/tidal/fields"
 	"go.rtnl.ai/ulid"
@@ -149,8 +148,8 @@ func (s *storeSuite) TestRetrieveUser() {
 		require.Equal("editor@example.com", user.Email)
 		require.Equal("$argon2id$v=19$m=65536,t=1,p=2$oPREW7ztC12IG7EVldbneA==$K/4cNUUt661D30ufLmTTN/bZD0WSig/FrbqOmkOoX9I=", user.Password)
 		require.Equal(time.Date(2025, time.April, 29, 15, 2, 51, 0, time.UTC), user.LastLogin.Time)
-		require.Equal(time.Date(2025, time.March, 31, 8, 57, 27, 0, time.UTC), user.Created)
-		require.Equal(time.Date(2025, time.April, 29, 15, 2, 51, 0, time.UTC), user.Modified)
+		s.TimeEqual(time.Date(2025, time.March, 31, 8, 57, 27, 0, time.UTC), user.Created.Time())
+		s.TimeEqual(time.Date(2025, time.April, 29, 15, 2, 51, 0, time.UTC), user.Modified.Time())
 		// cSpell:enable
 
 		roles := user.Roles
@@ -173,8 +172,8 @@ func (s *storeSuite) TestRetrieveUser() {
 		require.Equal("editor@example.com", user.Email)
 		require.Equal("$argon2id$v=19$m=65536,t=1,p=2$oPREW7ztC12IG7EVldbneA==$K/4cNUUt661D30ufLmTTN/bZD0WSig/FrbqOmkOoX9I=", user.Password)
 		require.Equal(time.Date(2025, time.April, 29, 15, 2, 51, 0, time.UTC), user.LastLogin.Time)
-		require.Equal(time.Date(2025, time.March, 31, 8, 57, 27, 0, time.UTC), user.Created)
-		require.Equal(time.Date(2025, time.April, 29, 15, 2, 51, 0, time.UTC), user.Modified)
+		s.TimeEqual(time.Date(2025, time.March, 31, 8, 57, 27, 0, time.UTC), user.Created.Time())
+		s.TimeEqual(time.Date(2025, time.April, 29, 15, 2, 51, 0, time.UTC), user.Modified.Time())
 		// cSpell:enable
 
 		roles := user.Roles
@@ -259,7 +258,7 @@ func (s *storeSuite) TestUpdateUser() {
 		cmpt, err := s.store.RetrieveUser(s.Context(), userID)
 		require.NoError(err)
 		require.True(cmpt.LastLogin.Valid)
-		suitetest.EqualTime(s.T(), lastLogin, cmpt.LastLogin.Time)
+		s.TimeEqual(lastLogin, cmpt.LastLogin.Time)
 		require.WithinDuration(cmpt.Modified.Time(), time.Now(), time.Minute)
 	})
 

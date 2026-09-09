@@ -7,12 +7,11 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.rtnl.ai/tidal"
-	tsuite "go.rtnl.ai/tidal/suite"
-	tfixtures "go.rtnl.ai/tidal/suite/fixtures"
+	"go.rtnl.ai/tidal/suite"
+	"go.rtnl.ai/tidal/suite/fixtures"
 	"go.rtnl.ai/x/dsn"
 )
 
@@ -24,7 +23,7 @@ import (
 // after migrations. Embed this for store/v2 test suites instead of tidal's
 // DatabaseSuite.
 type BaseSuite struct {
-	tsuite.DatabaseSuite
+	suite.DatabaseSuite
 }
 
 func (s *BaseSuite) SetupSuite() {
@@ -45,40 +44,26 @@ func (s *BaseSuite) TearDownTest() {
 //============================================================================
 
 // ConfigureSQLite prepares a DatabaseSuite for SQLite-backed tests.
-func ConfigureSQLite(t *testing.T, s *tsuite.DatabaseSuite, migrations tsuite.Migrations) {
+func ConfigureSQLite(t *testing.T, s *suite.DatabaseSuite, migrations suite.Migrations) {
 	t.Helper()
-	s.Provider = &tsuite.SQLiteProvider{}
+	s.Provider = &suite.SQLiteProvider{}
 	s.Migrations = migrations
-	s.Teardown = tsuite.TeardownTruncate
+	s.Teardown = suite.TeardownTruncate
 }
 
 // ConfigurePostgres prepares a DatabaseSuite for Postgres-backed tests.
 // Skips the test when Postgres is not configured.
-func ConfigurePostgres(t *testing.T, s *tsuite.DatabaseSuite, migrations tsuite.Migrations) {
+func ConfigurePostgres(t *testing.T, s *suite.DatabaseSuite, migrations suite.Migrations) {
 	t.Helper()
-	s.Provider = &tsuite.PostgresProvider{}
+	s.Provider = &suite.PostgresProvider{}
 	s.Migrations = migrations
-	s.Teardown = tsuite.TeardownTruncate
+	s.Teardown = suite.TeardownTruncate
 
 	_, err := s.ResolveDSN("")
-	if errors.Is(err, tsuite.ErrNoDatabaseURL) {
+	if errors.Is(err, suite.ErrNoDatabaseURL) {
 		t.Fatal("postgres not configured (set POSTGRES_DATABASE_URL, TEST_DATABASE_URL, TIDAL_DATABASE_URL, DATABASE_URL, or PGHOST)")
 	}
 	require.NoError(t, err)
-}
-
-//============================================================================
-// Assertions
-//============================================================================
-
-// EqualTime compares two times after normalizing to UTC and truncating to
-// second precision for DB round-trip checks, because anything larger than a
-// second tends to fail in CI testing. This is not ideal, but it's a compromise
-// that we can live with unless we want to use a sync-time library.
-func EqualTime(tb testing.TB, expected, actual time.Time) {
-	tb.Helper()
-	areEqual := expected.UTC().Truncate(time.Second).Equal(actual.UTC().Truncate(time.Second))
-	require.Truef(tb, areEqual, "times must be within second precision: %s != %s", expected, actual)
 }
 
 //============================================================================
@@ -86,7 +71,7 @@ func EqualTime(tb testing.TB, expected, actual time.Time) {
 //============================================================================
 
 // TruncateAndPrepare clears all table data and reapplies provider-specific settings.
-func TruncateAndPrepare(t testing.TB, s *tsuite.DatabaseSuite) {
+func TruncateAndPrepare(t testing.TB, s *suite.DatabaseSuite) {
 	t.Helper()
 	require := require.New(t)
 
@@ -114,7 +99,7 @@ func LoadFixtures(t testing.TB, db *tidal.DB, provider string) {
 	_, filename, _, ok := runtime.Caller(0)
 	require.True(t, ok, "resolve suitetest package path")
 	pattern := filepath.Join(filepath.Dir(filename), "testdata", strings.ToLower(provider), "*.sql")
-	fs, err := tfixtures.Glob(pattern)
+	fs, err := fixtures.Glob(pattern)
 	require.NoError(t, err)
 	require.NotEmpty(t, fs, "no fixture SQL files matching %s", pattern)
 	require.NoError(t, fs.Apply(context.Background(), db, "test"))

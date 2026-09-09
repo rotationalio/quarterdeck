@@ -79,8 +79,8 @@ func TestAPIKeyScan(t *testing.T) {
 		require.Equal(t, data[3], model.CreatedBy.String())
 		require.Equal(t, data[4], model.LastSeen.Time)
 		require.False(t, model.Revoked.Valid)
-		require.Equal(t, data[6], model.Created)
-		require.Equal(t, data[7], model.Modified)
+		TimeEqual(t, data[6], model.Created)
+		TimeEqual(t, data[7], model.Modified)
 	})
 
 	t.Run("Nulls", func(t *testing.T) {

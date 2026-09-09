@@ -23,8 +23,8 @@ import (
 var content embed.FS
 
 const (
-	partials           = "partials/**/*.html"
-	partialsComponents = "partials/components/**/*.html"
+	partials = "partials/**/*.html"
+	// partialsComponents = "partials/components/**/*.html"
 )
 
 var (

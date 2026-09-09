@@ -236,8 +236,8 @@ func (s *storeSuite) TestRetrieveOIDCClient() {
 		require.Equal(fullMetadataClientID, client.ClientID)
 		require.Equal("$argon2id$v=19$m=65536,t=1,p=2$Bk7GvOXGHdfDdSZH1OUyIA==$1AcYMKcJwm/DngmCw9db/J7PbvPzav/i/kk+Z0EKd44=", client.Secret)
 		require.False(client.CreatedBy.IsZero())
-		require.Equal(time.Date(2025, 2, 20, 21, 34, 8, 0, time.UTC), client.Created)
-		require.Equal(time.Date(2025, 2, 20, 21, 34, 8, 0, time.UTC), client.Modified)
+		s.TimeEqual(time.Date(2025, 2, 20, 21, 34, 8, 0, time.UTC), client.Created.Time())
+		s.TimeEqual(time.Date(2025, 2, 20, 21, 34, 8, 0, time.UTC), client.Modified.Time())
 
 		byID, err := s.store.RetrieveOIDCClient(s.Context(), client.ID)
 		require.NoError(err)

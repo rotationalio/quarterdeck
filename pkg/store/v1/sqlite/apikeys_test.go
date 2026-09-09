@@ -23,6 +23,7 @@ func (s *storeTestSuite) TestAPIKeyList() {
 }
 
 func (s *storeTestSuite) TestCreateAPIKey() {
+	// cSpell:ignore DtptIgWgzkwaibktjczVwr
 	s.Run("NoIDOnCreate", func() {
 		key := &models.APIKey{
 			Model: models.Model{
@@ -86,10 +87,6 @@ func (s *storeTestSuite) TestCreateAPIKey() {
 			s.T().Skip("skipping create test in read-only mode")
 		}
 
-		if s.ReadOnly() {
-			s.T().Skip("skipping create test in read-only mode")
-		}
-
 		require := s.Require()
 		keyCount := s.Count("api_keys")
 		keyPermsCount := s.Count("api_key_permissions")
@@ -121,7 +118,7 @@ func (s *storeTestSuite) TestCreateAPIKey() {
 
 		key := &models.APIKey{
 			Description: sql.NullString{String: "Test API Key", Valid: true},
-			ClientID:    "TPAkoalHEorqAENISHvxYY",
+			ClientID:    "hsuAdrWAmPJnzCgDsyTQiN",
 			Secret:      "$argon2id$v=19$m=65536,t=1,p=2$nXCe+4HPx0YfO/BMRTtePQ==$vRxaszj/Y4NtfqL7DYDKp3zILXuAnEpzxCtCAc1fdTk=",
 			CreatedBy:   ulid.MustParse("01JPYRNYMEHNEZCS0JYX1CP57A"),
 		}
@@ -138,6 +135,7 @@ func (s *storeTestSuite) TestRetrieveAPIKey() {
 		require.NoError(err, "should be able to retrieve API key by ID")
 		require.NotNil(key, "should return an API key")
 
+		// cSpell:disable
 		require.Equal("01JNH8ZKWFJ2Z8E3GJTQTFPQCT", key.ID.String(), "should return the correct API key ID")
 		require.Equal("Read/view only keys", key.Description.String, "should return the correct description")
 		require.Equal("TPAkoalHEorqAENISHvxYY", key.ClientID, "should return the correct client ID")
@@ -147,6 +145,7 @@ func (s *storeTestSuite) TestRetrieveAPIKey() {
 		require.False(key.Revoked.Valid, "should return the correct revoked time")
 		require.Equal(time.Date(2025, time.March, 4, 19, 9, 6, 0, time.UTC), key.Created, "should return the correct created time")
 		require.Equal(time.Date(2025, time.May, 24, 18, 41, 58, 0, time.UTC), key.Modified, "should return the correct modified time")
+		// cSpell:enable
 
 		permissions := key.Permissions()
 		require.Len(permissions, 3, "should return the correct number of permissions")
@@ -156,11 +155,13 @@ func (s *storeTestSuite) TestRetrieveAPIKey() {
 	})
 
 	s.Run("ByClientID", func() {
+		// cSpell:ignore TPAkoalHEorqAENISHvxYY
 		require := s.Require()
 		key, err := s.db.RetrieveAPIKey(s.Context(), "TPAkoalHEorqAENISHvxYY")
 		require.NoError(err, "should be able to retrieve API key by client ID")
 		require.NotNil(key, "should return an API key")
 
+		// cSpell:disable
 		require.Equal("01JNH8ZKWFJ2Z8E3GJTQTFPQCT", key.ID.String(), "should return the correct API key ID")
 		require.Equal("Read/view only keys", key.Description.String, "should return the correct description")
 		require.Equal("TPAkoalHEorqAENISHvxYY", key.ClientID, "should return the correct client ID")
@@ -170,6 +171,7 @@ func (s *storeTestSuite) TestRetrieveAPIKey() {
 		require.False(key.Revoked.Valid, "should return the correct revoked time")
 		require.Equal(time.Date(2025, time.March, 4, 19, 9, 6, 0, time.UTC), key.Created, "should return the correct created time")
 		require.Equal(time.Date(2025, time.May, 24, 18, 41, 58, 0, time.UTC), key.Modified, "should return the correct modified time")
+		// cSpell:enable
 
 		permissions := key.Permissions()
 		require.Len(permissions, 3, "should return the correct number of permissions")
