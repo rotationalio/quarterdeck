@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"time"
 
+	"go.rtnl.ai/quarterdeck/pkg/store/v1/dsn"
 	"go.rtnl.ai/tidal"
 )
 
@@ -75,6 +76,14 @@ func (p *Permission) Prepare(op tidal.Operation) {
 	case tidal.Update:
 		p.Modified = time.Now().UTC()
 	}
+}
+
+func (p *Permission) Equal(other *Permission) bool {
+	return p.ID == other.ID &&
+		p.Title == other.Title &&
+		p.Description == other.Description &&
+		tidal.NormalizeTime(p.Created, dsn.SQLite3) == tidal.NormalizeTime(other.Created, dsn.SQLite3) &&
+		tidal.NormalizeTime(p.Modified, dsn.SQLite3) == tidal.NormalizeTime(other.Modified, dsn.SQLite3)
 }
 
 // PermissionTitles returns the title of each permission in order.

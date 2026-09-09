@@ -2,26 +2,25 @@ package backend
 
 import (
 	"database/sql"
-	"errors"
 
-	qerrors "go.rtnl.ai/quarterdeck/pkg/errors"
+	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/tidal"
-	"go.rtnl.ai/tidal/conn"
 
+	// cSpell:ignore pgconn pgx jackc mattn
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/mattn/go-sqlite3"
 )
 
 // domainErrors are store-level errors that must not be wrapped as ErrDatabase.
 var domainErrors = []error{
-	qerrors.ErrZeroValuedNotNull,
-	qerrors.ErrNoIDOnCreate,
-	qerrors.ErrMissingID,
-	qerrors.ErrMissingReference,
-	qerrors.ErrTypeMismatch,
-	qerrors.ErrTooSoon,
-	qerrors.ErrNotAuthorized,
-	qerrors.ErrNotFound,
+	errors.ErrZeroValuedNotNull,
+	errors.ErrNoIDOnCreate,
+	errors.ErrMissingID,
+	errors.ErrMissingReference,
+	errors.ErrTypeMismatch,
+	errors.ErrTooSoon,
+	errors.ErrNotAuthorized,
+	errors.ErrNotFound,
 }
 
 func isDomainErr(err error) bool {
@@ -46,24 +45,27 @@ func tidalErr(err error) error {
 
 	// sql/tidal errors that we need to break down
 	if errors.Is(err, sql.ErrNoRows) || errors.Is(err, tidal.ErrNotFound) {
-		return qerrors.ErrNotFound
+		return errors.ErrNotFound
 	}
 	if errors.Is(err, tidal.ErrMissingID) {
-		return qerrors.ErrMissingID
+		return errors.ErrMissingID
 	}
-	if errors.Is(err, conn.ErrReadOnly) {
-		return qerrors.ErrReadOnly
+	if errors.Is(err, tidal.ErrReadOnly) {
+		return errors.ErrReadOnly
+	}
+	if errors.Is(err, tidal.ErrAlreadyExists) {
+		return errors.ErrAlreadyExists
 	}
 
 	// sqlite specific errors that we need to break down
 	var sqliteErr sqlite3.Error
 	if errors.As(err, &sqliteErr) {
 		if errors.Is(sqliteErr.Code, sqlite3.ErrReadonly) {
-			return qerrors.ErrReadOnly
+			return errors.ErrReadOnly
 		}
 
 		if errors.Is(sqliteErr.Code, sqlite3.ErrConstraint) && errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
-			return qerrors.ErrAlreadyExists
+			return errors.ErrAlreadyExists
 		}
 	}
 
@@ -72,12 +74,12 @@ func tidalErr(err error) error {
 	if errors.As(err, &pgErr) {
 		switch pgErr.Code {
 		case "25006": // read_only_sql_transaction
-			return qerrors.ErrReadOnly
+			return errors.ErrReadOnly
 		case "23505": // unique_violation
-			return qerrors.ErrAlreadyExists
+			return errors.ErrAlreadyExists
 		}
 	}
 
 	// default to wrapping (via Join) the error with ErrDatabase
-	return qerrors.Join(qerrors.ErrDatabase, err)
+	return errors.Join(errors.ErrDatabase, err)
 }

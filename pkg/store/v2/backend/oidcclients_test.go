@@ -153,8 +153,8 @@ func (s *storeSuite) TestCreateOIDCClient() {
 		created, err := s.store.CreateOIDCClient(s.Context(), client)
 		require.NoError(err)
 		require.False(created.ID.IsZero())
-		require.WithinDuration(time.Now(), created.Created, 3*time.Second)
-		require.WithinDuration(time.Now(), created.Modified, 3*time.Second)
+		require.WithinDuration(time.Now(), created.Created.Time(), 3*time.Second)
+		require.WithinDuration(time.Now(), created.Modified.Time(), 3*time.Second)
 
 		got, err := s.store.RetrieveOIDCClientByClientID(s.Context(), client.ClientID)
 		require.NoError(err)
@@ -172,8 +172,8 @@ func (s *storeSuite) TestCreateOIDCClient() {
 		require.Equal(client.ClientID, got.ClientID)
 		require.Equal(client.Secret, got.Secret)
 		require.Equal(client.CreatedBy, got.CreatedBy)
-		require.WithinDuration(created.Created, got.Created, time.Second)
-		require.WithinDuration(created.Modified, got.Modified, time.Second)
+		require.WithinDuration(created.Created.Time(), got.Created.Time(), time.Second)
+		require.WithinDuration(created.Modified.Time(), got.Modified.Time(), time.Second)
 	})
 
 	s.Run("Minimal", func() {
@@ -236,8 +236,8 @@ func (s *storeSuite) TestRetrieveOIDCClient() {
 		require.Equal(fullMetadataClientID, client.ClientID)
 		require.Equal("$argon2id$v=19$m=65536,t=1,p=2$Bk7GvOXGHdfDdSZH1OUyIA==$1AcYMKcJwm/DngmCw9db/J7PbvPzav/i/kk+Z0EKd44=", client.Secret)
 		require.False(client.CreatedBy.IsZero())
-		require.Equal(time.Date(2025, 2, 20, 21, 34, 8, 0, time.UTC), client.Created)
-		require.Equal(time.Date(2025, 2, 20, 21, 34, 8, 0, time.UTC), client.Modified)
+		s.TimeEqual(time.Date(2025, 2, 20, 21, 34, 8, 0, time.UTC), client.Created.Time())
+		s.TimeEqual(time.Date(2025, 2, 20, 21, 34, 8, 0, time.UTC), client.Modified.Time())
 
 		byID, err := s.store.RetrieveOIDCClient(s.Context(), client.ID)
 		require.NoError(err)
@@ -304,7 +304,7 @@ func (s *storeSuite) TestUpdateOIDCClient() {
 		require.Equal(client.Secret, got.Secret)
 		require.Equal(client.CreatedBy, got.CreatedBy)
 		require.Equal(client.Created, got.Created)
-		require.WithinDuration(time.Now(), got.Modified, 3*time.Second)
+		require.WithinDuration(time.Now(), got.Modified.Time(), 3*time.Second)
 	})
 
 	s.Run("ErrMissingID", func() {

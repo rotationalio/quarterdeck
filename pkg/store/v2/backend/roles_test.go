@@ -114,8 +114,8 @@ func (s *storeSuite) TestRetrieveRole() {
 		require.Equal(expected.Title, role.Title)
 		require.Equal(expected.Description, role.Description)
 		require.Equal(expected.IsDefault, role.IsDefault)
-		require.Equal(expected.Created, role.Created)
-		require.Equal(expected.Modified, role.Modified)
+		s.TimeEqual(expected.Created, role.Created)
+		s.TimeEqual(expected.Modified, role.Modified)
 
 		permissions := role.Permissions
 		require.Len(permissions, 2)
@@ -131,8 +131,8 @@ func (s *storeSuite) TestRetrieveRole() {
 		require.Equal(expected.Title, role.Title)
 		require.Equal(expected.Description, role.Description)
 		require.Equal(expected.IsDefault, role.IsDefault)
-		require.Equal(expected.Created, role.Created)
-		require.Equal(expected.Modified, role.Modified)
+		s.TimeEqual(expected.Created, role.Created)
+		s.TimeEqual(expected.Modified, role.Modified)
 
 		permissions := role.Permissions
 		require.Len(permissions, 2)

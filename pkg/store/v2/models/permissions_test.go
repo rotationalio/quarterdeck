@@ -63,8 +63,8 @@ func TestPermissionScan(t *testing.T) {
 		require.Equal(t, int64(120), permission.ID)
 		require.Equal(t, "dashboard:read", permission.Title)
 		require.Equal(t, "Read access to the dashboard", permission.Description)
-		require.Equal(t, created, permission.Created)
-		require.Equal(t, modified, permission.Modified)
+		TimeEqual(t, created, permission.Created)
+		TimeEqual(t, modified, permission.Modified)
 	})
 
 	t.Run("Error", func(t *testing.T) {

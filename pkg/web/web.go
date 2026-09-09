@@ -23,8 +23,8 @@ import (
 var content embed.FS
 
 const (
-	partials           = "partials/**/*.html"
-	partialsComponents = "partials/components/**/*.html"
+	partials = "partials/**/*.html"
+	// partialsComponents = "partials/components/**/*.html"
 )
 
 var (
@@ -32,8 +32,9 @@ var (
 	partialsInclude = []string{} // TODO: include partialsComponents if needed
 
 	excludes = map[string]struct{}{
-		"partials":   {},
-		"components": {},
+		"partials":    {},
+		"components":  {},
+		"maintenance": {},
 	}
 )
 

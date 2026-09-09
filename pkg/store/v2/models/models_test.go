@@ -8,7 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 	store "go.rtnl.ai/quarterdeck/pkg/store/v2"
 	"go.rtnl.ai/quarterdeck/pkg/store/v2/suitetest"
-	tsuite "go.rtnl.ai/tidal/suite"
+	"go.rtnl.ai/tidal"
+	"go.rtnl.ai/tidal/fields"
+	"go.rtnl.ai/tidal/suite"
 	"go.rtnl.ai/ulid"
 	"go.rtnl.ai/x/dsn"
 )
@@ -41,14 +43,14 @@ var ErrModelScan = errors.New("test scan error")
 
 // TestModelsSQLite runs junction CRUD conformance tests against SQLite.
 func TestModelsSQLite(t *testing.T) {
-	runModelSuite(t, dsn.SQLite3, func(t *testing.T, s *modelSuite, m tsuite.Migrations) {
+	runModelSuite(t, dsn.SQLite3, func(t *testing.T, s *modelSuite, m suite.Migrations) {
 		suitetest.ConfigureSQLite(t, &s.DatabaseSuite, m)
 	})
 }
 
 // TestModelsPostgres runs junction CRUD conformance tests against Postgres.
 func TestModelsPostgres(t *testing.T) {
-	runModelSuite(t, dsn.Postgres, func(t *testing.T, s *modelSuite, m tsuite.Migrations) {
+	runModelSuite(t, dsn.Postgres, func(t *testing.T, s *modelSuite, m suite.Migrations) {
 		suitetest.ConfigurePostgres(t, &s.DatabaseSuite, m)
 	})
 }
@@ -67,11 +69,33 @@ func (s *modelSuite) SetupTest() {
 //=============================================================================
 
 // runModelSuite loads migrations, configures the provider, and runs model suite tests.
-func runModelSuite(t *testing.T, provider string, configure func(*testing.T, *modelSuite, tsuite.Migrations)) {
+func runModelSuite(t *testing.T, provider string, configure func(*testing.T, *modelSuite, suite.Migrations)) {
 	migrations, err := store.LoadMigrations(provider)
 	require.NoError(t, err)
 
 	s := &modelSuite{}
 	configure(t, s, migrations)
-	tsuite.Run(t, s)
+	suite.Run(t, s)
+}
+
+// TODO: I thought this was in the tidal library but I couldn't find it?
+// I did find the suite.TimeEqual function but it only works on time.Time values not
+// both Timestamp and Time values. Either way, this needs to be in the tidal library.
+// Maybe I put it in Endeavor? If so, we should move it to the tidal library.
+func TimeEqual(t *testing.T, expected, actual any, msgAndArgs ...any) {
+	expectedTime := convertTime(t, expected)
+	actualTime := convertTime(t, actual)
+	require.Equal(t, expectedTime, actualTime, msgAndArgs...)
+}
+
+func convertTime(t *testing.T, value any) time.Time {
+	switch v := value.(type) {
+	case time.Time:
+		return tidal.NormalizeTime(v, dsn.SQLite3)
+	case fields.Timestamp:
+		return tidal.NormalizeTime(v.Time(), dsn.SQLite3)
+	default:
+		require.Fail(t, "unexpected time type", "expected time.Time or fields.Timestamp, got %T", v)
+		return time.Time{}
+	}
 }

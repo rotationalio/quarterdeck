@@ -11,7 +11,8 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/store/v2/mock"
 	. "go.rtnl.ai/quarterdeck/pkg/store/v2/models"
 	"go.rtnl.ai/tidal"
-	tsuite "go.rtnl.ai/tidal/suite"
+	"go.rtnl.ai/tidal/fields"
+	"go.rtnl.ai/tidal/suite"
 	"go.rtnl.ai/ulid"
 )
 
@@ -21,7 +22,7 @@ import (
 
 // TestUserCRUDConformance verifies User satisfies tidal CRUD shape expectations against the users table.
 func (s *modelSuite) TestUserCRUDConformance() {
-	tsuite.ConformsCRUD(&s.DatabaseSuite, tsuite.CRUDConformance[*User]{
+	suite.ConformsCRUD(&s.DatabaseSuite, suite.CRUDConformance[*User]{
 		Table: "users",
 		Create: func() *User {
 			return &User{
@@ -34,7 +35,7 @@ func (s *modelSuite) TestUserCRUDConformance() {
 		Update: func(u *User) {
 			u.Name = sql.NullString{Valid: true, String: "Updated Conformance User"}
 		},
-		Phases: []tsuite.CRUDPhase{tsuite.CRUDShape, tsuite.CRUDScan, tsuite.CRUDRoundTrip},
+		Phases: []suite.CRUDPhase{suite.CRUDShape, suite.CRUDScan, suite.CRUDRoundTrip},
 	})
 }
 
@@ -72,8 +73,8 @@ func TestUserScan(t *testing.T) {
 		require.Zero(t, model.Password)
 		require.Equal(t, data[3], model.LastLogin.Time)
 		require.Equal(t, data[4], model.EmailVerified)
-		require.Equal(t, data[5], model.Created)
-		require.Equal(t, data[6], model.Modified)
+		TimeEqual(t, data[5], model.Created)
+		TimeEqual(t, data[6], model.Modified)
 	})
 
 	t.Run("Nulls", func(t *testing.T) {
@@ -116,7 +117,7 @@ func TestUserScan(t *testing.T) {
 // TestUserClaims verifies Claims maps user identity, roles, permissions, and subject ID for auth.
 func TestUserClaims(t *testing.T) {
 	user := &User{
-		BaseModel: tidal.BaseModel{ID: modelID, Created: created, Modified: modified},
+		BaseModel: tidal.BaseModel{ID: modelID, Created: fields.Time(created), Modified: fields.Time(modified)},
 		Name:      sql.NullString{Valid: true, String: "Carol King"},
 		Email:     "cking@example.com",
 	}
@@ -146,7 +147,7 @@ func TestUserClaims(t *testing.T) {
 // TestUserGravatar verifies Gravatar returns the hashed URL for a non-empty email.
 func TestUserGravatar(t *testing.T) {
 	user := &User{
-		BaseModel: tidal.BaseModel{ID: modelID, Created: created, Modified: modified},
+		BaseModel: tidal.BaseModel{ID: modelID, Created: fields.Time(created), Modified: fields.Time(modified)},
 		Name:      sql.NullString{Valid: true, String: "Carol King"},
 		Email:     "cking@example.com",
 	}
@@ -157,7 +158,7 @@ func TestUserGravatar(t *testing.T) {
 // TestEmptyGravatar verifies Gravatar returns an empty string when email is unset.
 func TestEmptyGravatar(t *testing.T) {
 	user := &User{
-		BaseModel: tidal.BaseModel{ID: modelID, Created: created, Modified: modified},
+		BaseModel: tidal.BaseModel{ID: modelID, Created: fields.Time(created), Modified: fields.Time(modified)},
 		Name:      sql.NullString{Valid: true, String: "Carol King"},
 		Email:     "",
 	}

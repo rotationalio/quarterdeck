@@ -50,9 +50,6 @@ func (s *Server) setupRoutes() (err error) {
 		// Security middleware sets security policy headers
 		secure.Secure(&s.conf.Secure),
 
-		// Maintenance mode middleware to make system unavailable while running
-		s.Maintenance(),
-
 		// CORS configuration allows the front-end to make cross-origin requests
 		cors.New(s.conf.CORS()),
 

@@ -11,7 +11,8 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/store/v2/mock"
 	. "go.rtnl.ai/quarterdeck/pkg/store/v2/models"
 	"go.rtnl.ai/tidal"
-	tsuite "go.rtnl.ai/tidal/suite"
+	"go.rtnl.ai/tidal/fields"
+	"go.rtnl.ai/tidal/suite"
 	"go.rtnl.ai/ulid"
 )
 
@@ -21,7 +22,7 @@ import (
 
 // TestAPIKeyCRUDConformance verifies APIKey satisfies tidal CRUD shape expectations against the api_keys table.
 func (s *modelSuite) TestAPIKeyCRUDConformance() {
-	tsuite.ConformsCRUD(&s.DatabaseSuite, tsuite.CRUDConformance[*APIKey]{
+	suite.ConformsCRUD(&s.DatabaseSuite, suite.CRUDConformance[*APIKey]{
 		Table: "api_keys",
 		Create: func() *APIKey {
 			return &APIKey{
@@ -37,7 +38,7 @@ func (s *modelSuite) TestAPIKeyCRUDConformance() {
 		FieldMap: map[string]string{
 			"client_id": "ClientID",
 		},
-		Phases: []tsuite.CRUDPhase{tsuite.CRUDShape, tsuite.CRUDScan, tsuite.CRUDRoundTrip},
+		Phases: []suite.CRUDPhase{suite.CRUDShape, suite.CRUDScan, suite.CRUDRoundTrip},
 	})
 }
 
@@ -50,6 +51,7 @@ func (s *modelSuite) TestAPIKeyCRUDConformance() {
 func TestAPIKeyScan(t *testing.T) {
 	t.Run("List", func(t *testing.T) {
 		// Setup: list projection omits secret and revoked columns.
+		// cSpell:ignore XUiRZrNDUnLjeenQQmblpv
 		data := []any{
 			ulid.MakeSecure().String(),
 			"Test api keys for development",
@@ -77,12 +79,13 @@ func TestAPIKeyScan(t *testing.T) {
 		require.Equal(t, data[3], model.CreatedBy.String())
 		require.Equal(t, data[4], model.LastSeen.Time)
 		require.False(t, model.Revoked.Valid)
-		require.Equal(t, data[6], model.Created)
-		require.Equal(t, data[7], model.Modified)
+		TimeEqual(t, data[6], model.Created)
+		TimeEqual(t, data[7], model.Modified)
 	})
 
 	t.Run("Nulls", func(t *testing.T) {
 		// Setup: nullable columns and zero modified timestamp.
+		// cSpell:disable
 		data := []any{
 			ulid.MakeSecure().String(),
 			nil,
@@ -94,6 +97,8 @@ func TestAPIKeyScan(t *testing.T) {
 			time.Now(),
 			time.Time{},
 		}
+		// cSpell:enable
+
 		mockScanner := &mock.Scanner{}
 		mockScanner.SetData(data)
 
@@ -128,7 +133,7 @@ func TestAPIKeyStatus(t *testing.T) {
 	}{
 		{
 			key: &APIKey{
-				BaseModel: tidal.BaseModel{ID: modelID, Created: created, Modified: modified},
+				BaseModel: tidal.BaseModel{ID: modelID, Created: fields.Time(created), Modified: fields.Time(modified)},
 				Revoked:   sql.NullTime{Valid: false},
 				LastSeen:  sql.NullTime{Valid: false},
 			},
@@ -136,7 +141,7 @@ func TestAPIKeyStatus(t *testing.T) {
 		},
 		{
 			key: &APIKey{
-				BaseModel: tidal.BaseModel{ID: modelID, Created: created, Modified: modified},
+				BaseModel: tidal.BaseModel{ID: modelID, Created: fields.Time(created), Modified: fields.Time(modified)},
 				Revoked:   sql.NullTime{Valid: false},
 				LastSeen:  sql.NullTime{Valid: true, Time: time.Now().Add(1492 * time.Hour)},
 			},
@@ -144,7 +149,7 @@ func TestAPIKeyStatus(t *testing.T) {
 		},
 		{
 			key: &APIKey{
-				BaseModel: tidal.BaseModel{ID: modelID, Created: created, Modified: modified},
+				BaseModel: tidal.BaseModel{ID: modelID, Created: fields.Time(created), Modified: fields.Time(modified)},
 				Revoked:   sql.NullTime{Valid: false},
 				LastSeen:  sql.NullTime{Valid: true, Time: time.Now().Add(-3138 * time.Hour)},
 			},
@@ -152,7 +157,7 @@ func TestAPIKeyStatus(t *testing.T) {
 		},
 		{
 			key: &APIKey{
-				BaseModel: tidal.BaseModel{ID: modelID, Created: created, Modified: modified},
+				BaseModel: tidal.BaseModel{ID: modelID, Created: fields.Time(created), Modified: fields.Time(modified)},
 				Revoked:   sql.NullTime{Valid: true, Time: time.Now().Add(-1 * time.Hour)},
 				LastSeen:  sql.NullTime{Valid: true, Time: time.Now().Add(-1492 * time.Hour)},
 			},

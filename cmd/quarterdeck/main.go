@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"text/tabwriter"
 
+	// cSpell:ignore godotenv joho urfave
 	"github.com/joho/godotenv"
 	confire "github.com/rotationalio/confire/usage"
 	"github.com/urfave/cli/v2"
@@ -140,7 +141,7 @@ func main() {
 
 func serve(c *cli.Context) (err error) {
 	var srv *server.Server
-	if srv, err = server.New(nil); err != nil {
+	if srv, err = server.New(); err != nil {
 		return cli.Exit(err, 1)
 	}
 
@@ -255,8 +256,8 @@ func resetPassword(c *cli.Context) (err error) {
 	}
 
 	var (
-		pwdk     string
-		password string
+		derivedKey string
+		password   string
 	)
 
 	if c.Bool("generate") {
@@ -270,12 +271,12 @@ func resetPassword(c *cli.Context) (err error) {
 	}
 
 	// Create the derived password key
-	if pwdk, err = passwords.CreateDerivedKey(password); err != nil {
+	if derivedKey, err = passwords.CreateDerivedKey(password); err != nil {
 		return cli.Exit(err, 1)
 	}
 
 	// Save the user to the database
-	if err = db.UpdatePassword(c.Context, user.ID, pwdk); err != nil {
+	if err = db.UpdatePassword(c.Context, user.ID, derivedKey); err != nil {
 		return cli.Exit(err, 1)
 	}
 

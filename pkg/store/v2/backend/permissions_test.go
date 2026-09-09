@@ -75,13 +75,13 @@ func (s *storeSuite) TestRetrievePermission() {
 	s.Run("RetrieveByID", func() {
 		perm, err := s.store.RetrievePermission(s.Context(), int64(2))
 		s.Require().NoError(err)
-		s.Equal(expected, perm)
+		s.True(expected.Equal(perm), "expected and retrieved permissions should be equal")
 	})
 
 	s.Run("RetrieveByTitle", func() {
 		perm, err := s.store.RetrievePermissionByTitle(s.Context(), "content:view")
 		s.Require().NoError(err)
-		s.Equal(expected, perm)
+		s.True(expected.Equal(perm), "expected and retrieved permissions should be equal")
 	})
 
 	s.Run("NotFound", func() {
