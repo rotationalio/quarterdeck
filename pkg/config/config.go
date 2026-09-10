@@ -41,6 +41,7 @@ type Config struct {
 	Security     SecurityConfig    `split_words:"true"`
 	Email        commo.Config      `split_words:"true"`
 	RateLimit    ratelimit.Config  `split_words:"true"`
+	Bootstrap    BootstrapConfig   `split_words:"true"`
 	Telemetry    TelemetryConfig   `split_words:"true"`
 	processed    bool
 }

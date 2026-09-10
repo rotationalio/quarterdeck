@@ -215,6 +215,8 @@ go.opentelemetry.io/proto/otlp v1.11.0 h1:5rrYs0Ykyj50sdU/JU0x8etU+LubXWb+gED6Tb
 go.opentelemetry.io/proto/otlp v1.11.0/go.mod h1:SmVizdCOAm3XBtG1g1NnOdhW6jtddT72hLMhv8VwA8E=
 go.rtnl.ai/commo v0.3.0 h1:s9JRNOAFfj5l7OQC+8Du+AS5MvtEJpkayCu8hAa0SjI=
 go.rtnl.ai/commo v0.3.0/go.mod h1:Dv5ygqYp7FeAAea3sJQ0VDZr5Ctbk1wYgF9WAdIJRnA=
+go.rtnl.ai/confire v1.2.0 h1:Q/UexW6tdaNwulwNOrzSFhgHEYMugg1jFPxWA6u1K7w=
+go.rtnl.ai/confire v1.2.0/go.mod h1:g1rNOgKnnC0eHPU4kNKzPvxZmkeexU0cbvgO/SHDoSU=
 go.rtnl.ai/gimlet v1.9.0 h1:UIwpwxdj5GOp2d1GO8264ttCokjeZBMml05lE+k70hs=
 go.rtnl.ai/gimlet v1.9.0/go.mod h1:1t8ortO9JwwS2DeSZ5U7Iw0Qa/WLjN854AeG2uPw3Js=
 go.rtnl.ai/tidal v1.9.0 h1:lbs4VZU8/LHamlLgkRZcY/8GNaE9vGmPzReLpAQqE3o=

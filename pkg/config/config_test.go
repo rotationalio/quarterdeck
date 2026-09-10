@@ -2,7 +2,6 @@ package config_test
 
 import (
 	"log/slog"
-	"net/mail"
 	"os"
 	"testing"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"go.rtnl.ai/commo"
+	"go.rtnl.ai/confire/contest"
 	"go.rtnl.ai/gimlet/ratelimit"
 	"go.rtnl.ai/gimlet/secure"
 	"go.rtnl.ai/quarterdeck/pkg/config"
@@ -17,13 +17,15 @@ import (
 )
 
 // The test environment for all config tests, manipulated using curEnv and setEnv
-var testEnv = map[string]string{
+// cSpell:ignore noopener theeaglefliesathalfpast
+var testEnv = contest.Env{
 	"QD_MAINTENANCE":                                "false",
 	"QD_BIND_ADDR":                                  ":3636",
 	"QD_MODE":                                       gin.TestMode,
 	"QD_LOG_LEVEL":                                  "error",
 	"QD_CONSOLE_LOG":                                "true",
 	"QD_ALLOW_ORIGINS":                              "https://example.com,https://auth.example.com,https://db.example.com",
+	"QD_DOCS_NAME":                                  "Quarterdeck Documentation",
 	"QD_DATABASE_URL":                               "sqlite3:///test.db",
 	"QD_DATABASE_READ_ONLY":                         "true",
 	"QD_AUTH_KEYS":                                  "01GECSDK5WJ7XWASQ0PMH6K41K:testdata/01GECSDK5WJ7XWASQ0PMH6K41K.pem,01GECSJGDCDN368D0EENX23C7R:testdata/01GECSJGDCDN368D0EENX23C7R.pem",
@@ -70,88 +72,130 @@ var testEnv = map[string]string{
 	"QD_RATE_LIMIT_PER_SECOND":                                 "20",
 	"QD_RATE_LIMIT_BURST":                                      "100",
 	"QD_RATE_LIMIT_CACHE_TTL":                                  "1h",
+	"QD_BOOTSTRAP_ENABLED":                                     "true",
+	"QD_BOOTSTRAP_SUPERUSER_NAME":                              "Rotational Support",
+	"QD_BOOTSTRAP_SUPERUSER_EMAIL":                             "support@rotational.io",
+	"QD_BOOTSTRAP_SUPERUSER_PASSWORD":                          "theeaglefliesathalfpast12",
+	"QD_BOOTSTRAP_SUPERUSER_FORCE_PASSWORD":                    "true",
 	"QD_TELEMETRY_ENABLED":                                     "false",
 	"OTEL_SERVICE_NAME":                                        "bosun",
 	"GIMLET_OTEL_SERVICE_ADDR":                                 "bosun.example.com:8080",
 }
 
-func TestConfigImport(t *testing.T) {
-	// Set the required environment variables and cleanup after.
-	prevEnv := curEnv()
-	t.Cleanup(cleanup(prevEnv))
-	setEnv()
+// This config should always pass validation and should match the testEnv.
+var validConfig = config.Config{
+	Maintenance:  false,
+	BindAddr:     ":3636",
+	Mode:         gin.TestMode,
+	LogLevel:     rlog.LevelDecoder(slog.LevelError),
+	ConsoleLog:   true,
+	AllowOrigins: []string{"https://example.com", "https://auth.example.com", "https://db.example.com"},
+	DocsName:     "Quarterdeck Documentation",
+	Database: config.DatabaseConfig{
+		URL:      "sqlite3:///test.db",
+		ReadOnly: true,
+	},
+	Auth: config.AuthConfig{
+		Keys: map[string]string{
+			"01GECSDK5WJ7XWASQ0PMH6K41K": "testdata/01GECSDK5WJ7XWASQ0PMH6K41K.pem",
+			"01GECSJGDCDN368D0EENX23C7R": "testdata/01GECSJGDCDN368D0EENX23C7R.pem",
+		},
+		Audience:               []string{"https://example.com", "https://db.example.com"},
+		Issuer:                 "https://auth.example.com",
+		LoginURL:               "https://example.com/signin",
+		ResetPasswordURL:       "https://auth.example.com/reset-password",
+		LogoutRedirect:         "https://example.com/signout",
+		AuthenticateRedirect:   "https://example.com/dashboard/authenticated",
+		ReauthenticateRedirect: "https://example.com/dashboard/reauthenticated",
+		LoginRedirect:          "https://example.com/dashboard",
+		AccessTokenTTL:         5 * time.Minute,
+		RefreshTokenTTL:        10 * time.Minute,
+		TokenOverlap:           -2 * time.Minute,
+	},
+	CSRF: config.CSRFConfig{
+		CookieTTL: 20 * time.Minute,
+		Secret:    "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+	},
+	Secure: secure.Config{
+		ContentTypeNosniff:              false,
+		CrossOriginOpenerPolicy:         "noopener-allow-popups",
+		ReferrerPolicy:                  "same-origin",
+		ContentSecurityPolicy:           secure.CSPDirectives{DefaultSrc: []string{"https:"}},
+		ContentSecurityPolicyReportOnly: secure.CSPDirectives{ScriptSrc: []string{"'self'", "*.cloudflare.com"}, ReportTo: "csp-endpoint"},
+		ReportingEndpoints:              map[string]string{"csp-endpoint": "//example.com/csp-reports"},
+		HSTS: secure.HSTSConfig{
+			Seconds:           63244800,
+			IncludeSubdomains: true,
+			Preload:           true,
+		},
+	},
+	Security: config.SecurityConfig{
+		TxtPath: "./security.txt",
+	},
+	Email: commo.Config{
+		Testing: false,
+		Sender:  "Izuku Midoriya <izuku.midoriya@example.com>",
+		SMTP: commo.SMTPConfig{
+			Port:     587,
+			PoolSize: 2,
+		},
+		SendGrid: commo.SendGridConfig{
+			APIKey: "sendgrid_api_key",
+		},
+		Backoff: commo.BackoffConfig{
+			Timeout:         1 * time.Second,
+			InitialInterval: 1 * time.Second,
+			MaxInterval:     1 * time.Second,
+			MaxElapsedTime:  1 * time.Second,
+		},
+	},
+	App: config.AppConfig{
+		Name:    "AppName",
+		LogoURI: "http://localhost:8000/logo.png",
+		BaseURI: "http://localhost:8000",
+		WelcomeEmail: config.EmailTemplate{
+			TextPath: "/data/email_body.txt",
+			HTMLPath: "/data/email_body.txt",
+		},
+		WebhookURI: "http://localhost:8000/api/v1/users/sync",
+	},
+	Org: config.OrgConfig{
+		Name:          "OrgName",
+		StreetAddress: "Org Street Address",
+		HomepageURI:   "http://example.com",
+		SupportEmail:  "support@example.com",
+	},
+	RateLimit: ratelimit.Config{
+		Type:      "ipaddr",
+		PerSecond: 20,
+		Burst:     100,
+		CacheTTL:  1 * time.Hour,
+	},
+	Bootstrap: config.BootstrapConfig{
+		Enabled: true,
+		Superuser: config.SuperuserConfig{
+			Name:          "Rotational Support",
+			Email:         "support@rotational.io",
+			Password:      "theeaglefliesathalfpast12",
+			ForcePassword: true,
+		},
+	},
+	Telemetry: config.TelemetryConfig{
+		Enabled:     false,
+		ServiceName: "bosun",
+		ServiceAddr: "bosun.example.com:8080",
+	},
+}
 
-	// At this point in the test, the environment should contain testEnv
+func TestConfig(t *testing.T) {
+	t.Cleanup(testEnv.Set())
+
+	valid, err := validConfig.Mark()
+	require.NoError(t, err, "could not mark the valid config")
+
 	conf, err := config.New()
-	require.NoError(t, err, "could not create a default config")
-	require.False(t, conf.IsZero(), "default config should be processed")
-
-	// Test the configuration
-	require.False(t, conf.Maintenance)
-	require.Equal(t, testEnv["QD_BIND_ADDR"], conf.BindAddr)
-	require.Equal(t, testEnv["QD_MODE"], conf.Mode)
-	require.Equal(t, slog.LevelError, conf.GetLogLevel())
-	require.True(t, conf.ConsoleLog)
-	require.Equal(t, []string{"https://example.com", "https://auth.example.com", "https://db.example.com"}, conf.AllowOrigins)
-	require.Equal(t, testEnv["QD_DATABASE_URL"], conf.Database.URL)
-	require.True(t, conf.Database.ReadOnly)
-	require.Len(t, conf.Auth.Keys, 2)
-	require.Equal(t, []string{"https://example.com", "https://db.example.com"}, conf.Auth.Audience)
-	require.Equal(t, testEnv["QD_AUTH_ISSUER"], conf.Auth.Issuer)
-	require.Equal(t, testEnv["QD_AUTH_LOGIN_URL"], conf.Auth.LoginURL)
-	require.Equal(t, testEnv["QD_AUTH_LOGOUT_REDIRECT"], conf.Auth.LogoutRedirect)
-	require.Equal(t, testEnv["QD_AUTH_LOGIN_REDIRECT"], conf.Auth.LoginRedirect)
-	require.Equal(t, testEnv["QD_AUTH_AUTHENTICATE_REDIRECT"], conf.Auth.AuthenticateRedirect)
-	require.Equal(t, testEnv["QD_AUTH_REAUTHENTICATE_REDIRECT"], conf.Auth.ReauthenticateRedirect)
-	require.Equal(t, 5*time.Minute, conf.Auth.AccessTokenTTL)
-	require.Equal(t, 10*time.Minute, conf.Auth.RefreshTokenTTL)
-	require.Equal(t, -2*time.Minute, conf.Auth.TokenOverlap)
-	require.Equal(t, 20*time.Minute, conf.CSRF.CookieTTL)
-	require.Equal(t, testEnv["QD_CSRF_SECRET"], conf.CSRF.Secret)
-	require.False(t, conf.Secure.ContentTypeNosniff)
-	require.Equal(t, testEnv["QD_SECURE_CROSS_ORIGIN_OPENER_POLICY"], conf.Secure.CrossOriginOpenerPolicy)
-	require.Equal(t, testEnv["QD_SECURE_REFERRER_POLICY"], conf.Secure.ReferrerPolicy)
-	require.Equal(t, "default-src https:", conf.Secure.ContentSecurityPolicy.Directive())
-	require.Equal(t, "script-src 'self' *.cloudflare.com; report-to csp-endpoint", conf.Secure.ContentSecurityPolicyReportOnly.Directive())
-	require.Equal(t, map[string]string{"csp-endpoint": "//example.com/csp-reports"}, conf.Secure.ReportingEndpoints)
-	require.Equal(t, 63244800, conf.Secure.HSTS.Seconds)
-	require.True(t, conf.Secure.HSTS.IncludeSubdomains)
-	require.True(t, conf.Secure.HSTS.Preload)
-	require.Equal(t, testEnv["QD_SECURITY_TXT_PATH"], conf.Security.TxtPath)
-	require.Equal(t, testEnv["QD_EMAIL_SENDER"], conf.Email.Sender)
-	require.Zero(t, conf.Email.SenderName)
-	addr, err := mail.ParseAddress(conf.Email.Sender)
-	require.NoError(t, err)
-	require.Equal(t, addr.Name, conf.Email.GetSenderName())
-	dur, err := time.ParseDuration(testEnv["QD_EMAIL_BACKOFF_TIMEOUT"])
-	require.NoError(t, err)
-	require.Equal(t, dur, conf.Email.Backoff.Timeout)
-	dur, err = time.ParseDuration(testEnv["QD_EMAIL_BACKOFF_INITIAL_INTERVAL"])
-	require.NoError(t, err)
-	require.Equal(t, dur, conf.Email.Backoff.InitialInterval)
-	dur, err = time.ParseDuration(testEnv["QD_EMAIL_BACKOFF_MAX_INTERVAL"])
-	require.NoError(t, err)
-	require.Equal(t, dur, conf.Email.Backoff.MaxInterval)
-	dur, err = time.ParseDuration(testEnv["QD_EMAIL_BACKOFF_MAX_ELAPSED_TIME"])
-	require.NoError(t, err)
-	require.Equal(t, dur, conf.Email.Backoff.MaxElapsedTime)
-	require.Equal(t, testEnv["QD_APP_NAME"], "AppName")
-	require.Equal(t, testEnv["QD_APP_LOGO_URI"], conf.App.LogoURI)
-	require.Equal(t, testEnv["QD_APP_BASE_URI"], conf.App.BaseURI)
-	require.Equal(t, testEnv["QD_APP_WELCOME_EMAIL_TEXT_PATH"], conf.App.WelcomeEmail.TextPath)
-	require.Equal(t, testEnv["QD_APP_WELCOME_EMAIL_HTML_PATH"], conf.App.WelcomeEmail.HTMLPath)
-	require.Equal(t, testEnv["QD_APP_WEBHOOK_URI"], conf.App.WebhookURI)
-	require.Equal(t, testEnv["QD_ORG_NAME"], conf.Org.Name)
-	require.Equal(t, testEnv["QD_ORG_STREET_ADDRESS"], conf.Org.StreetAddress)
-	require.Equal(t, testEnv["QD_ORG_HOMEPAGE_URI"], conf.Org.HomepageURI)
-	require.Equal(t, testEnv["QD_ORG_SUPPORT_EMAIL"], conf.Org.SupportEmail)
-	require.Equal(t, testEnv["QD_RATE_LIMIT_TYPE"], conf.RateLimit.Type)
-	require.Equal(t, 20.00, conf.RateLimit.PerSecond)
-	require.Equal(t, 100, conf.RateLimit.Burst)
-	require.Equal(t, 60*time.Minute, conf.RateLimit.CacheTTL)
-	require.False(t, conf.Telemetry.Enabled)
-	require.Equal(t, testEnv["OTEL_SERVICE_NAME"], conf.Telemetry.ServiceName)
-	require.Equal(t, testEnv["GIMLET_OTEL_SERVICE_ADDR"], conf.Telemetry.ServiceAddr)
+	require.NoError(t, err, "could not create a new config")
+	require.Equal(t, valid, conf, "expected config to be the same as the valid config")
 }
 
 func TestGlobal(t *testing.T) {
