@@ -118,7 +118,7 @@ func Open(uri *dsn.DSN) (*Store, error) {
 
 	return &Store{
 		calls:    make(map[string]int),
-		readOnly: uri != nil && uri.Options.ReadOnly(),
+		readOnly: uri != nil && uri.ReadOnly(),
 	}, nil
 }
 

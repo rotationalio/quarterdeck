@@ -21,10 +21,7 @@ func Open(conf config.DatabaseConfig) (Store, error) {
 	}
 
 	if conf.ReadOnly {
-		if uri.Options == nil {
-			uri.Options = dsn.Options{}
-		}
-		uri.Options[dsn.ReadOnly] = "true"
+		uri.Set(dsn.ReadOnly, true)
 	}
 
 	switch uri.Provider {
@@ -44,7 +41,7 @@ func openTidal(ctx context.Context, uri *dsn.DSN) (Store, error) {
 	// read-only option from the connection URI and then wrap the connection
 	// with the original URI.
 	connectURI := uri
-	if uri.Provider == dsn.Postgres && uri.Options.ReadOnly() {
+	if uri.Provider == dsn.Postgres && uri.ReadOnly() {
 		connectURI = uri.Clone()
 		delete(connectURI.Options, dsn.ReadOnly)
 	}
@@ -89,7 +86,7 @@ func openTidal(ctx context.Context, uri *dsn.DSN) (Store, error) {
 
 		// Set the database to readonly mode; must happen after migrations are
 		// applied.
-		if uri.Options.ReadOnly() {
+		if uri.ReadOnly() {
 			if _, err = conn.ExecContext(ctx, "PRAGMA query_only = on;"); err != nil {
 				_ = conn.Close()
 				return nil, errors.Join(errors.ErrSQLiteQueryOnly, err)

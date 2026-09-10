@@ -8,12 +8,12 @@ import (
 
 	"go.rtnl.ai/quarterdeck/pkg/config"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
-	"go.rtnl.ai/quarterdeck/pkg/store/v1/dsn"
 	"go.rtnl.ai/quarterdeck/pkg/store/v1/mock"
 	"go.rtnl.ai/quarterdeck/pkg/store/v1/models"
 	"go.rtnl.ai/quarterdeck/pkg/store/v1/sqlite"
 	"go.rtnl.ai/quarterdeck/pkg/store/v1/txn"
 	"go.rtnl.ai/ulid"
+	"go.rtnl.ai/x/dsn"
 )
 
 // Open a directory storage provider with the specified URI. Database URLs should either
@@ -27,15 +27,17 @@ func Open(conf config.DatabaseConfig) (s Store, err error) {
 	}
 
 	// The configuration overrides any read-only setting in the DSN.
-	uri.ReadOnly = conf.ReadOnly
+	if conf.ReadOnly {
+		uri.Set(dsn.ReadOnly, true)
+	}
 
-	switch uri.Scheme {
+	switch uri.Provider {
 	case dsn.Mock:
 		return mock.Open(uri)
 	case dsn.SQLite, dsn.SQLite3:
 		return sqlite.Open(uri)
 	default:
-		return nil, errors.Fmt("unhandled database scheme %q", uri.Scheme)
+		return nil, errors.Fmt("unhandled database scheme %q", uri.Provider)
 	}
 }
 

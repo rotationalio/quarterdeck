@@ -6,10 +6,11 @@ import (
 	"os"
 
 	"go.rtnl.ai/quarterdeck/pkg/errors"
-	"go.rtnl.ai/quarterdeck/pkg/store/v1/dsn"
 	"go.rtnl.ai/quarterdeck/pkg/store/v1/txn"
+	"go.rtnl.ai/x/dsn"
 
-	"github.com/mattn/go-sqlite3"
+	modernc "modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 // Store implements the store.Store interface using sqlite3 as the storage backend.
@@ -26,7 +27,7 @@ type Tx struct {
 
 func Open(uri *dsn.DSN) (_ *Store, err error) {
 	// Ensure that only sqlite3 connections can be opened.
-	if uri.Scheme != dsn.SQLite && uri.Scheme != dsn.SQLite3 {
+	if uri.Provider != dsn.SQLite && uri.Provider != dsn.SQLite3 {
 		return nil, errors.ErrUnknownScheme
 	}
 
@@ -43,9 +44,14 @@ func Open(uri *dsn.DSN) (_ *Store, err error) {
 		empty = true
 	}
 
+	// Ensure the timezone is set to UTC.
+	if _, ok := uri.Get("_timezone"); !ok {
+		uri.Set("_timezone", "UTC")
+	}
+
 	// Connect to the database
-	s := &Store{readonly: uri.ReadOnly}
-	if s.conn, err = sql.Open("sqlite3", uri.Path); err != nil {
+	s := &Store{readonly: uri.ReadOnly()}
+	if s.conn, err = sql.Open("sqlite", uri.FileURI()); err != nil {
 		return nil, err
 	}
 
@@ -65,7 +71,7 @@ func Open(uri *dsn.DSN) (_ *Store, err error) {
 	}
 
 	// Set the database to readonly mode after initializing the schema.
-	if uri.ReadOnly {
+	if uri.ReadOnly() {
 		if _, err = s.conn.Exec("PRAGMA query_only = on;"); err != nil {
 			return nil, errors.Fmt("could not set database to readonly mode: %w", err)
 		}
@@ -142,13 +148,11 @@ func dbe(err error) error {
 		return errors.ErrNotFound
 	}
 
-	var sqliteErr sqlite3.Error
-	if errors.As(err, &sqliteErr) {
-		if errors.Is(sqliteErr.Code, sqlite3.ErrReadonly) {
+	if sqliteErr, ok := err.(*modernc.Error); ok {
+		switch sqliteErr.Code() {
+		case sqlite3.SQLITE_READONLY:
 			return errors.ErrReadOnly
-		}
-
-		if errors.Is(sqliteErr.Code, sqlite3.ErrConstraint) && errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
+		case sqlite3.SQLITE_CONSTRAINT_UNIQUE:
 			return errors.ErrAlreadyExists
 		}
 	}

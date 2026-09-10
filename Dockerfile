@@ -3,7 +3,7 @@ ARG XX_IMAGE=tonistiigi/xx
 ARG BUILDER_IMAGE=golang:1.26-bookworm
 ARG FINAL_IMAGE=debian:bookworm-slim
 
-# Build stage
+# Build stages
 FROM --platform=${BUILDPLATFORM} ${XX_IMAGE} AS xx
 FROM --platform=${BUILDPLATFORM} ${BUILDER_IMAGE} AS builder
 
@@ -18,9 +18,6 @@ ARG BUILD_DATE=""
 ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETPLATFORM
-
-# Ensure ca-certificates are up to date
-RUN update-ca-certificates
 
 # Prepare for cross-compilation
 RUN apt-get update && apt-get install -y clang lld

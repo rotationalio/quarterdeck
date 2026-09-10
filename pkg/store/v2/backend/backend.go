@@ -98,7 +98,7 @@ func (t *tx) Rollback() error {
 
 // Checks that the transaction and database are not read-only.
 func (t *tx) requireWrite() error {
-	if t.readOnly || t.store.DSN().Options.ReadOnly() {
+	if t.readOnly || t.store.DSN().ReadOnly() {
 		return qerrors.ErrReadOnly
 	}
 	return nil

@@ -75,6 +75,8 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             GIT_REVISION=${{ steps.vars.outputs.revision }}
             BUILD_DATE=${{ steps.vars.outputs.build_date }}
