@@ -6,8 +6,8 @@ import (
 	"os"
 
 	"go.rtnl.ai/quarterdeck/pkg/errors"
-	"go.rtnl.ai/quarterdeck/pkg/store/v1/dsn"
 	"go.rtnl.ai/quarterdeck/pkg/store/v1/txn"
+	"go.rtnl.ai/x/dsn"
 
 	modernc "modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
@@ -27,7 +27,7 @@ type Tx struct {
 
 func Open(uri *dsn.DSN) (_ *Store, err error) {
 	// Ensure that only sqlite3 connections can be opened.
-	if uri.Scheme != dsn.SQLite && uri.Scheme != dsn.SQLite3 {
+	if uri.Provider != dsn.SQLite && uri.Provider != dsn.SQLite3 {
 		return nil, errors.ErrUnknownScheme
 	}
 
@@ -44,9 +44,14 @@ func Open(uri *dsn.DSN) (_ *Store, err error) {
 		empty = true
 	}
 
+	// Ensure the timezone is set to UTC.
+	if _, ok := uri.Get("_timezone"); !ok {
+		uri.Set("_timezone", "UTC")
+	}
+
 	// Connect to the database
-	s := &Store{readonly: uri.ReadOnly}
-	if s.conn, err = sql.Open("sqlite3", uri.Path); err != nil {
+	s := &Store{readonly: uri.ReadOnly()}
+	if s.conn, err = sql.Open("sqlite", uri.FileURI()); err != nil {
 		return nil, err
 	}
 
@@ -66,7 +71,7 @@ func Open(uri *dsn.DSN) (_ *Store, err error) {
 	}
 
 	// Set the database to readonly mode after initializing the schema.
-	if uri.ReadOnly {
+	if uri.ReadOnly() {
 		if _, err = s.conn.Exec("PRAGMA query_only = on;"); err != nil {
 			return nil, errors.Fmt("could not set database to readonly mode: %w", err)
 		}

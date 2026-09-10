@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"time"
 
-	"go.rtnl.ai/quarterdeck/pkg/store/v1/dsn"
 	"go.rtnl.ai/tidal"
+	"go.rtnl.ai/x/dsn"
 )
 
 type Permission struct {

@@ -10,10 +10,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.rtnl.ai/quarterdeck/pkg/errors"
-	"go.rtnl.ai/quarterdeck/pkg/store/v1/dsn"
 	"go.rtnl.ai/quarterdeck/pkg/store/v1/models"
 	"go.rtnl.ai/quarterdeck/pkg/store/v1/txn"
 	"go.rtnl.ai/ulid"
+	"go.rtnl.ai/x/dsn"
 )
 
 // Method names for the Store interface
@@ -88,17 +88,17 @@ type Store struct {
 }
 
 func Open(uri *dsn.DSN) (*Store, error) {
-	if uri != nil && uri.Scheme != dsn.Mock {
+	if uri != nil && uri.Provider != dsn.Mock {
 		return nil, errors.ErrUnknownScheme
 	}
 
 	if uri == nil {
-		uri = &dsn.DSN{ReadOnly: false, Scheme: dsn.Mock}
+		uri = &dsn.DSN{Provider: dsn.Mock}
 	}
 
 	return &Store{
 		calls:    make(map[string]int),
-		readonly: uri.ReadOnly,
+		readonly: uri.Options.ReadOnly(),
 	}, nil
 }
 
