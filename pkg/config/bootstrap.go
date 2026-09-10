@@ -22,7 +22,7 @@ type SuperuserConfig struct {
 func (c BootstrapConfig) Validate() (err error) {
 	if c.Enabled {
 		// Check if the superuser has an email set.
-		if c.Superuser.Email != "" {
+		if c.Superuser.Enabled() {
 			// Validate the email address
 			if _, perr := mail.ParseAddress(c.Superuser.Email); perr != nil {
 				err = errors.ConfigError(err, errors.ConfigParseError("bootstrap", "superuser.email", perr))
@@ -39,4 +39,10 @@ func (c BootstrapConfig) Validate() (err error) {
 		}
 	}
 	return err
+}
+
+// Returns true if the email is set (meaning the superuser job is to be performed).
+// NOTE: this does not necessarily mean the bootstrap process is enabled.
+func (c SuperuserConfig) Enabled() bool {
+	return c.Email != ""
 }

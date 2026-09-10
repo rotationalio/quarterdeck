@@ -169,6 +169,11 @@ func (s *Server) Serve() (err error) {
 		os.Exit(1)
 	})
 
+	// Attempt to bootstrap the server if enabled.
+	if err = s.Bootstrap(); err != nil {
+		return err
+	}
+
 	// Create a socket to listen on and infer the final URL.
 	// NOTE: if the bindaddr is 127.0.0.1:0 for testing, a random port will be assigned,
 	// manually creating the listener will allow us to determine which port.
