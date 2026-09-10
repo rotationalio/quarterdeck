@@ -27,6 +27,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.46.0
 	go.opentelemetry.io/otel/trace v1.46.0
 	go.rtnl.ai/commo v0.3.0
+	go.rtnl.ai/confire v1.2.0
 	go.rtnl.ai/gimlet v1.9.0
 	go.rtnl.ai/tidal v1.9.0
 	go.rtnl.ai/ulid v1.3.0
