@@ -6,9 +6,8 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"go.rtnl.ai/tidal"
 
-	// cSpell:ignore pgconn pgx jackc mattn
+	// cSpell:ignore pgconn pgx jackc
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/mattn/go-sqlite3"
 )
 
 // domainErrors are store-level errors that must not be wrapped as ErrDatabase.
@@ -55,18 +54,6 @@ func tidalErr(err error) error {
 	}
 	if errors.Is(err, tidal.ErrAlreadyExists) {
 		return errors.ErrAlreadyExists
-	}
-
-	// sqlite specific errors that we need to break down
-	var sqliteErr sqlite3.Error
-	if errors.As(err, &sqliteErr) {
-		if errors.Is(sqliteErr.Code, sqlite3.ErrReadonly) {
-			return errors.ErrReadOnly
-		}
-
-		if errors.Is(sqliteErr.Code, sqlite3.ErrConstraint) && errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
-			return errors.ErrAlreadyExists
-		}
 	}
 
 	// postgres specific errors that we need to break down

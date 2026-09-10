@@ -1,11 +1,9 @@
 # Dynamic Builds
 ARG XX_IMAGE=tonistiigi/xx
-ARG OSXCROSS_IMAGE=crazymax/osxcross:latest-ubuntu
 ARG BUILDER_IMAGE=golang:1.26-bookworm
 ARG FINAL_IMAGE=debian:bookworm-slim
 
-# Build stage: order matters!
-FROM --platform=${BUILDPLATFORM} ${OSXCROSS_IMAGE} AS osxcross
+# Build stages
 FROM --platform=${BUILDPLATFORM} ${XX_IMAGE} AS xx
 FROM --platform=${BUILDPLATFORM} ${BUILDER_IMAGE} AS builder
 
@@ -20,9 +18,6 @@ ARG BUILD_DATE=""
 ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETPLATFORM
-
-# Ensure ca-certificates are up to date
-RUN update-ca-certificates
 
 # Prepare for cross-compilation
 RUN apt-get update && apt-get install -y clang lld
@@ -43,11 +38,7 @@ RUN go mod verify
 COPY . .
 
 # Build binary
-RUN --mount=type=bind,source=.,rw \
-    --mount=type=bind,from=osxcross,source=/osxsdk,target=/xx-sdk \
-    --mount=type=cache,target=/root/.cache \
-    --mount=type=cache,target=/go/pkg/mod \
-    GOOS=${TARGETOS} GOARCH=${TARGETARCH} xx-go build \
+RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} xx-go build \
     -ldflags="-X 'go.rtnl.ai/quarterdeck/pkg.GitVersion=${GIT_REVISION}' -X 'go.rtnl.ai/quarterdeck/pkg.BuildDate=${BUILD_DATE}'" \
     -o /go/bin/quarterdeck \
     -v ./cmd/quarterdeck \

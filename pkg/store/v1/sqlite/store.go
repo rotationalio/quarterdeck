@@ -9,7 +9,8 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/store/v1/dsn"
 	"go.rtnl.ai/quarterdeck/pkg/store/v1/txn"
 
-	"github.com/mattn/go-sqlite3"
+	modernc "modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 // Store implements the store.Store interface using sqlite3 as the storage backend.
@@ -142,13 +143,11 @@ func dbe(err error) error {
 		return errors.ErrNotFound
 	}
 
-	var sqliteErr sqlite3.Error
-	if errors.As(err, &sqliteErr) {
-		if errors.Is(sqliteErr.Code, sqlite3.ErrReadonly) {
+	if sqliteErr, ok := err.(*modernc.Error); ok {
+		switch sqliteErr.Code() {
+		case sqlite3.SQLITE_READONLY:
 			return errors.ErrReadOnly
-		}
-
-		if errors.Is(sqliteErr.Code, sqlite3.ErrConstraint) && errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
+		case sqlite3.SQLITE_CONSTRAINT_UNIQUE:
 			return errors.ErrAlreadyExists
 		}
 	}
