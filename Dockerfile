@@ -4,9 +4,9 @@ ARG OSXCROSS_IMAGE=crazymax/osxcross:latest-ubuntu
 ARG BUILDER_IMAGE=golang:1.26-bookworm
 ARG FINAL_IMAGE=debian:bookworm-slim
 
-# Build stage
-FROM --platform=${BUILDPLATFORM} ${XX_IMAGE} AS xx
+# Build stage: order matters!
 FROM --platform=${BUILDPLATFORM} ${OSXCROSS_IMAGE} AS osxcross
+FROM --platform=${BUILDPLATFORM} ${XX_IMAGE} AS xx
 FROM --platform=${BUILDPLATFORM} ${BUILDER_IMAGE} AS builder
 
 # Copy XX scripts to the build stage
