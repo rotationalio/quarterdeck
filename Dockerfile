@@ -43,8 +43,10 @@ RUN go mod verify
 COPY . .
 
 # Build binary
-RUN --mount=type=bind,target=. \
+RUN --mount=type=bind,source=.,rw \
     --mount=type=bind,from=osxcross,source=/osxsdk,target=/xx-sdk \
+    --mount=type=cache,target=/root/.cache \
+    --mount=type=cache,target=/go/pkg/mod \
     GOOS=${TARGETOS} GOARCH=${TARGETARCH} xx-go build \
     -ldflags="-X 'go.rtnl.ai/quarterdeck/pkg.GitVersion=${GIT_REVISION}' -X 'go.rtnl.ai/quarterdeck/pkg.BuildDate=${BUILD_DATE}'" \
     -o /go/bin/quarterdeck \
