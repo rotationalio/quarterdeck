@@ -1,10 +1,12 @@
 # Dynamic Builds
 ARG XX_IMAGE=tonistiigi/xx
+ARG OSXCROSS_IMAGE=crazymax/osxcross:latest-ubuntu
 ARG BUILDER_IMAGE=golang:1.26-bookworm
 ARG FINAL_IMAGE=debian:bookworm-slim
 
 # Build stage
 FROM --platform=${BUILDPLATFORM} ${XX_IMAGE} AS xx
+FROM --platform=${BUILDPLATFORM} ${OSXCROSS_IMAGE} AS osxcross
 FROM --platform=${BUILDPLATFORM} ${BUILDER_IMAGE} AS builder
 
 # Copy XX scripts to the build stage
@@ -41,7 +43,9 @@ RUN go mod verify
 COPY . .
 
 # Build binary
-RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} xx-go build \
+RUN --mount=type=bind,target=. \
+    --mount=type=bind,from=osxcross,source=/osxsdk,target=/xx-sdk \
+    GOOS=${TARGETOS} GOARCH=${TARGETARCH} xx-go build \
     -ldflags="-X 'go.rtnl.ai/quarterdeck/pkg.GitVersion=${GIT_REVISION}' -X 'go.rtnl.ai/quarterdeck/pkg.BuildDate=${BUILD_DATE}'" \
     -o /go/bin/quarterdeck \
     -v ./cmd/quarterdeck \
