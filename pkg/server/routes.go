@@ -5,7 +5,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.rtnl.ai/gimlet/auth"
 	"go.rtnl.ai/gimlet/cache"
-	"go.rtnl.ai/gimlet/csrf"
 	"go.rtnl.ai/gimlet/logger"
 	"go.rtnl.ai/gimlet/ratelimit"
 	"go.rtnl.ai/gimlet/secure"
@@ -76,7 +75,8 @@ func (s *Server) setupRoutes() (err error) {
 	}
 
 	// CSRF protection middleware
-	csrf := csrf.DoubleCookie(s.csrf)
+	// TODO: add back when fixing SC-40799 or SC-40568
+	// csrf := csrf.DoubleCookie(s.csrf)
 
 	// NotFound and NotAllowed routes
 	s.router.NoRoute(s.NotFound)
@@ -143,7 +143,7 @@ func (s *Server) setupRoutes() (err error) {
 
 		// Authentication endpoints
 		v1o.GET("/login", s.PrepareLogin)
-		v1o.POST("/login", csrf, s.Login)
+		v1o.POST("/login", s.Login)
 		v1o.POST("/authenticate", s.Authenticate)
 		v1o.POST("/reauthenticate", s.Reauthenticate)
 
@@ -162,21 +162,21 @@ func (s *Server) setupRoutes() (err error) {
 		users := v1a.Group("/users")
 		{
 			users.GET("", s.ListUsers)
-			users.POST("", csrf, s.CreateUser)
+			users.POST("", s.CreateUser)
 			users.GET("/:userID", s.UserDetail)
-			users.PUT("/:userID", csrf, s.UpdateUser)
-			users.DELETE("/:userID", csrf, s.DeleteUser)
-			users.POST("/:userID/password", csrf, s.ChangePassword)
+			users.PUT("/:userID", s.UpdateUser)
+			users.DELETE("/:userID", s.DeleteUser)
+			users.POST("/:userID/password", s.ChangePassword)
 		}
 
 		// API Key Management
 		apikeys := v1a.Group("/apikeys")
 		{
 			apikeys.GET("", s.ListAPIKeys)
-			apikeys.POST("", csrf, s.CreateAPIKey)
+			apikeys.POST("", s.CreateAPIKey)
 			apikeys.GET("/:keyID", s.APIKeyDetail)
-			apikeys.PUT("/:keyID", csrf, s.UpdateAPIKey)
-			apikeys.DELETE("/:keyID", csrf, s.DeleteAPIKey)
+			apikeys.PUT("/:keyID", s.UpdateAPIKey)
+			apikeys.DELETE("/:keyID", s.DeleteAPIKey)
 			apikeys.GET("/:keyID/edit", s.UpdateAPIKeyPreview)
 		}
 
@@ -193,10 +193,10 @@ func (s *Server) setupRoutes() (err error) {
 			oidcclients := oidc.Group("oidcclients")
 			{
 				oidcclients.GET("", s.ListOIDCClients)
-				oidcclients.POST("", csrf, s.CreateOIDCClient)
+				oidcclients.POST("", s.CreateOIDCClient)
 				oidcclients.GET("/:id", s.OIDCClientDetail)
-				oidcclients.PUT("/:id", csrf, s.UpdateOIDCClient)
-				oidcclients.DELETE("/:id", csrf, s.DeleteOIDCClient)
+				oidcclients.PUT("/:id", s.UpdateOIDCClient)
+				oidcclients.DELETE("/:id", s.DeleteOIDCClient)
 			}
 		}
 	}
