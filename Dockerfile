@@ -1,14 +1,9 @@
 # Dynamic Builds
-ARG XX_IMAGE=tonistiigi/xx
 ARG BUILDER_IMAGE=golang:1.26-bookworm
 ARG FINAL_IMAGE=debian:bookworm-slim
 
 # Build stages
-FROM --platform=${BUILDPLATFORM} ${XX_IMAGE} AS xx
 FROM --platform=${BUILDPLATFORM} ${BUILDER_IMAGE} AS builder
-
-# Copy XX scripts to the build stage
-COPY --from=xx / /
 
 # Build Args
 ARG GIT_REVISION=""
@@ -19,17 +14,13 @@ ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETPLATFORM
 
-# Prepare for cross-compilation
-RUN apt-get update && apt-get install -y clang lld
-RUN xx-apt install -y libc6-dev gcc
-
 # Use modules for dependencies
 WORKDIR $GOPATH/src/go.rtnl.ai/quarterdeck
 
 COPY go.mod .
 COPY go.sum .
 
-ENV CGO_ENABLED=1
+ENV CGO_ENABLED=0
 ENV GO111MODULE=on
 RUN go mod download
 RUN go mod verify
@@ -38,11 +29,10 @@ RUN go mod verify
 COPY . .
 
 # Build binary
-RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} xx-go build \
+RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -ldflags="-X 'go.rtnl.ai/quarterdeck/pkg.GitVersion=${GIT_REVISION}' -X 'go.rtnl.ai/quarterdeck/pkg.BuildDate=${BUILD_DATE}'" \
     -o /go/bin/quarterdeck \
-    -v ./cmd/quarterdeck \
-    && xx-verify /go/bin/quarterdeck
+    -v ./cmd/quarterdeck
 
 # Final Stage
 FROM --platform=${BUILDPLATFORM} ${FINAL_IMAGE} AS final
