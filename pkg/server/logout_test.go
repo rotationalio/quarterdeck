@@ -14,21 +14,43 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/config"
 )
 
-// The normal browser logout flow used by Endeavor's anchor link must clear both
-// auth cookies and redirect to login.
-func TestLogoutRouteGET(t *testing.T) {
+// A browser-compatible POST with the valid CSRF double-submit pair must clear
+// both auth cookies and preserve the existing redirect behavior.
+func TestLogoutRoutePOST(t *testing.T) {
 	s := newLogoutServer(t)
+	names := s.csrf.(csrf.Namespacer).Namespace()
 
-	req := httptest.NewRequest(http.MethodGet, "/logout", nil)
-	resp := httptest.NewRecorder()
-	s.router.ServeHTTP(resp, req)
+	// Bootstrap the CSRF cookies through the same endpoint used by browser clients.
+	bootstrapRequest := httptest.NewRequest(http.MethodGet, "https://quarterdeck.example.com/csrf", nil)
+	bootstrapResponse := httptest.NewRecorder()
+	s.router.ServeHTTP(bootstrapResponse, bootstrapRequest)
+	require.Equal(t, http.StatusNoContent, bootstrapResponse.Code)
+
+	var tokenCookie, referenceCookie *http.Cookie
+	for _, cookie := range bootstrapResponse.Result().Cookies() {
+		switch cookie.Name {
+		case names.Cookie:
+			tokenCookie = cookie
+		case names.ReferenceCookie:
+			referenceCookie = cookie
+		}
+	}
+	require.NotNil(t, tokenCookie)
+	require.NotNil(t, referenceCookie)
+
+	logoutRequest := httptest.NewRequest(http.MethodPost, "https://quarterdeck.example.com/logout", nil)
+	logoutRequest.AddCookie(tokenCookie)
+	logoutRequest.AddCookie(referenceCookie)
+	logoutRequest.Header.Set(names.Header, tokenCookie.Value)
+	logoutResponse := httptest.NewRecorder()
+	s.router.ServeHTTP(logoutResponse, logoutRequest)
 
 	// Browser navigation must receive the existing redirect status and target.
-	require.Equal(t, http.StatusSeeOther, resp.Code)
-	require.Equal(t, "https://quarterdeck.example.com/login", resp.Header().Get("Location"))
+	require.Equal(t, http.StatusSeeOther, logoutResponse.Code)
+	require.Equal(t, "https://quarterdeck.example.com/login", logoutResponse.Header().Get("Location"))
 
-	// Logout must expire the same secure, HTTP-only cookies as the POST flow.
-	cookies := resp.Result().Cookies()
+	// Logout must expire the secure, HTTP-only authentication cookies.
+	cookies := logoutResponse.Result().Cookies()
 	require.Len(t, cookies, 2)
 	for _, cookie := range cookies {
 		require.Contains(t, []string{auth.AccessTokenCookie, auth.RefreshTokenCookie}, cookie.Name)
@@ -39,16 +61,16 @@ func TestLogoutRouteGET(t *testing.T) {
 	}
 }
 
-// Browser-compatible GET logout must not weaken the existing CSRF protection
-// for POST /logout.
-func TestLogoutRoutePOSTRequiresCSRF(t *testing.T) {
+// Logout is a state-changing operation and must not be available through an
+// unprotected browser GET request.
+func TestLogoutRouteGETNotAllowed(t *testing.T) {
 	s := newLogoutServer(t)
 
-	req := httptest.NewRequest(http.MethodPost, "/logout", nil)
+	req := httptest.NewRequest(http.MethodGet, "/logout", nil)
 	resp := httptest.NewRecorder()
 	s.router.ServeHTTP(resp, req)
 
-	require.Equal(t, http.StatusForbidden, resp.Code)
+	require.Equal(t, http.StatusMethodNotAllowed, resp.Code)
 }
 
 // Initializes the real route table with only the test-specific auth and redirect
@@ -65,6 +87,7 @@ func newLogoutServer(t *testing.T) *Server {
 	require.NoError(t, err)
 	conf.Auth.Audience = []string{"https://app.example.com"}
 	conf.Auth.LogoutRedirect = "https://quarterdeck.example.com/login"
+	conf.CSRF.Disabled = false
 	conf.RateLimit = ratelimit.Config{
 		Type:      ratelimit.TypeNone,
 		PerSecond: 1,
