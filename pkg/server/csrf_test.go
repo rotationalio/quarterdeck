@@ -47,9 +47,24 @@ func TestCSRFTokenBootstrapsAndPreservesCookies(t *testing.T) {
 	require.NotEmpty(t, tokenCookie.Value)
 	require.Equal(t, tokenCookie.Value, referenceCookie.Value)
 	require.False(t, tokenCookie.HttpOnly)
+	require.False(t, tokenCookie.Secure)
 	require.True(t, referenceCookie.HttpOnly)
+	require.False(t, referenceCookie.Secure)
 	require.Equal(t, http.SameSiteLaxMode, tokenCookie.SameSite)
 	require.Equal(t, http.SameSiteLaxMode, referenceCookie.SameSite)
+
+	// HTTPS requests must retain Secure on both cookies, including for a local
+	// host. This protects deployments that terminate TLS at the application.
+	httpsRecorder := httptest.NewRecorder()
+	httpsContext, _ := gin.CreateTestContext(httpsRecorder)
+	httpsContext.Request = httptest.NewRequest(http.MethodGet, "https://localhost/csrf", nil)
+	s.CSRFToken(httpsContext)
+
+	httpsCookies := httpsRecorder.Result().Cookies()
+	require.Len(t, httpsCookies, 2)
+	for _, cookie := range httpsCookies {
+		require.True(t, cookie.Secure, "HTTPS CSRF cookie %q should be Secure", cookie.Name)
+	}
 
 	second := httptest.NewRecorder()
 	secondContext, _ := gin.CreateTestContext(second)

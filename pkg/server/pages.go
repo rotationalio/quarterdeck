@@ -17,6 +17,13 @@ import (
 //===========================================================================
 
 func (s *Server) LoginPage(c *gin.Context) {
+	// Bootstrap the CSRF cookie pair with the page response so direct browser
+	// clients have valid tokens before the login form can submit.
+	if err := s.setCSRFToken(c); err != nil {
+		s.Error(c, err)
+		return
+	}
+
 	prepareURL := &url.URL{Path: "/v1/login"}
 	if next := c.Query("next"); next != "" {
 		params := url.Values{}

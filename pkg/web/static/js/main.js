@@ -1,3 +1,13 @@
+// The page head is rendered before this script, so these names can be read once
+// and reused by both request configuration and error handling.
+const csrfTokenCookie = document.querySelector(
+  'meta[name="csrf-token-cookie"]',
+)?.content;
+const csrfHeader = document.querySelector('meta[name="csrf-header"]')?.content;
+const csrfErrorHeader = document.querySelector(
+  'meta[name="csrf-error-header"]',
+)?.content;
+
 document.body.addEventListener("htmx:configRequest", (e) => {
   // Ensure the accept type for all HTMX requests is HTML partials.
   e.detail.headers["Accept"] = "text/html";
@@ -5,13 +15,7 @@ document.body.addEventListener("htmx:configRequest", (e) => {
   // Copy the public CSRF token into the namespaced header only for the
   // configured page origin. Never send it to an unrelated origin.
   const requestURL = new URL(e.detail.path, window.location.href);
-  const cookieName = document.querySelector(
-    'meta[name="csrf-token-cookie"]',
-  )?.content;
-  const csrfHeader = document.querySelector(
-    'meta[name="csrf-header"]',
-  )?.content;
-  const csrfToken = cookieName ? getCookie(cookieName) : null;
+  const csrfToken = csrfTokenCookie ? getCookie(csrfTokenCookie) : null;
   if (requestURL.origin === window.location.origin && csrfHeader && csrfToken) {
     e.detail.headers[csrfHeader] = csrfToken;
   }
@@ -33,10 +37,35 @@ document.body.addEventListener("htmx:responseError", (e) => {
       window.location.href = "/not-allowed";
       break;
     default:
-      const error = JSON.parse(e.detail.xhr.responseText);
-      notyf.error("Error: " + error?.error || "An unknown error occurred");
+      notyf.error("Error: " + getResponseErrorMessage(e.detail.xhr));
+      break;
   }
 });
+
+// HTMX middleware failures are not guaranteed to return JSON; normalize all
+// response shapes into a message that can be shown without throwing.
+function getResponseErrorMessage(xhr) {
+  const responseText = (xhr.responseText || "").trim();
+  const csrfError = csrfErrorHeader
+    ? xhr.getResponseHeader(csrfErrorHeader)
+    : null;
+
+  if (xhr.status === 403 && csrfError) {
+    return "CSRF validation failed. Refresh the page and try again.";
+  }
+
+  if (responseText) {
+    try {
+      const error = JSON.parse(responseText);
+      return error?.error || error?.message || responseText;
+    } catch (_) {
+      // Some middleware errors intentionally return plain text instead of JSON.
+      return responseText;
+    }
+  }
+
+  return xhr.statusText || `Request failed (${xhr.status})`;
+}
 
 function getCookie(name) {
   const nameEQ = name + "=";

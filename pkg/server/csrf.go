@@ -1,6 +1,7 @@
 package server
 
 import (
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -37,12 +38,45 @@ func (h *sameSiteCSRF) SetDoubleCookieToken(c *gin.Context) error {
 
 	setCookies = c.Writer.Header().Values("Set-Cookie")
 	for i := before; i < len(setCookies); i++ {
+		if isLocalHTTP(c) {
+			setCookies[i] = withoutCookieAttribute(setCookies[i], "Secure")
+		}
 		if !strings.Contains(strings.ToLower(setCookies[i]), "samesite=") {
 			setCookies[i] += "; SameSite=Lax"
 		}
 	}
 	c.Writer.Header()["Set-Cookie"] = setCookies
 	return nil
+}
+
+// withoutCookieAttribute removes one standalone cookie attribute while
+// preserving the rest of the Set-Cookie value emitted by Gimlet.
+func withoutCookieAttribute(setCookie, attribute string) string {
+	parts := strings.Split(setCookie, ";")
+	filtered := parts[:1]
+	for _, part := range parts[1:] {
+		if !strings.EqualFold(strings.TrimSpace(part), attribute) {
+			filtered = append(filtered, part)
+		}
+	}
+	return strings.Join(filtered, ";")
+}
+
+// Local development uses plain HTTP, so Secure cookies would be rejected by
+// the browser. Production HTTPS requests and non-local hosts retain Secure.
+func isLocalHTTP(c *gin.Context) bool {
+	if c.Request.TLS != nil || c.Request.URL.Scheme == "https" {
+		return false
+	}
+
+	host := c.Request.Host
+	if hostname, _, err := net.SplitHostPort(host); err == nil {
+		host = hostname
+	} else {
+		host = strings.Trim(host, "[]")
+	}
+
+	return host == "localhost" || host == "127.0.0.1" || host == "::1" || strings.HasSuffix(host, ".local")
 }
 
 // Applies the namespaced double-submit check and also requires the
