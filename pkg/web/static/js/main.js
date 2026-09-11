@@ -1,11 +1,19 @@
-document.body.addEventListener('htmx:configRequest', (e) => {
+document.body.addEventListener("htmx:configRequest", (e) => {
   // Ensure the accept type for all HTMX requests is HTML partials.
-  e.detail.headers['Accept'] = 'text/html'
+  e.detail.headers["Accept"] = "text/html";
 
-  // Ensure that any CSRF token is included in HTMX requests.
-  const csrfToken = getCookie('csrf_token');
-  if (csrfToken) {
-    e.detail.headers['X-CSRF-Token'] = csrfToken;
+  // Copy the public CSRF token into the namespaced header only for the
+  // configured page origin. Never send it to an unrelated origin.
+  const requestURL = new URL(e.detail.path, window.location.href);
+  const cookieName = document.querySelector(
+    'meta[name="csrf-token-cookie"]',
+  )?.content;
+  const csrfHeader = document.querySelector(
+    'meta[name="csrf-header"]',
+  )?.content;
+  const csrfToken = cookieName ? getCookie(cookieName) : null;
+  if (requestURL.origin === window.location.origin && csrfHeader && csrfToken) {
+    e.detail.headers[csrfHeader] = csrfToken;
   }
 });
 
@@ -16,28 +24,27 @@ const notyf = new Notyf({
 });
 
 // Ensure that all 500 errors redirect to the error page.
-document.body.addEventListener('htmx:responseError', (e) => {
+document.body.addEventListener("htmx:responseError", (e) => {
   switch (e.detail.xhr.status) {
     case 500:
-      window.location.href = '/error';
+      window.location.href = "/error";
       break;
     case 501:
-      window.location.href = '/not-allowed';
+      window.location.href = "/not-allowed";
       break;
     default:
       const error = JSON.parse(e.detail.xhr.responseText);
-      notyf.error("Error: " + error?.error || 'An unknown error occurred');
+      notyf.error("Error: " + error?.error || "An unknown error occurred");
   }
 });
 
-
 function getCookie(name) {
   const nameEQ = name + "=";
-  const cookies = document.cookie.split(';');
+  const cookies = document.cookie.split(";");
 
   for (let cookie of cookies) {
     // Remove leading whitespace
-    while (cookie.charAt(0) === ' ') {
+    while (cookie.charAt(0) === " ") {
       cookie = cookie.substring(1);
     }
 

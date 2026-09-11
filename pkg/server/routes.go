@@ -74,9 +74,7 @@ func (s *Server) setupRoutes() (err error) {
 		return err
 	}
 
-	// CSRF protection middleware
-	// TODO: add back when fixing SC-40799 or SC-40568
-	// csrf := csrf.DoubleCookie(s.csrf)
+	csrfMiddleware, csrfPage := s.csrfHandlers()
 
 	// NotFound and NotAllowed routes
 	s.router.NoRoute(s.NotFound)
@@ -90,11 +88,15 @@ func (s *Server) setupRoutes() (err error) {
 	// Static Files
 	s.router.StaticFS("/static", web.Static())
 
+	// CSRF bootstrap for direct browser clients. This endpoint is intentionally
+	// unauthenticated and is protected by the global exact-origin CORS policy.
+	s.router.GET("/csrf", s.CSRFToken)
+
 	// Web UI Routes (Unauthenticated)
 	uio := s.router.Group("")
 	{
 		uio.GET("/login", s.LoginPage)
-		uio.GET("/logout", s.Logout)
+		uio.POST("/logout", csrfMiddleware, s.Logout)
 
 		// UI for forgot/reset password
 		uio.GET("/forgot-password", s.ForgotPasswordPage)
@@ -111,7 +113,7 @@ func (s *Server) setupRoutes() (err error) {
 	}
 
 	// Web UI Routes (Authenticated)
-	uia := s.router.Group("", authenticate)
+	uia := s.router.Group("", authenticate, csrfPage)
 	{
 		uia.GET("/", s.Dashboard)
 		uia.GET("/settings", s.WorkspaceSettingsPage)
@@ -143,13 +145,13 @@ func (s *Server) setupRoutes() (err error) {
 
 		// Authentication endpoints
 		v1o.GET("/login", s.PrepareLogin)
-		v1o.POST("/login", s.Login)
+		v1o.POST("/login", csrfMiddleware, s.Login)
 		v1o.POST("/authenticate", s.Authenticate)
 		v1o.POST("/reauthenticate", s.Reauthenticate)
 
 		// API endpoints for forgot/reset password
-		v1o.POST("/forgot-password", s.ForgotPassword)
-		v1o.POST("/reset-password", s.ResetPassword)
+		v1o.POST("/forgot-password", csrfMiddleware, s.ForgotPassword)
+		v1o.POST("/reset-password", csrfMiddleware, s.ResetPassword)
 	}
 
 	// Authenticated API Routes (Including Content Negotiated Partials)
@@ -162,21 +164,21 @@ func (s *Server) setupRoutes() (err error) {
 		users := v1a.Group("/users")
 		{
 			users.GET("", s.ListUsers)
-			users.POST("", s.CreateUser)
+			users.POST("", csrfMiddleware, s.CreateUser)
 			users.GET("/:userID", s.UserDetail)
-			users.PUT("/:userID", s.UpdateUser)
-			users.DELETE("/:userID", s.DeleteUser)
-			users.POST("/:userID/password", s.ChangePassword)
+			users.PUT("/:userID", csrfMiddleware, s.UpdateUser)
+			users.DELETE("/:userID", csrfMiddleware, s.DeleteUser)
+			users.POST("/:userID/password", csrfMiddleware, s.ChangePassword)
 		}
 
 		// API Key Management
 		apikeys := v1a.Group("/apikeys")
 		{
 			apikeys.GET("", s.ListAPIKeys)
-			apikeys.POST("", s.CreateAPIKey)
+			apikeys.POST("", csrfMiddleware, s.CreateAPIKey)
 			apikeys.GET("/:keyID", s.APIKeyDetail)
-			apikeys.PUT("/:keyID", s.UpdateAPIKey)
-			apikeys.DELETE("/:keyID", s.DeleteAPIKey)
+			apikeys.PUT("/:keyID", csrfMiddleware, s.UpdateAPIKey)
+			apikeys.DELETE("/:keyID", csrfMiddleware, s.DeleteAPIKey)
 			apikeys.GET("/:keyID/edit", s.UpdateAPIKeyPreview)
 		}
 
@@ -193,10 +195,10 @@ func (s *Server) setupRoutes() (err error) {
 			oidcclients := oidc.Group("oidcclients")
 			{
 				oidcclients.GET("", s.ListOIDCClients)
-				oidcclients.POST("", s.CreateOIDCClient)
+				oidcclients.POST("", csrfMiddleware, s.CreateOIDCClient)
 				oidcclients.GET("/:id", s.OIDCClientDetail)
-				oidcclients.PUT("/:id", s.UpdateOIDCClient)
-				oidcclients.DELETE("/:id", s.DeleteOIDCClient)
+				oidcclients.PUT("/:id", csrfMiddleware, s.UpdateOIDCClient)
+				oidcclients.DELETE("/:id", csrfMiddleware, s.DeleteOIDCClient)
 			}
 		}
 	}

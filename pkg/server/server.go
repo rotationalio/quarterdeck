@@ -108,10 +108,19 @@ func New() (s *Server, err error) {
 		return nil, fmt.Errorf("could not initialize claims issuer: %w", err)
 	}
 
-	// Initialize the CSRF token handler if enabled.
-	if s.csrf, err = csrf.NewTokenHandler(s.conf.CSRF.CookieTTL, "/", s.conf.CookieDomains(), s.conf.CSRF.GetSecret()); err != nil {
+	// Initialize the namespaced, signed CSRF token handler. Cookie scope is
+	// explicitly configured; it is never inferred from CORS origins.
+	var csrfHandler csrf.TokenHandler
+	if csrfHandler, err = csrf.NewTokenHandlerWithNamespace(
+		s.conf.CSRF.CookieTTL,
+		"/",
+		s.conf.CSRF.CookieDomains(),
+		s.conf.CSRF.GetSecret(),
+		s.conf.CSRF.Namespace,
+	); err != nil {
 		return nil, fmt.Errorf("could not initialize CSRF token handler: %w", err)
 	}
+	s.csrf = &sameSiteCSRF{TokenHandler: csrfHandler}
 
 	// Configure the gin router
 	gin.SetMode(s.conf.Mode)

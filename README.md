@@ -11,6 +11,12 @@ Projects using Quarterdeck:
 - [Endeavor](https://github.com/rotationalio/endeavor)
 - [HonuDB](https://github.com/rotationalio/honu)
 
+## CSRF Cookie Domain
+
+`QD_CSRF_COOKIE_DOMAIN` is a single, explicitly configured shared parent domain, such as `example.com` for `auth.example.com` and `app.example.com`. A browser cookie cannot belong to multiple sibling domains, and Quarterdeck cannot set a cookie for a sibling domain from its own response. The shared domain must therefore be the narrowest trusted boundary common to Quarterdeck and the browser application. Do not configure a list of domains or derive this value from CORS origins.
+
+CSRF protection can be explicitly disabled for exceptional environments with `QD_CSRF_DISABLED=true`; it remains enabled by default and should not be disabled in production.
+
 ## Testing (Postgres)
 
 Some `pkg/store/v2` tests require a Postgres database and will fail with

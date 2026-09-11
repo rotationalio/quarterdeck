@@ -115,6 +115,7 @@ var validConfig = config.Config{
 	CSRF: config.CSRFConfig{
 		CookieTTL: 20 * time.Minute,
 		Secret:    "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+		Namespace: "quarterdeck",
 	},
 	Secure: secure.Config{
 		ContentTypeNosniff:              false,
@@ -378,7 +379,7 @@ func TestValidation(t *testing.T) {
 				LogLevel:     rlog.LevelDecoder(slog.LevelInfo),
 				Mode:         gin.ReleaseMode,
 				ConsoleLog:   true,
-				AllowOrigins: []string{"*"},
+				AllowOrigins: []string{"https://endeavor.example.com"},
 			},
 			{
 				Maintenance:  false,
@@ -386,7 +387,7 @@ func TestValidation(t *testing.T) {
 				LogLevel:     rlog.LevelDecoder(slog.LevelInfo),
 				Mode:         gin.DebugMode,
 				ConsoleLog:   true,
-				AllowOrigins: []string{"*"},
+				AllowOrigins: []string{"https://endeavor.example.com"},
 			},
 			{
 				Maintenance:  false,
@@ -394,7 +395,7 @@ func TestValidation(t *testing.T) {
 				LogLevel:     rlog.LevelDecoder(slog.LevelInfo),
 				Mode:         gin.TestMode,
 				ConsoleLog:   true,
-				AllowOrigins: []string{"*"},
+				AllowOrigins: []string{"https://endeavor.example.com"},
 			},
 		}
 
@@ -415,7 +416,7 @@ func TestValidation(t *testing.T) {
 					LogLevel:     rlog.LevelDecoder(slog.LevelInfo),
 					Mode:         "invalid",
 					ConsoleLog:   true,
-					AllowOrigins: []string{"*"},
+					AllowOrigins: []string{"https://endeavor.example.com"},
 				},
 				errs: `invalid configuration: mode "invalid" is not a valid gin mode`,
 			},
@@ -535,33 +536,23 @@ func TestCookieDomains(t *testing.T) {
 		expected []string
 	}{
 		{
-			conf: config.Config{
-				AllowOrigins: []string{"http://localhost:8000"},
-			},
+			conf:     config.Config{CSRF: config.CSRFConfig{CookieDomain: "localhost"}},
 			expected: []string{"localhost"},
 		},
 		{
-			conf: config.Config{
-				AllowOrigins: []string{"http://example.com:8080"},
-			},
+			conf:     config.Config{CSRF: config.CSRFConfig{CookieDomain: "example.com"}},
 			expected: []string{"example.com"},
 		},
 		{
-			conf: config.Config{
-				AllowOrigins: []string{"https://example.com"},
-			},
+			conf:     config.Config{CSRF: config.CSRFConfig{CookieDomain: "example.com"}},
 			expected: []string{"example.com"},
 		},
 		{
-			conf: config.Config{
-				AllowOrigins: []string{"https://example.com", "https://auth.example.com", "https://db.example.com"},
-			},
-			expected: []string{"example.com", "auth.example.com", "db.example.com"},
+			conf:     config.Config{CSRF: config.CSRFConfig{CookieDomain: "tenant.example.com"}},
+			expected: []string{"tenant.example.com"},
 		},
 		{
-			conf: config.Config{
-				AllowOrigins: []string{"http://localhost:8000", "http://localhost:8888", "http://localhost:4444"},
-			},
+			conf:     config.Config{CSRF: config.CSRFConfig{CookieDomain: "localhost"}},
 			expected: []string{"localhost"},
 		},
 	}

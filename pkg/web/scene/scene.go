@@ -31,6 +31,7 @@ var (
 	issuer                  *url.URL
 	loginURL                *url.URL
 	issuerForgotPasswordURL *url.URL
+	csrfNames               = config.CSRFConfig{}.Names()
 )
 
 // Keys for default Scene context items
@@ -45,6 +46,9 @@ const (
 	UserID          = "UserID"
 	APIData         = "APIData"
 	Parent          = "Parent"
+	CSRFTokenCookie = "CSRFTokenCookie"
+	CSRFHeader      = "CSRFHeader"
+	CSRFErrorHeader = "CSRFErrorHeader"
 )
 
 type Scene map[string]interface{}
@@ -66,11 +70,14 @@ func New(c *gin.Context) Scene {
 
 	// Create the basic context
 	context := Scene{
-		Version:      version,
-		ShortVersion: shortVersion,
-		Revision:     revision,
-		BuildDate:    buildDate,
-		Page:         c.Request.URL.Path,
+		Version:         version,
+		ShortVersion:    shortVersion,
+		Revision:        revision,
+		BuildDate:       buildDate,
+		Page:            c.Request.URL.Path,
+		CSRFTokenCookie: csrfNames.Cookie,
+		CSRFHeader:      csrfNames.Header,
+		CSRFErrorHeader: csrfNames.ErrorHeader,
 	}
 
 	// Does the user exist in the gin context?
@@ -185,6 +192,7 @@ func Configure(conf *config.Config) {
 	}
 
 	issuer, _ = url.Parse(conf.Auth.Issuer)
+	csrfNames = conf.CSRF.Names()
 	loginURL = issuer.ResolveReference(&url.URL{Path: "/v1/login"})
 	issuerForgotPasswordURL = issuer.ResolveReference(&url.URL{Path: "/forgot-password"})
 }
