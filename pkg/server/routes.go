@@ -96,6 +96,7 @@ func (s *Server) setupRoutes() (err error) {
 	uio := s.router.Group("")
 	{
 		uio.GET("/login", s.LoginPage)
+		uio.GET("/logout", csrfMiddleware, s.Logout)
 		uio.POST("/logout", csrfMiddleware, s.Logout)
 
 		// UI for forgot/reset password
