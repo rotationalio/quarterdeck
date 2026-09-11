@@ -95,9 +95,11 @@ func newLogoutServer(t *testing.T) *Server {
 		CacheTTL:  time.Minute,
 	}
 
+	router := gin.New()
+	router.HandleMethodNotAllowed = true
 	s := &Server{
 		conf:   conf,
-		router: gin.New(),
+		router: router,
 		csrf:   &sameSiteCSRF{TokenHandler: handler},
 	}
 	require.NoError(t, s.setupRoutes())
