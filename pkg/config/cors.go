@@ -56,7 +56,7 @@ func (c Config) CORS() cors.Config {
 		AllowWildcard:          false,
 		AllowBrowserExtensions: false,
 		AllowWebSockets:        false,
-		AllowPrivateNetwork:    true,
+		AllowPrivateNetwork:    false,
 		MaxAge:                 12 * time.Hour,
 		CustomSchemas:          []string{"honu://"},
 	}
