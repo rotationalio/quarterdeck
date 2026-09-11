@@ -1,7 +1,6 @@
 package server
 
 import (
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -38,7 +37,11 @@ func (h *sameSiteCSRF) SetDoubleCookieToken(c *gin.Context) error {
 
 	setCookies = c.Writer.Header().Values("Set-Cookie")
 	for i := before; i < len(setCookies); i++ {
-		if isLocalHTTP(c) {
+		if isHTTPSRequest(c) {
+			if !hasCookieAttribute(setCookies[i], "Secure") {
+				setCookies[i] += "; Secure"
+			}
+		} else {
 			setCookies[i] = withoutCookieAttribute(setCookies[i], "Secure")
 		}
 		if !strings.Contains(strings.ToLower(setCookies[i]), "samesite=") {
@@ -62,21 +65,19 @@ func withoutCookieAttribute(setCookie, attribute string) string {
 	return strings.Join(filtered, ";")
 }
 
-// Local development uses plain HTTP, so Secure cookies would be rejected by
-// the browser. Production HTTPS requests and non-local hosts retain Secure.
-func isLocalHTTP(c *gin.Context) bool {
-	if c.Request.TLS != nil || c.Request.URL.Scheme == "https" {
-		return false
-	}
+// Secure follows the request scheme rather than the hostname. Local HTTPS
+// deployments must retain Secure just like production HTTPS deployments.
+func isHTTPSRequest(c *gin.Context) bool {
+	return c.Request.TLS != nil || strings.EqualFold(c.Request.URL.Scheme, "https")
+}
 
-	host := c.Request.Host
-	if hostname, _, err := net.SplitHostPort(host); err == nil {
-		host = hostname
-	} else {
-		host = strings.Trim(host, "[]")
+func hasCookieAttribute(setCookie, attribute string) bool {
+	for _, part := range strings.Split(setCookie, ";")[1:] {
+		if strings.EqualFold(strings.TrimSpace(part), attribute) {
+			return true
+		}
 	}
-
-	return host == "localhost" || host == "127.0.0.1" || host == "::1" || strings.HasSuffix(host, ".local")
+	return false
 }
 
 // Applies the namespaced double-submit check and also requires the

@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"go.rtnl.ai/gimlet/csrf"
+	"go.rtnl.ai/gimlet/ratelimit"
 	"go.rtnl.ai/quarterdeck/pkg/config"
 )
 
@@ -21,9 +21,11 @@ func TestCSRFCORSBootstrap(t *testing.T) {
 	fixture := newCSRFCORSTestFixture(t)
 	first := fixture.bootstrap(t)
 
-	// Confirm the response is empty and that both cookies have the required
-	// security attributes for the shared cross-subdomain deployment.
+	// Confirm the CSRF bootstrap response keeps the cookie behavior and applies
+	// the configured credentialed CORS policy to the direct browser endpoint.
 	require.Equal(t, http.StatusNoContent, first.Code)
+	require.Equal(t, testBrowserOrigin, first.Header().Get("Access-Control-Allow-Origin"))
+	require.Equal(t, "true", first.Header().Get("Access-Control-Allow-Credentials"))
 	require.Empty(t, first.Body.Bytes())
 	require.NotNil(t, fixture.token)
 	require.NotNil(t, fixture.reference)
@@ -33,8 +35,8 @@ func TestCSRFCORSBootstrap(t *testing.T) {
 	require.Equal(t, "/", fixture.reference.Path)
 	require.True(t, fixture.token.Secure)
 	require.True(t, fixture.reference.Secure)
-	require.Equal(t, "example.com", fixture.token.Domain)
-	require.Equal(t, "example.com", fixture.reference.Domain)
+	require.Equal(t, "endeavor.local", fixture.token.Domain)
+	require.Equal(t, "endeavor.local", fixture.reference.Domain)
 	require.Equal(t, http.SameSiteLaxMode, fixture.token.SameSite)
 	require.Equal(t, http.SameSiteLaxMode, fixture.reference.SameSite)
 
@@ -43,6 +45,17 @@ func TestCSRFCORSBootstrap(t *testing.T) {
 	originalToken := fixture.token.Value
 	originalReference := fixture.reference.Value
 	second := fixture.bootstrap(t)
+
+	// Verify preflight requests to the same bootstrap endpoint are handled by
+	// the same configured CORS middleware rather than only /v1 routes.
+	preflight := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodOptions, "https://auth.endeavor.local/csrf", nil)
+	request.Header.Set("Origin", testBrowserOrigin)
+	request.Header.Set("Access-Control-Request-Method", http.MethodGet)
+	fixture.router.ServeHTTP(preflight, request)
+	require.Equal(t, http.StatusNoContent, preflight.Code)
+	require.Equal(t, testBrowserOrigin, preflight.Header().Get("Access-Control-Allow-Origin"))
+	require.Equal(t, "true", preflight.Header().Get("Access-Control-Allow-Credentials"))
 
 	// Confirm the second response remains empty and the cookie values are
 	// unchanged.
@@ -73,7 +86,7 @@ func TestCSRFCORSPreflight(t *testing.T) {
 			// Build the browser preflight for a protected user mutation, including
 			// the CSRF and HTMX headers used by the direct Endeavor client.
 			recorder := httptest.NewRecorder()
-			request := httptest.NewRequest(http.MethodOptions, "https://auth.example.com/v1/users", nil)
+			request := httptest.NewRequest(http.MethodOptions, "https://auth.example.com/test/users", nil)
 			request.Header.Set("Origin", test.origin)
 			request.Header.Set("Access-Control-Request-Method", http.MethodPost)
 			request.Header.Set("Access-Control-Request-Headers", strings.Join([]string{
@@ -184,7 +197,7 @@ func TestCSRFCORSMutations(t *testing.T) {
 }
 
 // The app uses the apex host while Quarterdeck uses its auth subdomain.
-const testBrowserOrigin = "https://example.com"
+const testBrowserOrigin = "https://endeavor.local"
 
 // The fixture uses the production CORS middleware, namespaced Gimlet handler,
 // bootstrap handler, and protected mutation middleware while replacing only
@@ -207,7 +220,13 @@ func newCSRFCORSTestFixture(t *testing.T) *csrfCORSTestFixture {
 			CookieTTL:    5 * time.Minute,
 			Secret:       "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5388ee9088f7ace2efcde9",
 			Namespace:    "quarterdeck",
-			CookieDomain: "example.com",
+			CookieDomain: "endeavor.local",
+		},
+		RateLimit: ratelimit.Config{
+			Type:      ratelimit.TypeNone,
+			PerSecond: 1,
+			Burst:     1,
+			CacheTTL:  time.Minute,
 		},
 	}
 
@@ -221,18 +240,19 @@ func newCSRFCORSTestFixture(t *testing.T) *csrfCORSTestFixture {
 	require.NoError(t, err)
 
 	fixture := &csrfCORSTestFixture{
-		router: gin.New(),
-		// HACK: gimlet/csrf has no namespace helper, so we create a throwaway
-		// handler to get the names for now.
-		// TODO: add `csrf.NewNamespace(namespace string) csrf.Namespace` to gimlet then use here.
 		names: handler.(csrf.Namespacer).Namespace(),
 	}
-	server := &Server{conf: conf, csrf: &sameSiteCSRF{TokenHandler: handler}}
-	fixture.router.Use(cors.New(conf.CORS()))
-	fixture.router.GET("/csrf", server.CSRFToken)
-	// csrfProtection(server.csrf) is the same csrf handler used by the real
-	// server, so we use it here to test the actual CSRF protection logic.
-	fixture.router.POST("/v1/users", csrfProtection(server.csrf), func(c *gin.Context) {
+	server := &Server{
+		conf:   conf,
+		router: gin.New(),
+		csrf:   &sameSiteCSRF{TokenHandler: handler},
+	}
+	server.router.HandleMethodNotAllowed = true
+	require.NoError(t, server.setupRoutes())
+	fixture.router = server.router
+	// Add an isolated protected endpoint after production route assembly so the
+	// mutation assertions still exercise the same global middleware chain.
+	fixture.router.POST("/test/users", csrfProtection(server.csrf), func(c *gin.Context) {
 		// This stands in for the real authentication middleware. Reaching this
 		// handler demonstrates that CSRF did not reject the request first.
 		c.Set("authenticated", true)
@@ -247,7 +267,7 @@ func newCSRFCORSTestFixture(t *testing.T) *csrfCORSTestFixture {
 func (f *csrfCORSTestFixture) bootstrap(t *testing.T) *httptest.ResponseRecorder {
 	t.Helper()
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "https://auth.example.com/csrf", nil)
+	request := httptest.NewRequest(http.MethodGet, "https://auth.endeavor.local/csrf", nil)
 	request.Header.Set("Origin", testBrowserOrigin)
 	if f.token != nil {
 		request.AddCookie(f.token)
@@ -270,7 +290,7 @@ func (f *csrfCORSTestFixture) bootstrap(t *testing.T) *httptest.ResponseRecorder
 // Builds a browser mutation with the supplied CSRF and origin variations.
 func (f *csrfCORSTestFixture) mutation(origin, header string, includeToken, includeReference bool) *httptest.ResponseRecorder {
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "https://auth.example.com/v1/users", nil)
+	request := httptest.NewRequest(http.MethodPost, "https://auth.endeavor.local/test/users", nil)
 	if origin != "" {
 		request.Header.Set("Origin", origin)
 	}

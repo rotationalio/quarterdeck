@@ -63,12 +63,15 @@ func (s *Server) setupRoutes() (err error) {
 		csrfMiddleware,
 	}
 
-	// Kubernetes liveness probes added before middleware.
+	// Kubernetes liveness probes are intentionally outside application
+	// middleware, including CSRF protection.
 	s.router.GET("/healthz", gin.WrapF(s.Healthz))
 	s.router.GET("/livez", gin.WrapF(s.Healthz))
 	s.router.GET("/readyz", gin.WrapF(s.Readyz))
 
-	// Add the middleware to the router
+	// Add the middleware to the router before registering application routes.
+	// This ensures the unauthenticated CSRF bootstrap uses the same CORS policy
+	// as the API routes without applying CSRF middleware to the probes.
 	for _, middleware := range middlewares {
 		if middleware != nil {
 			s.router.Use(middleware)
