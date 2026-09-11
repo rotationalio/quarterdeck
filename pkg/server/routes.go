@@ -33,6 +33,10 @@ func (s *Server) setupRoutes() (err error) {
 		return err
 	}
 
+	// Instantiate CSRF middleware before assembling the application middleware
+	// chain. It skips safe methods internally and protects every unsafe route.
+	csrfMiddleware, csrfPage := s.csrfHandlers()
+
 	// Application Middleware
 	// NOTE: ordering is important to how middleware is handled
 	middlewares := []gin.HandlerFunc{
@@ -54,14 +58,20 @@ func (s *Server) setupRoutes() (err error) {
 
 		// Rate limiting middleware to prevent abuse of the API
 		throttle,
+
+		// CSRF protection is global; safe methods are intentionally ignored.
+		csrfMiddleware,
 	}
 
-	// Kubernetes liveness probes added before middleware.
+	// Kubernetes liveness probes are intentionally outside application
+	// middleware, including CSRF protection.
 	s.router.GET("/healthz", gin.WrapF(s.Healthz))
 	s.router.GET("/livez", gin.WrapF(s.Healthz))
 	s.router.GET("/readyz", gin.WrapF(s.Readyz))
 
-	// Add the middleware to the router
+	// Add the middleware to the router before registering application routes.
+	// This ensures the unauthenticated CSRF bootstrap uses the same CORS policy
+	// as the API routes without applying CSRF middleware to the probes.
 	for _, middleware := range middlewares {
 		if middleware != nil {
 			s.router.Use(middleware)
@@ -73,10 +83,6 @@ func (s *Server) setupRoutes() (err error) {
 	if authenticate, err = auth.Authenticate(s.issuer); err != nil {
 		return err
 	}
-
-	// CSRF protection middleware
-	// TODO: add back when fixing SC-40799 or SC-40568
-	// csrf := csrf.DoubleCookie(s.csrf)
 
 	// NotFound and NotAllowed routes
 	s.router.NoRoute(s.NotFound)
@@ -90,11 +96,15 @@ func (s *Server) setupRoutes() (err error) {
 	// Static Files
 	s.router.StaticFS("/static", web.Static())
 
+	// CSRF bootstrap for direct browser clients. This endpoint is intentionally
+	// unauthenticated and is protected by the global exact-origin CORS policy.
+	s.router.GET("/csrf", s.CSRFToken)
+
 	// Web UI Routes (Unauthenticated)
 	uio := s.router.Group("")
 	{
 		uio.GET("/login", s.LoginPage)
-		uio.GET("/logout", s.Logout)
+		uio.POST("/logout", s.Logout)
 
 		// UI for forgot/reset password
 		uio.GET("/forgot-password", s.ForgotPasswordPage)
@@ -111,7 +121,7 @@ func (s *Server) setupRoutes() (err error) {
 	}
 
 	// Web UI Routes (Authenticated)
-	uia := s.router.Group("", authenticate)
+	uia := s.router.Group("", authenticate, csrfPage)
 	{
 		uia.GET("/", s.Dashboard)
 		uia.GET("/settings", s.WorkspaceSettingsPage)

@@ -724,7 +724,7 @@ func syncBearerToken(c *gin.Context, accessToken *string) string {
 // postUserSync performs the endeavor user sync HTTP POST.
 func (s *Server) postUserSync(ctx context.Context, user *api.User, bearer string) {
 	if bearer == "" {
-		rlog.WarnAttrs(ctx, "user sync post: missing access token",
+		rlog.ErrorAttrs(ctx, "user sync post: missing access token",
 			slog.String("user_id", user.ID.String()))
 		return
 	}
@@ -732,14 +732,14 @@ func (s *Server) postUserSync(ctx context.Context, user *api.User, bearer string
 	u := s.conf.App.WebhookURL()
 	bodyBytes, err := json.Marshal(user)
 	if err != nil {
-		rlog.WarnAttrs(ctx, "user sync post: could not marshal user to json",
+		rlog.ErrorAttrs(ctx, "user sync post: could not marshal user to json",
 			slog.Any("err", err), slog.String("endpoint_url", u.String()), slog.String("user_id", user.ID.String()))
 		return
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewReader(bodyBytes))
 	if err != nil {
-		rlog.WarnAttrs(ctx, "user sync post: could not create new post request",
+		rlog.ErrorAttrs(ctx, "user sync post: could not create new post request",
 			slog.Any("err", err), slog.String("endpoint_url", u.String()), slog.String("user_id", user.ID.String()))
 		return
 	}
@@ -748,8 +748,14 @@ func (s *Server) postUserSync(ctx context.Context, user *api.User, bearer string
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		rlog.WarnAttrs(ctx, "user sync post: could not complete http post request",
+		rlog.ErrorAttrs(ctx, "user sync post: could not complete http post request",
 			slog.Any("err", err), slog.String("endpoint_url", u.String()), slog.String("user_id", user.ID.String()))
+		return
+	}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		rlog.ErrorAttrs(ctx, "user sync post: webhook returned unsuccessful status",
+			slog.Int("status_code", resp.StatusCode), slog.String("endpoint_url", u.String()), slog.String("user_id", user.ID.String()))
+		resp.Body.Close()
 		return
 	}
 	resp.Body.Close()
@@ -772,21 +778,21 @@ func (s *Server) syncUserDelete(c *gin.Context, userID ulid.ULID) {
 
 	// Create the URL by appending the userID onto the sync webhook url path
 	if idURL, err = url.JoinPath(u.String(), userID.String()); err != nil {
-		rlog.WarnAttrs(c.Request.Context(), "user sync delete: could not create sync url",
+		rlog.ErrorAttrs(c.Request.Context(), "user sync delete: could not create sync url",
 			slog.Any("err", err), slog.String("endpoint_url", u.String()), slog.String("user_id", userID.String()))
 		return
 	}
 
 	// Create a DELETE request
 	if req, err = http.NewRequestWithContext(c.Request.Context(), http.MethodDelete, idURL, nil); err != nil {
-		rlog.WarnAttrs(c.Request.Context(), "user sync delete: could not create new delete request",
+		rlog.ErrorAttrs(c.Request.Context(), "user sync delete: could not create new delete request",
 			slog.Any("err", err), slog.String("endpoint_url", u.String()), slog.String("user_id", userID.String()))
 		return
 	}
 
 	// Add authorization token
 	if token, err = gimauth.GetAccessToken(c); err != nil || token == "" {
-		rlog.WarnAttrs(c.Request.Context(), "user sync delete: could not attain an access token from context",
+		rlog.ErrorAttrs(c.Request.Context(), "user sync delete: could not attain an access token from context",
 			slog.Any("err", err), slog.String("endpoint_url", u.String()), slog.String("user_id", userID.String()))
 		return
 	}
@@ -794,8 +800,14 @@ func (s *Server) syncUserDelete(c *gin.Context, userID ulid.ULID) {
 
 	// Do request
 	if resp, err = http.DefaultClient.Do(req); err != nil {
-		rlog.WarnAttrs(c.Request.Context(), "user sync delete: could not complete http post request",
+		rlog.ErrorAttrs(c.Request.Context(), "user sync delete: could not complete http delete request",
 			slog.Any("err", err), slog.String("endpoint_url", u.String()), slog.String("user_id", userID.String()))
+		return
+	}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		rlog.ErrorAttrs(c.Request.Context(), "user sync delete: webhook returned unsuccessful status",
+			slog.Int("status_code", resp.StatusCode), slog.String("endpoint_url", u.String()), slog.String("user_id", userID.String()))
+		resp.Body.Close()
 		return
 	}
 	resp.Body.Close()

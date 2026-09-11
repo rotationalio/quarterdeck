@@ -3,6 +3,7 @@ package config
 import (
 	"log/slog"
 	"net/url"
+	"strings"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -166,6 +167,17 @@ func (c Config) Validate() (err error) {
 		err = errors.ConfigError(err, errors.InvalidConfig("", "mode", "%q is not a valid gin mode", c.Mode))
 	}
 
+	for _, origin := range c.AllowOrigins {
+		if origin == "" || strings.Contains(origin, "*") {
+			err = errors.ConfigError(err, errors.InvalidConfig("", "allowOrigins", "origin %q must be an exact origin", origin))
+			continue
+		}
+		u, perr := url.Parse(origin)
+		if perr != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+			err = errors.ConfigError(err, errors.InvalidConfig("", "allowOrigins", "origin %q must be an exact http(s) origin", origin))
+		}
+	}
+
 	return err
 }
 
@@ -174,18 +186,5 @@ func (c Config) GetLogLevel() slog.Level {
 }
 
 func (c Config) CookieDomains() []string {
-	// Strip scheme and port from domains and de-duplicate (in the case of multiple ports)
-	domains := map[string]struct{}{}
-	for _, origin := range c.AllowOrigins {
-		if u, err := url.Parse(origin); err == nil {
-			domains[u.Hostname()] = struct{}{}
-		}
-	}
-
-	// Return just the cookie domains
-	out := make([]string, 0, len(domains))
-	for domain := range domains {
-		out = append(out, domain)
-	}
-	return out
+	return c.CSRF.CookieDomains()
 }

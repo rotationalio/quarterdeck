@@ -17,6 +17,13 @@ import (
 //===========================================================================
 
 func (s *Server) LoginPage(c *gin.Context) {
+	// Bootstrap the CSRF cookie pair with the page response so direct browser
+	// clients have valid tokens before the login form can submit.
+	if err := s.setCSRFToken(c); err != nil {
+		s.Error(c, err)
+		return
+	}
+
 	prepareURL := &url.URL{Path: "/v1/login"}
 	if next := c.Query("next"); next != "" {
 		params := url.Values{}
@@ -36,6 +43,10 @@ func (s *Server) LoginPage(c *gin.Context) {
 // ForgotPasswordPage displays the reset password form for the UI so that the user can
 // enter their email address and receive a password reset link.
 func (s *Server) ForgotPasswordPage(c *gin.Context) {
+	if err := s.setCSRFToken(c); err != nil {
+		s.Error(c, err)
+		return
+	}
 	c.HTML(http.StatusOK, "auth/reset/forgot.html", scene.New(c))
 }
 
@@ -50,6 +61,11 @@ func (s *Server) ForgotPasswordSentPage(c *gin.Context) {
 // ResetPasswordPage allows the user to enter a new password if the reset password link
 // is verified and change their password as necessary.
 func (s *Server) ResetPasswordPage(c *gin.Context) {
+	if err := s.setCSRFToken(c); err != nil {
+		s.Error(c, err)
+		return
+	}
+
 	// Read the token string from the URL parameters.
 	in := &api.URLVerification{}
 	if err := c.BindQuery(in); err != nil {
@@ -113,7 +129,7 @@ func (s *Server) ProfileDeletePage(c *gin.Context) {
 
 func (s *Server) APIKeyListPage(c *gin.Context) {
 	// Set CSRF cookies for the api key management forms.
-	if err := s.csrf.SetDoubleCookieToken(c); err != nil {
+	if err := s.setCSRFToken(c); err != nil {
 		s.Error(c, err)
 		return
 	}
