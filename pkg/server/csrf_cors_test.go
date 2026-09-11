@@ -77,7 +77,7 @@ func TestCSRFCORSPreflight(t *testing.T) {
 			request.Header.Set("Origin", test.origin)
 			request.Header.Set("Access-Control-Request-Method", http.MethodPost)
 			request.Header.Set("Access-Control-Request-Headers", strings.Join([]string{
-				fixture.names.Header, "HX-Request", "HX-Target", "HX-Current-URL",
+				fixture.names.Header, config.CSRFRetryHeader, "HX-Request", "HX-Target", "HX-Current-URL",
 			}, ","))
 			// Execute the preflight through the actual router and check that only
 			// the configured origin receives credentialed access.
@@ -94,6 +94,7 @@ func TestCSRFCORSPreflight(t *testing.T) {
 				require.Contains(t, allowMethods, "DELETE")
 				allowHeaders := recorder.Header().Get("Access-Control-Allow-Headers")
 				require.Contains(t, strings.ToLower(allowHeaders), strings.ToLower(fixture.names.Header))
+				require.Contains(t, strings.ToLower(allowHeaders), strings.ToLower(config.CSRFRetryHeader))
 				require.Contains(t, strings.ToLower(allowHeaders), "hx-request")
 				require.Contains(t, strings.ToLower(allowHeaders), "hx-target")
 				require.Contains(t, strings.ToLower(allowHeaders), "hx-current-url")
