@@ -27,7 +27,7 @@ import (
 // if the user requests HTML (otherwise it returns a 204 with just the cookies set).
 func (s *Server) PrepareLogin(c *gin.Context) {
 	// Set CSRF cookies for the login form
-	if err := s.csrf.SetDoubleCookieToken(c); err != nil {
+	if err := s.setCSRFToken(c); err != nil {
 		s.Error(c, err)
 		return
 	}
