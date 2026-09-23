@@ -53,6 +53,19 @@ func TestCSRFTokenBootstrapsAndPreservesCookies(t *testing.T) {
 	require.Equal(t, http.SameSiteLaxMode, tokenCookie.SameSite)
 	require.Equal(t, http.SameSiteLaxMode, referenceCookie.SameSite)
 
+	// A production HTTPS host must retain Secure even when TLS terminates
+	// upstream and Quarterdeck receives an internal HTTP request.
+	productionRecorder := httptest.NewRecorder()
+	productionContext, _ := gin.CreateTestContext(productionRecorder)
+	productionContext.Request = httptest.NewRequest(http.MethodGet, "http://auth.example.com/csrf", nil)
+	s.CSRFToken(productionContext)
+
+	productionCookies := productionRecorder.Result().Cookies()
+	require.Len(t, productionCookies, 2)
+	for _, cookie := range productionCookies {
+		require.True(t, cookie.Secure, "production CSRF cookie %q should be Secure", cookie.Name)
+	}
+
 	// HTTPS requests must retain Secure on both cookies, including for a local
 	// host. This protects deployments that terminate TLS at the application.
 	httpsRecorder := httptest.NewRecorder()

@@ -1,12 +1,14 @@
 package server
 
 import (
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"go.rtnl.ai/gimlet/csrf"
+	"go.rtnl.ai/quarterdeck/pkg/auth"
 )
 
 // Adds the explicit defense-in-depth cookie policy that Gimlet's cookie setter
@@ -37,7 +39,7 @@ func (h *sameSiteCSRF) SetDoubleCookieToken(c *gin.Context) error {
 
 	setCookies = c.Writer.Header().Values("Set-Cookie")
 	for i := before; i < len(setCookies); i++ {
-		if isHTTPSRequest(c) {
+		if shouldSecureCookie(c) {
 			if !hasCookieAttribute(setCookies[i], "Secure") {
 				setCookies[i] += "; Secure"
 			}
@@ -65,10 +67,22 @@ func withoutCookieAttribute(setCookie, attribute string) string {
 	return strings.Join(filtered, ";")
 }
 
-// Secure follows the request scheme rather than the hostname. Local HTTPS
-// deployments must retain Secure just like production HTTPS deployments.
+// Secure follows the request scheme for direct TLS and the hostname for
+// deployments where TLS terminates at a trusted reverse proxy.
 func isHTTPSRequest(c *gin.Context) bool {
 	return c.Request.TLS != nil || strings.EqualFold(c.Request.URL.Scheme, "https")
+}
+
+func shouldSecureCookie(c *gin.Context) bool {
+	return isHTTPSRequest(c) || !auth.IsLocalhost(requestHostname(c))
+}
+
+func requestHostname(c *gin.Context) string {
+	host := c.Request.Host
+	if hostname, _, err := net.SplitHostPort(host); err == nil {
+		return hostname
+	}
+	return strings.Trim(host, "[]")
 }
 
 func hasCookieAttribute(setCookie, attribute string) bool {
