@@ -17,6 +17,14 @@ func TestIsLocalhost(t *testing.T) {
 			require.True,
 		},
 		{
+			"127.0.0.1",
+			require.True,
+		},
+		{
+			"::1",
+			require.True,
+		},
+		{
 			"endeavor.local",
 			require.True,
 		},

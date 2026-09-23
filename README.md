@@ -17,6 +17,10 @@ Projects using Quarterdeck:
 
 CSRF protection can be explicitly disabled for exceptional environments with `QD_CSRF_DISABLED=true`; it remains enabled by default and should not be disabled in production.
 
+CSRF cookies are marked `Secure` for HTTPS requests and all non-localhost
+domains. This supports deployments where TLS terminates at a reverse proxy
+before the request reaches Quarterdeck, while allowing local HTTP development.
+
 ## Testing (Postgres)
 
 Some `pkg/store/v2` tests require a Postgres database and will fail with

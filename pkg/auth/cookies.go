@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"net"
 	"net/url"
 	"strings"
 	"time"
@@ -129,5 +130,9 @@ func ClearResetPasswordTokenCookie(c *gin.Context, domain string) {
 //=============================================================================
 
 func IsLocalhost(domain string) bool {
+	domain = strings.Trim(strings.TrimSpace(domain), "[]")
+	if net.ParseIP(domain) != nil {
+		return domain == "127.0.0.1" || domain == "::1"
+	}
 	return domain == localhost || strings.HasSuffix(domain, localTLD)
 }
