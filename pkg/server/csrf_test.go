@@ -86,9 +86,10 @@ func TestCSRFProtection(t *testing.T) {
 			allowed: true,
 		},
 		{
-			name:    "untrusted origin blocks trusted referer",
+			name:    "untrusted origin blocks trusted referer before bearer fallback",
 			origin:  "https://evil.example",
 			referer: "https://app.example.com/path",
+			bearer:  "Bearer valid",
 		},
 		{
 			name:         "verified bearer fallback",
@@ -140,7 +141,7 @@ func TestCSRFProtection(t *testing.T) {
 			allowed: true,
 		},
 		{
-			name:         "invalid bearer",
+			name:         "invalid bearer fallback rejects request",
 			bearer:       "Bearer invalid",
 			verifyBearer: true,
 		},
@@ -174,7 +175,12 @@ func TestCSRFProtection(t *testing.T) {
 				c.Status(http.StatusNoContent)
 			})
 			request := httptest.NewRequest(method, "https://auth.example.com/action", nil)
-			for name, value := range map[string]string{"Sec-Fetch-Site": test.site, "Origin": test.origin, "Referer": test.referer, "Authorization": test.bearer} {
+			for name, value := range map[string]string{
+				csrf.HeaderSecFetchSite: test.site,
+				csrf.HeaderOrigin:       test.origin,
+				csrf.HeaderReferer:      test.referer,
+				"Authorization":         test.bearer,
+			} {
 				if value != "" {
 					request.Header.Set(name, value)
 				}
@@ -218,7 +224,7 @@ func TestCSRFDisabledLogsRejection(t *testing.T) {
 	router.Use(csrfProtection(conf, nil))
 	router.POST("/action", func(c *gin.Context) { c.Status(http.StatusNoContent) })
 	request := httptest.NewRequest(http.MethodPost, "/action", nil)
-	request.Header.Set("Sec-Fetch-Site", "cross-site")
+	request.Header.Set(csrf.HeaderSecFetchSite, "cross-site")
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
 	require.Equal(t, http.StatusNoContent, recorder.Code)
@@ -368,7 +374,12 @@ func TestCSRFPolicyOptions(t *testing.T) {
 			router.Use(csrfProtection(test.conf, &csrfTestIssuer{}))
 			router.Handle(method, "/", func(c *gin.Context) { c.Status(http.StatusNoContent) })
 			request := httptest.NewRequest(method, "/", nil)
-			for name, value := range map[string]string{"Sec-Fetch-Site": test.site, "Sec-Fetch-Mode": test.mode, "Sec-Fetch-Dest": test.destination, "Authorization": test.bearer} {
+			for name, value := range map[string]string{
+				csrf.HeaderSecFetchSite: test.site,
+				csrf.HeaderSecFetchMode: test.mode,
+				csrf.HeaderSecFetchDest: test.destination,
+				"Authorization":         test.bearer,
+			} {
 				if value != "" {
 					request.Header.Set(name, value)
 				}

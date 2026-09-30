@@ -65,7 +65,7 @@ func (c CSRFConfig) Options() []csrf.Option {
 func (c CSRFConfig) ErrorHeader() string {
 	namespace := strings.ToLower(strings.TrimSpace(c.Namespace))
 	if namespace == "" {
-		return csrf.ErrorHeader
+		return csrf.HeaderError
 	}
 	var normalized strings.Builder
 	for _, char := range namespace {

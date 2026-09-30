@@ -39,7 +39,7 @@ func TestCSRFCORSPreflight(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodOptions, "https://auth.endeavor.local/v1/users", nil)
-			request.Header.Set("Origin", test.origin)
+			request.Header.Set(csrf.HeaderOrigin, test.origin)
 			request.Header.Set("Access-Control-Request-Method", "POST")
 			request.Header.Set("Access-Control-Request-Headers", "Authorization,Content-Type,HX-Request,HX-Target,HX-Current-URL")
 			recorder := httptest.NewRecorder()
@@ -83,8 +83,8 @@ func TestCSRFGlobalRoutes(t *testing.T) {
 			path := strings.Join(segments, "/")
 			request := httptest.NewRequest(route.Method, "https://auth.endeavor.local"+path, nil)
 			// Pass CORS so the rejection must come from CSRF, not the origin allowlist.
-			request.Header.Set("Origin", testBrowserOrigin)
-			request.Header.Set("Sec-Fetch-Site", "cross-site")
+			request.Header.Set(csrf.HeaderOrigin, testBrowserOrigin)
+			request.Header.Set(csrf.HeaderSecFetchSite, "cross-site")
 			recorder := httptest.NewRecorder()
 			s.router.ServeHTTP(recorder, request)
 
@@ -101,8 +101,8 @@ func TestCSRFGlobalRoutes(t *testing.T) {
 func TestCSRFCORSApprovedSameSite(t *testing.T) {
 	s := newCSRFCORSServer(t)
 	request := httptest.NewRequest(http.MethodPost, "https://auth.endeavor.local/logout", nil)
-	request.Header.Set("Origin", testBrowserOrigin)
-	request.Header.Set("Sec-Fetch-Site", "same-site")
+	request.Header.Set(csrf.HeaderOrigin, testBrowserOrigin)
+	request.Header.Set(csrf.HeaderSecFetchSite, "same-site")
 	recorder := httptest.NewRecorder()
 	s.router.ServeHTTP(recorder, request)
 
@@ -146,7 +146,7 @@ func TestCSRFGlobalBearerFallback(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, "https://auth.endeavor.local/logout", nil)
 			request.Header.Set("Authorization", "Bearer "+signed)
 			if test.site != "" {
-				request.Header.Set("Sec-Fetch-Site", test.site)
+				request.Header.Set(csrf.HeaderSecFetchSite, test.site)
 			}
 			recorder := httptest.NewRecorder()
 			s.router.ServeHTTP(recorder, request)

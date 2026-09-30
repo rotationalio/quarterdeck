@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
+	csrf "go.rtnl.ai/gimlet/csrf/secfetch"
 	"go.rtnl.ai/gimlet/ratelimit"
 	"go.rtnl.ai/quarterdeck/pkg/auth"
 	"go.rtnl.ai/quarterdeck/pkg/config"
@@ -30,9 +31,9 @@ func TestLogoutRoutePOST(t *testing.T) {
 		t.Run(test.site, func(t *testing.T) {
 			s := newLogoutServer(t)
 			logoutRequest := httptest.NewRequest(http.MethodPost, "https://quarterdeck.example.com/logout", nil)
-			logoutRequest.Header.Set("Sec-Fetch-Site", test.site)
+			logoutRequest.Header.Set(csrf.HeaderSecFetchSite, test.site)
 			if test.origin != "" {
-				logoutRequest.Header.Set("Origin", test.origin)
+				logoutRequest.Header.Set(csrf.HeaderOrigin, test.origin)
 			}
 			logoutResponse := httptest.NewRecorder()
 			s.router.ServeHTTP(logoutResponse, logoutRequest)
