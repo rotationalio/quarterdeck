@@ -15,7 +15,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.rtnl.ai/commo"
-	"go.rtnl.ai/gimlet/csrf"
 	"go.rtnl.ai/quarterdeck/pkg"
 	"go.rtnl.ai/quarterdeck/pkg/auth"
 	"go.rtnl.ai/quarterdeck/pkg/config"
@@ -49,7 +48,6 @@ type Server struct {
 	srv     *http.Server
 	router  *gin.Engine
 	issuer  *auth.Issuer
-	csrf    csrf.TokenHandler
 	url     *url.URL
 	started time.Time
 	errc    chan error
@@ -107,20 +105,6 @@ func New() (s *Server, err error) {
 	if s.issuer, err = auth.NewIssuer(s.conf.Auth); err != nil {
 		return nil, fmt.Errorf("could not initialize claims issuer: %w", err)
 	}
-
-	// Initialize the namespaced, signed CSRF token handler. Cookie scope is
-	// explicitly configured; it is never inferred from CORS origins.
-	var csrfHandler csrf.TokenHandler
-	if csrfHandler, err = csrf.NewTokenHandlerWithNamespace(
-		s.conf.CSRF.CookieTTL,
-		"/",
-		s.conf.CSRF.CookieDomains(),
-		s.conf.CSRF.GetSecret(),
-		s.conf.CSRF.Namespace,
-	); err != nil {
-		return nil, fmt.Errorf("could not initialize CSRF token handler: %w", err)
-	}
-	s.csrf = &sameSiteCSRF{TokenHandler: csrfHandler}
 
 	// Configure the gin router
 	gin.SetMode(s.conf.Mode)

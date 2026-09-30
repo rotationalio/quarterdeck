@@ -184,7 +184,3 @@ func (c Config) Validate() (err error) {
 func (c Config) GetLogLevel() slog.Level {
 	return c.LogLevel.Level()
 }
-
-func (c Config) CookieDomains() []string {
-	return c.CSRF.CookieDomains()
-}

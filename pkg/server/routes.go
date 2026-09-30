@@ -35,7 +35,7 @@ func (s *Server) setupRoutes() (err error) {
 
 	// Instantiate CSRF middleware before assembling the application middleware
 	// chain. It skips safe methods internally and protects every unsafe route.
-	csrfMiddleware, csrfPage := s.csrfHandlers()
+	csrfMiddleware := csrfProtection(s.conf.CSRF, s.issuer)
 
 	// Application Middleware
 	// NOTE: ordering is important to how middleware is handled
@@ -70,8 +70,7 @@ func (s *Server) setupRoutes() (err error) {
 	s.router.GET("/readyz", gin.WrapF(s.Readyz))
 
 	// Add the middleware to the router before registering application routes.
-	// This ensures the unauthenticated CSRF bootstrap uses the same CORS policy
-	// as the API routes without applying CSRF middleware to the probes.
+	// All application routes share CORS and CSRF protection; probes stay outside.
 	for _, middleware := range middlewares {
 		if middleware != nil {
 			s.router.Use(middleware)
@@ -96,10 +95,6 @@ func (s *Server) setupRoutes() (err error) {
 	// Static Files
 	s.router.StaticFS("/static", web.Static())
 
-	// CSRF bootstrap for direct browser clients. This endpoint is intentionally
-	// unauthenticated and is protected by the global exact-origin CORS policy.
-	s.router.GET("/csrf", s.CSRFToken)
-
 	// Web UI Routes (Unauthenticated)
 	uio := s.router.Group("")
 	{
@@ -121,7 +116,7 @@ func (s *Server) setupRoutes() (err error) {
 	}
 
 	// Web UI Routes (Authenticated)
-	uia := s.router.Group("", authenticate, csrfPage)
+	uia := s.router.Group("", authenticate)
 	{
 		uia.GET("/", s.Dashboard)
 		uia.GET("/settings", s.WorkspaceSettingsPage)

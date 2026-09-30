@@ -2,6 +2,9 @@ module go.rtnl.ai/quarterdeck
 
 go 1.26.1
 
+// TODO: remove this once gimlet has been updated with secfetch and a new version cut
+replace go.rtnl.ai/gimlet => ../gimlet
+
 require (
 	github.com/gin-contrib/cors v1.7.8
 	github.com/gin-gonic/gin v1.12.0
@@ -28,7 +31,7 @@ require (
 	go.rtnl.ai/confire v1.2.0
 	go.rtnl.ai/gimlet v1.9.0
 	go.rtnl.ai/ulid v1.3.0
-	go.rtnl.ai/x v1.20.1
+	go.rtnl.ai/x v1.21.0
 	golang.org/x/crypto v0.57.0
 	golang.org/x/term v0.46.0
 	golang.org/x/text v0.42.0

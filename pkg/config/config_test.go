@@ -19,32 +19,41 @@ import (
 // The test environment for all config tests, manipulated using curEnv and setEnv
 // cSpell:ignore noopener theeaglefliesathalfpast
 var testEnv = contest.Env{
-	"QD_MAINTENANCE":                                "false",
-	"QD_BIND_ADDR":                                  ":3636",
-	"QD_MODE":                                       gin.TestMode,
-	"QD_LOG_LEVEL":                                  "error",
-	"QD_CONSOLE_LOG":                                "true",
-	"QD_ALLOW_ORIGINS":                              "https://example.com,https://auth.example.com,https://db.example.com",
-	"QD_DOCS_NAME":                                  "Quarterdeck Documentation",
-	"QD_DATABASE_URL":                               "sqlite3:///test.db",
-	"QD_DATABASE_READ_ONLY":                         "true",
-	"QD_AUTH_KEYS":                                  "01GECSDK5WJ7XWASQ0PMH6K41K:testdata/01GECSDK5WJ7XWASQ0PMH6K41K.pem,01GECSJGDCDN368D0EENX23C7R:testdata/01GECSJGDCDN368D0EENX23C7R.pem",
-	"QD_AUTH_AUDIENCE":                              "https://example.com,https://db.example.com",
-	"QD_AUTH_ISSUER":                                "https://auth.example.com",
-	"QD_AUTH_LOGIN_URL":                             "https://example.com/signin",
-	"QD_AUTH_LOGOUT_REDIRECT":                       "https://example.com/signout",
-	"QD_AUTH_LOGIN_REDIRECT":                        "https://example.com/dashboard",
-	"QD_AUTH_AUTHENTICATE_REDIRECT":                 "https://example.com/dashboard/authenticated",
-	"QD_AUTH_REAUTHENTICATE_REDIRECT":               "https://example.com/dashboard/reauthenticated",
-	"QD_AUTH_ACCESS_TOKEN_TTL":                      "5m",
-	"QD_AUTH_REFRESH_TOKEN_TTL":                     "10m",
-	"QD_AUTH_TOKEN_OVERLAP":                         "-2m",
-	"QD_CSRF_COOKIE_TTL":                            "20m",
-	"QD_CSRF_SECRET":                                "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
-	"QD_SECURE_CONTENT_TYPE_NOSNIFF":                "false",
-	"QD_SECURE_CROSS_ORIGIN_OPENER_POLICY":          "noopener-allow-popups",
-	"QD_SECURE_REFERRER_POLICY":                     "same-origin",
-	"QD_SECURE_CONTENT_SECURITY_POLICY_DEFAULT_SRC": "https:",
+	"QD_MAINTENANCE":                                           "false",
+	"QD_BIND_ADDR":                                             ":3636",
+	"QD_MODE":                                                  gin.TestMode,
+	"QD_LOG_LEVEL":                                             "error",
+	"QD_CONSOLE_LOG":                                           "true",
+	"QD_ALLOW_ORIGINS":                                         "https://example.com,https://auth.example.com,https://db.example.com",
+	"QD_DOCS_NAME":                                             "Quarterdeck Documentation",
+	"QD_DATABASE_URL":                                          "sqlite3:///test.db",
+	"QD_DATABASE_READ_ONLY":                                    "true",
+	"QD_AUTH_KEYS":                                             "01GECSDK5WJ7XWASQ0PMH6K41K:testdata/01GECSDK5WJ7XWASQ0PMH6K41K.pem,01GECSJGDCDN368D0EENX23C7R:testdata/01GECSJGDCDN368D0EENX23C7R.pem",
+	"QD_AUTH_AUDIENCE":                                         "https://example.com,https://db.example.com",
+	"QD_AUTH_ISSUER":                                           "https://auth.example.com",
+	"QD_AUTH_LOGIN_URL":                                        "https://example.com/signin",
+	"QD_AUTH_LOGOUT_REDIRECT":                                  "https://example.com/signout",
+	"QD_AUTH_LOGIN_REDIRECT":                                   "https://example.com/dashboard",
+	"QD_AUTH_AUTHENTICATE_REDIRECT":                            "https://example.com/dashboard/authenticated",
+	"QD_AUTH_REAUTHENTICATE_REDIRECT":                          "https://example.com/dashboard/reauthenticated",
+	"QD_AUTH_ACCESS_TOKEN_TTL":                                 "5m",
+	"QD_AUTH_REFRESH_TOKEN_TTL":                                "10m",
+	"QD_AUTH_TOKEN_OVERLAP":                                    "-2m",
+	"QD_CSRF_EXPECTED_ORIGINS":                                 "https://example.com,https://auth.example.com",
+	"QD_CSRF_ALLOWED_FETCH_MODES":                              "cors,same-origin",
+	"QD_CSRF_ALLOWED_FETCH_DESTINATIONS":                       "empty",
+	"QD_CSRF_REQUIRE_FETCH_MODE":                               "true",
+	"QD_CSRF_REQUIRE_FETCH_DESTINATION":                        "true",
+	"QD_CSRF_DISABLED":                                         "true",
+	"QD_CSRF_ALLOW_MISSING_METADATA":                           "true",
+	"QD_CSRF_ALLOW_UNKNOWN_SITE":                               "true",
+	"QD_CSRF_ALLOW_SITE_NONE":                                  "true",
+	"QD_CSRF_SAFE_HTTP_METHODS":                                "GET,OPTIONS",
+	"QD_CSRF_NAMESPACE":                                        "config-test",
+	"QD_SECURE_CONTENT_TYPE_NOSNIFF":                           "false",
+	"QD_SECURE_CROSS_ORIGIN_OPENER_POLICY":                     "noopener-allow-popups",
+	"QD_SECURE_REFERRER_POLICY":                                "same-origin",
+	"QD_SECURE_CONTENT_SECURITY_POLICY_DEFAULT_SRC":            "https:",
 	"QD_SECURE_CONTENT_SECURITY_POLICY_REPORT_ONLY_SCRIPT_SRC": "'self',*.cloudflare.com",
 	"QD_SECURE_CONTENT_SECURITY_POLICY_REPORT_ONLY_REPORT_TO":  "csp-endpoint",
 	"QD_SECURE_REPORTING_ENDPOINTS":                            `csp-endpoint://example.com/csp-reports`,
@@ -113,9 +122,17 @@ var validConfig = config.Config{
 		TokenOverlap:           -2 * time.Minute,
 	},
 	CSRF: config.CSRFConfig{
-		CookieTTL: 20 * time.Minute,
-		Secret:    "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
-		Namespace: "quarterdeck",
+		Disabled:                 true,
+		Namespace:                "config-test",
+		SafeHTTPMethods:          []string{"GET", "OPTIONS"},
+		AllowMissingMetadata:     true,
+		AllowUnknownSite:         true,
+		AllowSiteNone:            true,
+		ExpectedOrigins:          []string{"https://example.com", "https://auth.example.com"},
+		AllowedFetchModes:        []string{"cors", "same-origin"},
+		AllowedFetchDestinations: []string{"empty"},
+		RequireFetchMode:         true,
+		RequireFetchDestination:  true,
 	},
 	Secure: secure.Config{
 		ContentTypeNosniff:              false,
@@ -429,6 +446,7 @@ func TestValidation(t *testing.T) {
 	})
 }
 
+// Distinguishes empty or unprocessed configurations from successfully validated ones.
 func TestIsZero(t *testing.T) {
 	t.Run("Empty", func(t *testing.T) {
 		// An empty config should always return IsZero
@@ -479,8 +497,7 @@ func TestIsZero(t *testing.T) {
 					TokenOverlap:           -12 * time.Hour,
 				},
 				CSRF: config.CSRFConfig{
-					CookieTTL: 5 * time.Minute,
-					Secret:    "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+					Namespace: "quarterdeck",
 				},
 				Secure: secure.Config{
 					ContentTypeNosniff:              false,
@@ -528,41 +545,6 @@ func TestIsZero(t *testing.T) {
 			require.True(t, conf.IsZero(), "an invalid config when marked should be zero-valued")
 		})
 	})
-}
-
-func TestCookieDomains(t *testing.T) {
-	testCases := []struct {
-		conf     config.Config
-		expected []string
-	}{
-		{
-			conf:     config.Config{CSRF: config.CSRFConfig{CookieDomain: "localhost"}},
-			expected: []string{"localhost"},
-		},
-		{
-			conf:     config.Config{CSRF: config.CSRFConfig{CookieDomain: "example.com"}},
-			expected: []string{"example.com"},
-		},
-		{
-			conf:     config.Config{CSRF: config.CSRFConfig{CookieDomain: "example.com"}},
-			expected: []string{"example.com"},
-		},
-		{
-			conf:     config.Config{CSRF: config.CSRFConfig{CookieDomain: "tenant.example.com"}},
-			expected: []string{"tenant.example.com"},
-		},
-		{
-			conf:     config.Config{CSRF: config.CSRFConfig{CookieDomain: "localhost"}},
-			expected: []string{"localhost"},
-		},
-	}
-
-	for i, tc := range testCases {
-		cookieDomains := tc.conf.CookieDomains()
-		for _, domain := range tc.expected {
-			require.Contains(t, cookieDomains, domain, "expected cookie domains to contain %q for test case %d", domain, i)
-		}
-	}
 }
 
 // Returns the current environment for the specified keys, or if no keys are specified
