@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -10,6 +11,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.rtnl.ai/gimlet/auth"
 	csrf "go.rtnl.ai/gimlet/csrf/secfetch"
 	"go.rtnl.ai/quarterdeck/pkg/config"
@@ -391,6 +394,69 @@ func TestCSRFPolicyOptions(t *testing.T) {
 			} else {
 				require.Equal(t, http.StatusForbidden, recorder.Code)
 			}
+		})
+	}
+}
+
+// Records CSRF rejections and fallback-only acceptances on the active request span.
+func TestCSRFTraceEvents(t *testing.T) {
+	tests := []struct {
+		name      string
+		site      string
+		bearer    string
+		wantEvent string
+		wantCode  int
+	}{
+		{
+			name:      "rejected request",
+			site:      "cross-site",
+			wantEvent: "csrf.request.rejected",
+			wantCode:  http.StatusForbidden,
+		},
+		{
+			name:      "accepted by verified bearer fallback",
+			bearer:    "Bearer valid",
+			wantEvent: "csrf.request.accepted_by_fallback",
+			wantCode:  http.StatusNoContent,
+		},
+		{
+			name:     "accepted by same-origin policy",
+			site:     "same-origin",
+			wantCode: http.StatusNoContent,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			spanRecorder := tracetest.NewSpanRecorder()
+			provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(spanRecorder))
+			t.Cleanup(func() { require.NoError(t, provider.Shutdown(context.Background())) })
+			ctx, span := provider.Tracer("csrf-test").Start(context.Background(), "request")
+
+			router := gin.New()
+			router.Use(csrfProtection(config.CSRFConfig{Namespace: "quarterdeck"}, &csrfTestIssuer{}))
+			router.POST("/action", func(c *gin.Context) { c.Status(http.StatusNoContent) })
+			request := httptest.NewRequest(http.MethodPost, "/action", nil).WithContext(ctx)
+			if test.site != "" {
+				request.Header.Set(csrf.HeaderSecFetchSite, test.site)
+			}
+			if test.bearer != "" {
+				request.Header.Set("Authorization", test.bearer)
+			}
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, request)
+			span.End()
+
+			require.Equal(t, test.wantCode, recorder.Code)
+			endedSpans := spanRecorder.Ended()
+			require.Len(t, endedSpans, 1)
+			events := endedSpans[0].Events()
+			if test.wantEvent == "" {
+				require.Empty(t, events)
+				return
+			}
+			require.Len(t, events, 1)
+			require.Equal(t, test.wantEvent, events[0].Name)
 		})
 	}
 }
