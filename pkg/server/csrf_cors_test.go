@@ -9,218 +9,178 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
-	"go.rtnl.ai/gimlet/csrf"
+	gimletauth "go.rtnl.ai/gimlet/auth"
+	csrf "go.rtnl.ai/gimlet/csrf/secfetch"
 	"go.rtnl.ai/gimlet/ratelimit"
+	"go.rtnl.ai/quarterdeck/pkg/auth"
 	"go.rtnl.ai/quarterdeck/pkg/config"
+	"go.rtnl.ai/ulid"
 )
 
-// Confirms the direct browser bootstrap contract and cookie preservation.
-func TestCSRFCORSBootstrap(t *testing.T) {
-	// Set up the production-equivalent router and perform the first safe
-	// request that should issue the namespaced CSRF cookie pair.
-	fixture := newCSRFCORSTestFixture(t)
-	first := fixture.bootstrap(t)
-
-	// Confirm the CSRF bootstrap response keeps the cookie behavior and applies
-	// the configured credentialed CORS policy to the direct browser endpoint.
-	require.Equal(t, http.StatusNoContent, first.Code)
-	require.Equal(t, testBrowserOrigin, first.Header().Get("Access-Control-Allow-Origin"))
-	require.Equal(t, "true", first.Header().Get("Access-Control-Allow-Credentials"))
-	require.Empty(t, first.Body.Bytes())
-	require.NotNil(t, fixture.token)
-	require.NotNil(t, fixture.reference)
-	require.False(t, fixture.token.HttpOnly)
-	require.True(t, fixture.reference.HttpOnly)
-	require.Equal(t, "/", fixture.token.Path)
-	require.Equal(t, "/", fixture.reference.Path)
-	require.True(t, fixture.token.Secure)
-	require.True(t, fixture.reference.Secure)
-	require.Equal(t, "endeavor.local", fixture.token.Domain)
-	require.Equal(t, "endeavor.local", fixture.reference.Domain)
-	require.Equal(t, http.SameSiteLaxMode, fixture.token.SameSite)
-	require.Equal(t, http.SameSiteLaxMode, fixture.reference.SameSite)
-
-	// Repeat the bootstrap request with the existing cookies to verify that a
-	// valid pair is preserved rather than rotated unnecessarily.
-	originalToken := fixture.token.Value
-	originalReference := fixture.reference.Value
-	second := fixture.bootstrap(t)
-
-	// Verify preflight requests to the same bootstrap endpoint are handled by
-	// the same configured CORS middleware rather than only /v1 routes.
-	preflight := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodOptions, "https://auth.endeavor.local/csrf", nil)
-	request.Header.Set("Origin", testBrowserOrigin)
-	request.Header.Set("Access-Control-Request-Method", http.MethodGet)
-	fixture.router.ServeHTTP(preflight, request)
-	require.Equal(t, http.StatusNoContent, preflight.Code)
-	require.Equal(t, testBrowserOrigin, preflight.Header().Get("Access-Control-Allow-Origin"))
-	require.Equal(t, "true", preflight.Header().Get("Access-Control-Allow-Credentials"))
-
-	// Confirm the second response remains empty and the cookie values are
-	// unchanged.
-	require.Equal(t, http.StatusNoContent, second.Code)
-	require.Empty(t, second.Result().Cookies())
-	require.Equal(t, originalToken, fixture.token.Value)
-	require.Equal(t, originalReference, fixture.reference.Value)
-}
-
-// Confirms that preflight responses allow only the configured credentialed
-// browser contract and use Gimlet's generated CSRF header name.
+// Allows browser preflight from the configured app origin and rejects preflight
+// from an untrusted origin. This checks CORS, not CSRF: OPTIONS is a safe method.
 func TestCSRFCORSPreflight(t *testing.T) {
-	// Set up the real CORS middleware with one explicitly allowed browser
-	// origin and table-drive both the allowed and attacker cases.
-	fixture := newCSRFCORSTestFixture(t)
-	tests := []struct {
+	s := newCSRFCORSServer(t)
+	for _, test := range []struct {
 		name       string
 		origin     string
 		wantStatus int
 	}{
-		{name: "allowed", origin: testBrowserOrigin, wantStatus: http.StatusNoContent},
-		{name: "unconfigured sibling disallowed", origin: "https://other.example.com", wantStatus: http.StatusForbidden},
-		{name: "attacker disallowed", origin: "https://attacker.example", wantStatus: http.StatusForbidden},
-	}
-
-	for _, test := range tests {
+		{
+			name:       "approved origin",
+			origin:     testBrowserOrigin,
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name:       "unapproved origin",
+			origin:     "https://attacker.example",
+			wantStatus: http.StatusForbidden,
+		},
+	} {
 		t.Run(test.name, func(t *testing.T) {
-			// Build the browser preflight for a protected user mutation, including
-			// the CSRF and HTMX headers used by the direct Endeavor client.
+			request := httptest.NewRequest(http.MethodOptions, "https://auth.endeavor.local/v1/users", nil)
+			request.Header.Set(csrf.HeaderOrigin, test.origin)
+			request.Header.Set("Access-Control-Request-Method", "POST")
+			request.Header.Set("Access-Control-Request-Headers", "Authorization,Content-Type,HX-Request,HX-Target,HX-Current-URL")
 			recorder := httptest.NewRecorder()
-			request := httptest.NewRequest(http.MethodOptions, "https://auth.example.com/test/users", nil)
-			request.Header.Set("Origin", test.origin)
-			request.Header.Set("Access-Control-Request-Method", http.MethodPost)
-			request.Header.Set("Access-Control-Request-Headers", strings.Join([]string{
-				fixture.names.Header, config.CSRFRetryHeader, "HX-Request", "HX-Target", "HX-Current-URL",
-			}, ","))
-			// Execute the preflight through the actual router and check that only
-			// the configured origin receives credentialed access.
-			fixture.router.ServeHTTP(recorder, request)
+			s.router.ServeHTTP(recorder, request)
 
 			require.Equal(t, test.wantStatus, recorder.Code)
-			if test.name == "allowed" {
-				require.Equal(t, testBrowserOrigin, recorder.Header().Get("Access-Control-Allow-Origin"))
-				require.Equal(t, "true", recorder.Header().Get("Access-Control-Allow-Credentials"))
-				require.NotEqual(t, "*", recorder.Header().Get("Access-Control-Allow-Origin"))
-				allowMethods := recorder.Header().Get("Access-Control-Allow-Methods")
-				require.Contains(t, allowMethods, "POST")
-				require.Contains(t, allowMethods, "PUT")
-				require.Contains(t, allowMethods, "DELETE")
-				allowHeaders := recorder.Header().Get("Access-Control-Allow-Headers")
-				require.Contains(t, strings.ToLower(allowHeaders), strings.ToLower(fixture.names.Header))
-				require.Contains(t, strings.ToLower(allowHeaders), strings.ToLower(config.CSRFRetryHeader))
-				require.Contains(t, strings.ToLower(allowHeaders), "hx-request")
-				require.Contains(t, strings.ToLower(allowHeaders), "hx-target")
-				require.Contains(t, strings.ToLower(allowHeaders), "hx-current-url")
-				require.NotContains(t, strings.ToLower(allowHeaders), "x-endeavor-csrf-token")
-			} else {
+			if test.wantStatus == http.StatusForbidden {
 				require.Empty(t, recorder.Header().Get("Access-Control-Allow-Origin"))
+				return
+			}
+			require.Equal(t, test.origin, recorder.Header().Get("Access-Control-Allow-Origin"))
+			require.Equal(t, "true", recorder.Header().Get("Access-Control-Allow-Credentials"))
+			allowed := strings.ToLower(recorder.Header().Get("Access-Control-Allow-Headers"))
+			require.Contains(t, allowed, "authorization")
+			require.Contains(t, allowed, "hx-request")
+		})
+	}
+}
+
+// Rejects cross-site requests to every registered unsafe route using its actual
+// HTTP method. Each must return a CSRF-specific 403 and expose the error header
+// through CORS, including routes added to the application in the future.
+func TestCSRFGlobalRoutes(t *testing.T) {
+	s := newCSRFCORSServer(t)
+	resourceID := ulid.Make().String()
+	checked := 0
+	for _, route := range s.router.Routes() {
+		switch route.Method {
+		case http.MethodGet, http.MethodHead, http.MethodOptions:
+			continue
+		}
+		checked++
+		t.Run(route.Method+" "+route.Path, func(t *testing.T) {
+			// Resolve Gin parameters so the request targets a concrete resource path.
+			segments := strings.Split(route.Path, "/")
+			for i, segment := range segments {
+				if strings.HasPrefix(segment, ":") || strings.HasPrefix(segment, "*") {
+					segments[i] = resourceID
+				}
+			}
+			path := strings.Join(segments, "/")
+			request := httptest.NewRequest(route.Method, "https://auth.endeavor.local"+path, nil)
+			// Pass CORS so the rejection must come from CSRF, not the origin allowlist.
+			request.Header.Set(csrf.HeaderOrigin, testBrowserOrigin)
+			request.Header.Set(csrf.HeaderSecFetchSite, "cross-site")
+			recorder := httptest.NewRecorder()
+			s.router.ServeHTTP(recorder, request)
+
+			require.Equal(t, http.StatusForbidden, recorder.Code)
+			require.Equal(t, csrf.ErrorRequestRejected, recorder.Header().Get(s.conf.CSRF.ErrorHeader()))
+			require.Contains(t, strings.ToLower(recorder.Header().Get("Access-Control-Expose-Headers")), strings.ToLower(s.conf.CSRF.ErrorHeader()))
+		})
+	}
+	require.NotZero(t, checked, "must exercise at least one unsafe route")
+}
+
+// Allows a same-site POST from the approved app origin to complete logout and
+// return its normal login redirect, with no CSRF error and valid CORS headers.
+func TestCSRFCORSApprovedSameSite(t *testing.T) {
+	s := newCSRFCORSServer(t)
+	request := httptest.NewRequest(http.MethodPost, "https://auth.endeavor.local/logout", nil)
+	request.Header.Set(csrf.HeaderOrigin, testBrowserOrigin)
+	request.Header.Set(csrf.HeaderSecFetchSite, "same-site")
+	recorder := httptest.NewRecorder()
+	s.router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusSeeOther, recorder.Code)
+	require.Equal(t, s.conf.Auth.LogoutRedirect, recorder.Header().Get("Location"))
+	require.Empty(t, recorder.Header().Get(s.conf.CSRF.ErrorHeader()))
+	require.Equal(t, testBrowserOrigin, recorder.Header().Get("Access-Control-Allow-Origin"))
+	require.Equal(t, "true", recorder.Header().Get("Access-Control-Allow-Credentials"))
+}
+
+// Allows logout with a verified bearer token when site, Origin, and Referer are
+// absent, but rejects the same token with explicit cross-site or none metadata.
+func TestCSRFGlobalBearerFallback(t *testing.T) {
+	s := newCSRFCORSServer(t)
+	token, err := s.issuer.CreateAccessToken(&gimletauth.Claims{})
+	require.NoError(t, err)
+	signed, err := s.issuer.Sign(token)
+	require.NoError(t, err)
+
+	for _, test := range []struct {
+		name       string
+		site       string
+		wantStatus int
+	}{
+		{
+			name:       "missing metadata permits bearer fallback",
+			wantStatus: http.StatusSeeOther,
+		},
+		{
+			name:       "cross-site rejects valid bearer",
+			site:       "cross-site",
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "none rejects valid bearer",
+			site:       "none",
+			wantStatus: http.StatusForbidden,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "https://auth.endeavor.local/logout", nil)
+			request.Header.Set("Authorization", "Bearer "+signed)
+			if test.site != "" {
+				request.Header.Set(csrf.HeaderSecFetchSite, test.site)
+			}
+			recorder := httptest.NewRecorder()
+			s.router.ServeHTTP(recorder, request)
+
+			require.Equal(t, test.wantStatus, recorder.Code)
+			if test.wantStatus == http.StatusForbidden {
+				require.Equal(t, csrf.ErrorRequestRejected, recorder.Header().Get(s.conf.CSRF.ErrorHeader()))
+			} else {
+				require.Equal(t, s.conf.Auth.LogoutRedirect, recorder.Header().Get("Location"))
+				require.Empty(t, recorder.Header().Get(s.conf.CSRF.ErrorHeader()))
 			}
 		})
 	}
 }
 
-// Confirms that a valid browser token reaches the normal route handling and
-// that each missing or invalid CSRF component is rejected first.
-func TestCSRFCORSMutations(t *testing.T) {
-	// Set up the protected mutation route and obtain the cookie pair required
-	// for the valid and invalid browser-request cases.
-	fixture := newCSRFCORSTestFixture(t)
-	fixture.bootstrap(t)
-	require.NotNil(t, fixture.token)
-	require.NotNil(t, fixture.reference)
-
-	t.Run("valid token reaches handler", func(t *testing.T) {
-		// Send a complete credentialed browser mutation. The fixture handler
-		// deliberately returns Unauthorized so reaching it proves CSRF passed
-		// without treating the token as authorization.
-		recorder := fixture.mutation(testBrowserOrigin, fixture.token.Value, true, true)
-
-		// Confirm normal authentication handling runs and no CSRF rejection is
-		// reported first.
-		require.Equal(t, http.StatusUnauthorized, recorder.Code)
-		require.True(t, fixture.reached)
-		require.NotEqual(t, csrf.ErrorTokenInvalid, recorder.Header().Get(fixture.names.ErrorHeader))
-	})
-
-	tests := []struct {
-		name             string
-		header           string
-		includeToken     bool
-		includeReference bool
-	}{
-		{name: "missing header", includeToken: true, includeReference: true},
-		{name: "mismatched header", header: "wrong", includeToken: true, includeReference: true},
-		{name: "missing token cookie", header: fixture.token.Value, includeReference: true},
-		{name: "missing reference cookie", header: fixture.token.Value, includeToken: true},
-		{name: "invalid token", header: "invalid", includeToken: true, includeReference: true},
-		{name: "malformed token", header: "%<", includeToken: true, includeReference: true},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			// Vary one CSRF input at a time while keeping the request otherwise
-			// equivalent to a browser mutation.
-			fixture.reached = false
-			recorder := fixture.mutation(testBrowserOrigin, test.header, test.includeToken, test.includeReference)
-
-			// Every incomplete or invalid token combination must fail before the
-			// mutation handler and expose only the generic CSRF failure signal.
-			require.Equal(t, http.StatusForbidden, recorder.Code)
-			require.Equal(t, csrf.ErrorTokenInvalid, recorder.Header().Get(fixture.names.ErrorHeader))
-			require.False(t, fixture.reached)
-		})
-	}
-
-	t.Run("valid token with disallowed origin", func(t *testing.T) {
-		// Reuse valid CSRF credentials from an unconfigured origin to ensure
-		// origin policy cannot be bypassed with a valid token.
-		fixture.reached = false
-		recorder := fixture.mutation("https://attacker.example", fixture.token.Value, true, true)
-
-		// Confirm the request is rejected before the mutation handler and does
-		// not receive a credentialed CORS response.
-		require.Equal(t, http.StatusForbidden, recorder.Code)
-		require.False(t, fixture.reached)
-		require.Empty(t, recorder.Header().Get("Access-Control-Allow-Origin"))
-	})
-
-	t.Run("valid non-browser request without origin", func(t *testing.T) {
-		// Exercise the explicit non-browser policy with a valid cookie/header
-		// pair but no Origin header.
-		fixture.reached = false
-		recorder := fixture.mutation("", fixture.token.Value, true, true)
-
-		// Confirm non-browser requests may proceed to ordinary authentication
-		// handling without weakening the browser-origin checks above.
-		require.Equal(t, http.StatusUnauthorized, recorder.Code)
-		require.True(t, fixture.reached)
-	})
-}
-
-// The app uses the apex host while Quarterdeck uses its auth subdomain.
 const testBrowserOrigin = "https://endeavor.local"
 
-// The fixture uses the production CORS middleware, namespaced Gimlet handler,
-// bootstrap handler, and protected mutation middleware while replacing only
-// authentication and persistence with observable test handlers.
-type csrfCORSTestFixture struct {
-	router    *gin.Engine
-	names     csrf.Namespace
-	token     *http.Cookie
-	reference *http.Cookie
-	reached   bool
-}
-
-// Creates a router with the same middleware contract used by the production
-// server and a harmless protected mutation endpoint.
-func newCSRFCORSTestFixture(t *testing.T) *csrfCORSTestFixture {
+// Configures the real routes with a signing key and an app origin approved by
+// both CORS and CSRF. Successful requests use logout, which does not need a store.
+func newCSRFCORSServer(t *testing.T) *Server {
 	t.Helper()
 	conf := config.Config{
 		AllowOrigins: []string{testBrowserOrigin},
 		CSRF: config.CSRFConfig{
-			CookieTTL:    5 * time.Minute,
-			Secret:       "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5388ee9088f7ace2efcde9",
-			Namespace:    "quarterdeck",
-			CookieDomain: "endeavor.local",
+			Namespace:       "quarterdeck",
+			ExpectedOrigins: []string{testBrowserOrigin},
+		},
+		Auth: config.AuthConfig{
+			Issuer:          "https://auth.endeavor.local",
+			Audience:        []string{testBrowserOrigin},
+			LogoutRedirect:  "https://auth.endeavor.local/login",
+			AccessTokenTTL:  time.Hour,
+			RefreshTokenTTL: 2 * time.Hour,
+			TokenOverlap:    -15 * time.Minute,
 		},
 		RateLimit: ratelimit.Config{
 			Type:      ratelimit.TypeNone,
@@ -229,80 +189,14 @@ func newCSRFCORSTestFixture(t *testing.T) *csrfCORSTestFixture {
 			CacheTTL:  time.Minute,
 		},
 	}
-
-	handler, err := csrf.NewTokenHandlerWithNamespace(
-		conf.CSRF.CookieTTL,
-		"/",
-		conf.CSRF.CookieDomains(),
-		conf.CSRF.GetSecret(),
-		conf.CSRF.Namespace,
-	)
+	issuer, err := auth.NewIssuer(conf.Auth)
 	require.NoError(t, err)
-
-	fixture := &csrfCORSTestFixture{
-		names: handler.(csrf.Namespacer).Namespace(),
-	}
-	server := &Server{
+	s := &Server{
 		conf:   conf,
+		issuer: issuer,
 		router: gin.New(),
-		csrf:   &sameSiteCSRF{TokenHandler: handler},
 	}
-	server.router.HandleMethodNotAllowed = true
-	require.NoError(t, server.setupRoutes())
-	fixture.router = server.router
-	// Add an isolated protected endpoint after production route assembly so the
-	// mutation assertions still exercise the same global middleware chain.
-	fixture.router.POST("/test/users", csrfProtection(server.csrf), func(c *gin.Context) {
-		// This stands in for the real authentication middleware. Reaching this
-		// handler demonstrates that CSRF did not reject the request first.
-		c.Set("authenticated", true)
-		fixture.reached = true
-		c.Status(http.StatusUnauthorized)
-	})
-	return fixture
-}
-
-// Sends the safe bootstrap request and retains the issued cookie pair for
-// subsequent browser requests.
-func (f *csrfCORSTestFixture) bootstrap(t *testing.T) *httptest.ResponseRecorder {
-	t.Helper()
-	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "https://auth.endeavor.local/csrf", nil)
-	request.Header.Set("Origin", testBrowserOrigin)
-	if f.token != nil {
-		request.AddCookie(f.token)
-	}
-	if f.reference != nil {
-		request.AddCookie(f.reference)
-	}
-	f.router.ServeHTTP(recorder, request)
-	for _, cookie := range recorder.Result().Cookies() {
-		switch cookie.Name {
-		case f.names.Cookie:
-			f.token = cookie
-		case f.names.ReferenceCookie:
-			f.reference = cookie
-		}
-	}
-	return recorder
-}
-
-// Builds a browser mutation with the supplied CSRF and origin variations.
-func (f *csrfCORSTestFixture) mutation(origin, header string, includeToken, includeReference bool) *httptest.ResponseRecorder {
-	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "https://auth.endeavor.local/test/users", nil)
-	if origin != "" {
-		request.Header.Set("Origin", origin)
-	}
-	if header != "" {
-		request.Header.Set(f.names.Header, header)
-	}
-	if includeToken && f.token != nil {
-		request.AddCookie(f.token)
-	}
-	if includeReference && f.reference != nil {
-		request.AddCookie(f.reference)
-	}
-	f.router.ServeHTTP(recorder, request)
-	return recorder
+	s.router.HandleMethodNotAllowed = true
+	require.NoError(t, s.setupRoutes())
+	return s
 }

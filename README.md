@@ -11,15 +11,31 @@ Projects using Quarterdeck:
 - [Endeavor](https://github.com/rotationalio/endeavor)
 - [HonuDB](https://github.com/rotationalio/honu)
 
-## CSRF Cookie Domain
+## CSRF Protection
 
-`QD_CSRF_COOKIE_DOMAIN` is a single, explicitly configured shared parent domain, such as `example.com` for `auth.example.com` and `app.example.com`. A browser cookie cannot belong to multiple sibling domains, and Quarterdeck cannot set a cookie for a sibling domain from its own response. The shared domain must therefore be the narrowest trusted boundary common to Quarterdeck and the browser application. Do not configure a list of domains or derive this value from CORS origins.
+Quarterdeck applies Gimlet's `csrf/secfetch` middleware globally to application routes (health probes remain outside application middleware). No client or frontend CSRF management or tokens need to be tracked or implemented, however CSRF errors will still be captured and displayed to the user as a toast. `QD_CSRF_COOKIE_DOMAIN`, `QD_CSRF_COOKIE_TTL`, and `QD_CSRF_SECRET` have been removed; authentication cookies are unchanged.
 
-CSRF protection can be explicitly disabled for exceptional environments with `QD_CSRF_DISABLED=true`; it remains enabled by default and should not be disabled in production.
+Verified bearer tokens are accepted only through Gimlet's `WithFallback` check, not as an unconditional bypass. The fallback runs only when `Sec-Fetch-Site`, `Origin`, and `Referer` are all absent and configured fetch mode/destination checks have passed. It verifies the token without cookie refresh; header presence alone is insufficient. Protected routes still perform their normal authentication and authorization.
 
-CSRF cookies are marked `Secure` for HTTPS requests and all non-localhost
-domains. This supports deployments where TLS terminates at a reverse proxy
-before the request reaches Quarterdeck, while allowing local HTTP development.
+Defaults allow `GET`, `HEAD`, and `OPTIONS`, and allow same-origin mutations. Same-site mutations require an exact trusted Origin. Missing or unknown Fetch Metadata requires a trusted Origin/Referer; requests with no site, origin, or referer can instead pass verified bearer fallback. Cross-site mutations are rejected regardless of bearer authentication, and `none` mutations are rejected by default. Bearer fallback cannot override other metadata or origin rejections. Proxies must forward Fetch Metadata headers unchanged; browser clients should use HTTPS (or localhost).
+
+Configure comma-separated exact browser-facing origins with `QD_CSRF_EXPECTED_ORIGINS`, e.g. `https://app.example.com,https://auth.example.com`. This trust list is separate from `QD_ALLOW_ORIGINS` (CORS); cross-origin browser clients may need both configured.
+
+| Environment variable                 | Default                                                      |
+| ------------------------------------ | ------------------------------------------------------------ |
+| `QD_CSRF_DISABLED`                   | `false`; `true` logs would-be rejections without blocking    |
+| `QD_CSRF_NAMESPACE`                  | `quarterdeck` (`X-Quarterdeck-CSRF-Error`)                   |
+| `QD_CSRF_SAFE_HTTP_METHODS`          | `GET,HEAD,OPTIONS` (only these safe methods can be exempted) |
+| `QD_CSRF_EXPECTED_ORIGINS`           | Empty                                                        |
+| `QD_CSRF_ALLOW_MISSING_METADATA`     | `false`                                                      |
+| `QD_CSRF_ALLOW_UNKNOWN_SITE`         | `false`                                                      |
+| `QD_CSRF_ALLOW_SITE_NONE`            | `false`                                                      |
+| `QD_CSRF_ALLOWED_FETCH_MODES`        | Empty (unrestricted)                                         |
+| `QD_CSRF_ALLOWED_FETCH_DESTINATIONS` | Empty (unrestricted)                                         |
+| `QD_CSRF_REQUIRE_FETCH_MODE`         | `false`                                                      |
+| `QD_CSRF_REQUIRE_FETCH_DESTINATION`  | `false`                                                      |
+
+Leave compatibility relaxations disabled unless needed. Rejections return HTTP 403 and the namespaced CSRF error header. The UI shows a toast asking the user to fully reload the page and contact support if the failure persists; it does not retry automatically.
 
 ## Testing (Postgres)
 

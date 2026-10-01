@@ -7,10 +7,6 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/web/htmx"
 )
 
-// CSRFRetryHeader is the header used to request a CSRF token retry.
-// TODO: Use the Gimlet namespace retry header when Gimlet supports it.
-const CSRFRetryHeader = "X-Quarterdeck-CSRF-Retry"
-
 var (
 	allowedHeaders = []string{
 		"Origin",
@@ -42,19 +38,15 @@ var (
 )
 
 func (c Config) CORS() cors.Config {
-	// Derive the request and error header names from Gimlet's namespace helper.
-	names := c.CSRF.Names()
-	requestHeaders := append([]string{}, allowedHeaders...)
-	requestHeaders = append(requestHeaders, names.Header, CSRFRetryHeader)
 	responseHeaders := append([]string{}, exposeHeaders...)
-	responseHeaders = append(responseHeaders, names.ErrorHeader)
+	responseHeaders = append(responseHeaders, c.CSRF.ErrorHeader())
 
 	// Create a credentialed CORS config with exact configured origins.
 	return cors.Config{
 		AllowAllOrigins:        false,
 		AllowOrigins:           c.AllowOrigins,
 		AllowMethods:           []string{"GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:           requestHeaders,
+		AllowHeaders:           allowedHeaders,
 		ExposeHeaders:          responseHeaders,
 		AllowCredentials:       true,
 		AllowWildcard:          false,

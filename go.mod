@@ -26,9 +26,9 @@ require (
 	go.opentelemetry.io/otel/trace v1.46.0
 	go.rtnl.ai/commo v0.3.0
 	go.rtnl.ai/confire v1.2.0
-	go.rtnl.ai/gimlet v1.9.0
+	go.rtnl.ai/gimlet v1.11.0
 	go.rtnl.ai/ulid v1.3.0
-	go.rtnl.ai/x v1.20.1
+	go.rtnl.ai/x v1.21.0
 	golang.org/x/crypto v0.57.0
 	golang.org/x/term v0.46.0
 	golang.org/x/text v0.42.0

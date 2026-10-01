@@ -1,9 +1,3 @@
-// The page head is rendered before this script, so these names can be read once
-// and reused by both request configuration and error handling.
-const csrfTokenCookie = document.querySelector(
-  'meta[name="csrf-token-cookie"]',
-)?.content;
-const csrfHeader = document.querySelector('meta[name="csrf-header"]')?.content;
 const csrfErrorHeader = document.querySelector(
   'meta[name="csrf-error-header"]',
 )?.content;
@@ -11,14 +5,6 @@ const csrfErrorHeader = document.querySelector(
 document.body.addEventListener("htmx:configRequest", (e) => {
   // Ensure the accept type for all HTMX requests is HTML partials.
   e.detail.headers["Accept"] = "text/html";
-
-  // Copy the public CSRF token into the namespaced header only for the
-  // configured page origin. Never send it to an unrelated origin.
-  const requestURL = new URL(e.detail.path, window.location.href);
-  const csrfToken = csrfTokenCookie ? getCookie(csrfTokenCookie) : null;
-  if (requestURL.origin === window.location.origin && csrfHeader && csrfToken) {
-    e.detail.headers[csrfHeader] = csrfToken;
-  }
 });
 
 // Initialize and set Notyf config to display toast notifications.
@@ -51,7 +37,7 @@ function getResponseErrorMessage(xhr) {
     : null;
 
   if (xhr.status === 403 && csrfError) {
-    return "CSRF validation failed. Refresh the page and try again.";
+    return "Request blocked by CSRF protection. Fully reload the page and try again. Contact support if it still fails.";
   }
 
   if (responseText) {
@@ -65,24 +51,4 @@ function getResponseErrorMessage(xhr) {
   }
 
   return xhr.statusText || `Request failed (${xhr.status})`;
-}
-
-function getCookie(name) {
-  const nameEQ = name + "=";
-  const cookies = document.cookie.split(";");
-
-  for (let cookie of cookies) {
-    // Remove leading whitespace
-    while (cookie.charAt(0) === " ") {
-      cookie = cookie.substring(1);
-    }
-
-    // If cookie starts with the desired name, return its value, less the name part
-    if (cookie.indexOf(nameEQ) === 0) {
-      return cookie.substring(nameEQ.length, cookie.length);
-    }
-  }
-
-  // Cookie not found
-  return null;
 }
