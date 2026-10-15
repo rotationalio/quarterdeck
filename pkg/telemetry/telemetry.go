@@ -13,7 +13,6 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/config"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/metric"
@@ -148,7 +147,7 @@ func setup(ctx context.Context) {
 		return
 	}
 	shutdown = append(shutdown, qdLoggerProvider.Shutdown)
-	global.SetLoggerProvider(qdLoggerProvider)
+	otel.SetLoggerProvider(qdLoggerProvider)
 }
 
 func Shutdown(ctx context.Context) error {

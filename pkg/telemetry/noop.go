@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/log/global"
 	nooplog "go.opentelemetry.io/otel/log/noop"
 	noopmeter "go.opentelemetry.io/otel/metric/noop"
 	"go.opentelemetry.io/otel/propagation"
@@ -24,7 +23,7 @@ func disableTelemetry(ctx context.Context) {
 
 	otel.SetTracerProvider(nooptrace.NewTracerProvider())
 	otel.SetMeterProvider(noopmeter.NewMeterProvider())
-	global.SetLoggerProvider(nooplog.NewLoggerProvider())
+	otel.SetLoggerProvider(nooplog.NewLoggerProvider())
 
 	disabled = true
 }
