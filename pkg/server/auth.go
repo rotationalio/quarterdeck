@@ -240,8 +240,8 @@ func (s *Server) Authenticate(c *gin.Context) {
 		return
 	}
 
-	// Set cookies for the client
-	if err = auth.SetAuthCookies(c, out.AccessToken, out.RefreshToken); err != nil {
+	// Set auth cookies when appropriate.
+	if err = setAuthCookiesUnlessStatelessTokenExchange(c, out.AccessToken, out.RefreshToken); err != nil {
 		c.Error(err)
 		c.JSON(http.StatusInternalServerError, api.Error(errors.ErrInternal))
 		return
@@ -328,8 +328,7 @@ func (s *Server) Reauthenticate(c *gin.Context) {
 		return
 	}
 
-	// Set cookies for the client
-	if err = auth.SetAuthCookies(c, out.AccessToken, out.RefreshToken); err != nil {
+	if err = setAuthCookiesUnlessStatelessTokenExchange(c, out.AccessToken, out.RefreshToken); err != nil {
 		c.Error(err)
 		c.JSON(http.StatusInternalServerError, api.Error(errors.ErrInternal))
 		return
@@ -348,6 +347,15 @@ func (s *Server) Reauthenticate(c *gin.Context) {
 	default:
 		c.AbortWithError(http.StatusNotAcceptable, errors.ErrNotAccepted)
 	}
+}
+
+// Only set auth cookies if the request is not a stateless token exchange
+// request (aka: a browser request with headers and cookies).
+func setAuthCookiesUnlessStatelessTokenExchange(c *gin.Context, accessToken, refreshToken string) error {
+	if isStatelessTokenExchangeRequest(c) {
+		return nil
+	}
+	return auth.SetAuthCookies(c, accessToken, refreshToken)
 }
 
 func (s *Server) reauthenticateUser(c *gin.Context, userID ulid.ULID) (_ *gimlet.Claims, err error) {

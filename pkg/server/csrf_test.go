@@ -3,11 +3,13 @@ package server
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -15,7 +17,13 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.rtnl.ai/gimlet/auth"
 	csrf "go.rtnl.ai/gimlet/csrf/secfetch"
+	"go.rtnl.ai/quarterdeck/pkg/api/v1"
+	quarterdeckauth "go.rtnl.ai/quarterdeck/pkg/auth"
+	"go.rtnl.ai/quarterdeck/pkg/auth/passwords"
 	"go.rtnl.ai/quarterdeck/pkg/config"
+	"go.rtnl.ai/quarterdeck/pkg/store/v1/mock"
+	"go.rtnl.ai/quarterdeck/pkg/store/v1/models"
+	"go.rtnl.ai/ulid"
 	"go.rtnl.ai/x/rlog"
 )
 
@@ -206,6 +214,190 @@ func TestCSRFProtection(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Verifies the token-exchange CSRF exception is limited to non-browser JSON
+// token exchanges and leaves requests with browser context, cookies, or other
+// routes under normal CSRF checks.
+func TestStatelessTokenExchangeCSRFBypass(t *testing.T) {
+	conf := config.CSRFConfig{
+		Namespace:       "quarterdeck",
+		ExpectedOrigins: []string{"https://app.example.com"},
+	}
+	tests := []struct {
+		name     string
+		path     string
+		headers  map[string]string
+		allowed  bool
+		bypassed bool
+	}{
+		{
+			name: "authenticate SDK request",
+			path: "/v1/authenticate",
+			headers: map[string]string{
+				"Content-Type": "application/json",
+				"Accept":       "application/json",
+			},
+			allowed:  true,
+			bypassed: true,
+		},
+		{
+			name: "reauthenticate SDK request",
+			path: "/v1/reauthenticate",
+			headers: map[string]string{
+				"Content-Type": "application/json",
+				"Accept":       "application/json",
+			},
+			allowed:  true,
+			bypassed: true,
+		},
+		{
+			name: "other endpoint remains protected",
+			path: "/v1/login",
+			headers: map[string]string{
+				"Content-Type": "application/json",
+				"Accept":       "application/json",
+			},
+		},
+		{
+			name: "non-JSON request remains protected",
+			path: "/v1/authenticate",
+			headers: map[string]string{
+				"Content-Type": "text/plain",
+				"Accept":       "application/json",
+			},
+		},
+		{
+			name: "HTML request remains protected",
+			path: "/v1/authenticate",
+			headers: map[string]string{
+				"Content-Type": "application/json",
+				"Accept":       "text/html",
+			},
+		},
+		{
+			name: "explicit cross-site metadata remains protected",
+			path: "/v1/authenticate",
+			headers: map[string]string{
+				"Content-Type":          "application/json",
+				"Accept":                "application/json",
+				csrf.HeaderSecFetchSite: "cross-site",
+			},
+		},
+		{
+			name: "untrusted origin remains protected",
+			path: "/v1/authenticate",
+			headers: map[string]string{
+				"Content-Type":    "application/json",
+				"Accept":          "application/json",
+				csrf.HeaderOrigin: "https://attacker.example",
+			},
+		},
+		{
+			name: "referer remains protected",
+			path: "/v1/authenticate",
+			headers: map[string]string{
+				"Content-Type":     "application/json",
+				"Accept":           "application/json",
+				csrf.HeaderReferer: "https://attacker.example/page",
+			},
+		},
+		{
+			name: "fetch metadata remains protected",
+			path: "/v1/reauthenticate",
+			headers: map[string]string{
+				"Content-Type":          "application/json",
+				"Accept":                "application/json",
+				csrf.HeaderSecFetchMode: "cors",
+			},
+		},
+		{
+			name: "ambient cookies remain protected",
+			path: "/v1/reauthenticate",
+			headers: map[string]string{
+				"Content-Type": "application/json",
+				"Accept":       "application/json",
+				"Cookie":       "session=existing",
+			},
+		},
+		{
+			name: "trusted browser origin uses normal CSRF policy",
+			path: "/v1/authenticate",
+			headers: map[string]string{
+				"Content-Type":    "application/json",
+				"Accept":          "application/json",
+				csrf.HeaderOrigin: "https://app.example.com",
+			},
+			allowed: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router := gin.New()
+			router.Use(csrfProtection(conf, nil))
+			reached, bypassed := false, false
+			router.POST(test.path, func(c *gin.Context) {
+				reached = true
+				bypassed = isStatelessTokenExchangeRequest(c)
+				c.Status(http.StatusNoContent)
+			})
+
+			request := httptest.NewRequest(http.MethodPost, "https://auth.example.com"+test.path, nil)
+			for name, value := range test.headers {
+				request.Header.Set(name, value)
+			}
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, request)
+
+			require.Equal(t, test.allowed, reached)
+			require.Equal(t, test.bypassed, bypassed)
+			if test.allowed {
+				require.Equal(t, http.StatusNoContent, recorder.Code)
+			} else {
+				require.Equal(t, http.StatusForbidden, recorder.Code)
+				require.Equal(t, csrf.ErrorRequestRejected, recorder.Header().Get(conf.ErrorHeader()))
+			}
+		})
+	}
+}
+
+// Exercises both real token-exchange handlers through CSRF middleware and verifies that
+// SDK-style requests receive JSON credentials without creating ambient auth cookies.
+func TestStatelessTokenExchangeDoesNotSetAuthCookies(t *testing.T) {
+	srv, apiKey, clientSecret := newTokenExchangeTestServer(t)
+
+	t.Run("authenticate", func(t *testing.T) {
+		// Authenticate with API-key credentials, as the SDK does on its first request.
+		body, err := json.Marshal(api.AuthenticateRequest{
+			ClientID:     apiKey.ClientID,
+			ClientSecret: clientSecret,
+		})
+		require.NoError(t, err)
+
+		// Exercise the real handler behind the CSRF middleware.
+		router := gin.New()
+		router.Use(csrfProtection(config.CSRFConfig{Namespace: "quarterdeck"}, srv.issuer))
+		router.POST("/v1/authenticate", srv.Authenticate)
+
+		recorder := performTokenExchangeRequest(t, router, "/v1/authenticate", body)
+		assertTokenExchangeResponse(t, recorder)
+	})
+
+	t.Run("reauthenticate", func(t *testing.T) {
+		// Create a refresh token for the API key and submit it through the real handler.
+		_, refreshToken, err := srv.issuer.CreateTokens(apiKey.Claims())
+		require.NoError(t, err)
+		body, err := json.Marshal(api.ReauthenticateRequest{RefreshToken: refreshToken})
+		require.NoError(t, err)
+
+		router := gin.New()
+		router.Use(csrfProtection(config.CSRFConfig{Namespace: "quarterdeck"}, srv.issuer))
+		router.POST("/v1/reauthenticate", srv.Reauthenticate)
+
+		recorder := performTokenExchangeRequest(t, router, "/v1/reauthenticate", body)
+		assertTokenExchangeResponse(t, recorder)
+	})
 }
 
 // Ensures disabling enforcement logs would-be rejections without blocking or setting an error header.
@@ -472,4 +664,67 @@ func (issuer *csrfTestIssuer) Verify(token string) (*auth.Claims, error) {
 		return &auth.Claims{}, nil
 	}
 	return nil, errors.New("invalid or expired token")
+}
+
+// Builds a server with a mock API-key store and signing issuer for handler tests.
+func newTokenExchangeTestServer(t *testing.T) (*Server, *models.APIKey, string) {
+	t.Helper()
+
+	clientSecret := "token-exchange-test-secret"
+	derivedSecret, err := passwords.CreateDerivedKey(clientSecret)
+	require.NoError(t, err)
+
+	mockStore, err := mock.Open(nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, mockStore.Close()) })
+
+	apiKey := &models.APIKey{
+		Model:    models.Model{ID: ulid.MakeSecure()},
+		ClientID: "token-exchange-test-client",
+		Secret:   derivedSecret,
+	}
+	mockStore.OnRetrieveAPIKey = func(_ context.Context, _ any) (*models.APIKey, error) {
+		return apiKey, nil
+	}
+	mockStore.OnUpdateLastSeen = func(_ context.Context, _ ulid.ULID, _ time.Time) error {
+		return nil
+	}
+
+	issuer, err := quarterdeckauth.NewIssuer(config.AuthConfig{
+		Issuer:          "https://auth.example.com",
+		Audience:        []string{"https://app.example.com"},
+		AccessTokenTTL:  time.Hour,
+		RefreshTokenTTL: 2 * time.Hour,
+		TokenOverlap:    -time.Hour,
+	})
+	require.NoError(t, err)
+
+	return &Server{store: mockStore, issuer: issuer}, apiKey, clientSecret
+}
+
+// Sends the token-exchange request with the same JSON headers as the Guidelight
+// Python SDK.
+func performTokenExchangeRequest(t *testing.T, router http.Handler, path string, body []byte) *httptest.ResponseRecorder {
+	t.Helper()
+
+	request := httptest.NewRequest(http.MethodPost, "https://auth.example.com"+path, bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept", "application/json")
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	return recorder
+}
+
+// Verifies token exchange succeeds and returns credentials without setting cookies.
+func assertTokenExchangeResponse(t *testing.T, recorder *httptest.ResponseRecorder) {
+	t.Helper()
+
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	require.Empty(t, recorder.Result().Cookies())
+
+	var reply api.LoginReply
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &reply))
+	require.NotEmpty(t, reply.AccessToken)
+	require.NotEmpty(t, reply.RefreshToken)
 }
