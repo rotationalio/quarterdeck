@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"sync"
 
@@ -13,11 +14,13 @@ import (
 	"go.rtnl.ai/quarterdeck/pkg/config"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
+	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -63,6 +66,29 @@ func Middleware() (middleware gin.HandlerFunc, err error) {
 
 	// Return the gimlet o11y middleware configured using the setup function.
 	return o11y.Middleware(ServiceAddr(), opts...), nil
+}
+
+// Marks successful responses as OK. Register it immediately after the
+// observability middleware so it runs before the request span ends.
+func SetSuccessfulSpanStatus() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Next()
+
+		span := oteltrace.SpanFromContext(c.Request.Context())
+		if !span.IsRecording() {
+			return
+		}
+
+		status := c.Writer.Status()
+		if status >= http.StatusOK && status < http.StatusBadRequest {
+			if len(c.Errors) == 0 {
+				span.SetStatus(codes.Ok, "")
+			}
+			return
+		}
+
+		span.SetStatus(codes.Error, fmt.Sprintf("HTTP %d", status))
+	}
 }
 
 // Setup initializes the opentelemetry sdk components and sets them as the global

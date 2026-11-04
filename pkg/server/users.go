@@ -131,12 +131,12 @@ func (s *Server) CreateUser(c *gin.Context) {
 	if err = s.store.CreateUser(ctx, model); err != nil {
 		if errors.Is(err, errors.ErrAlreadyExists) {
 			if model, err = s.upsertExistingUser(ctx, user); err != nil {
-				c.Error(errors.Join(err, errors.New("could not upsert existing user")))
+				c.Error(errors.Join(err, errors.ErrCouldNotUpsertExistingUser))
 				c.JSON(http.StatusInternalServerError, api.Error("could not process create user request"))
 				return
 			}
 		} else {
-			c.Error(errors.Join(err, errors.New("could not create user")))
+			c.Error(errors.Join(err, errors.ErrCouldNotCreateUser))
 			c.JSON(http.StatusInternalServerError, api.Error("could not process create user request"))
 			return
 		}
@@ -421,7 +421,7 @@ func (s *Server) ForgotPassword(c *gin.Context) {
 
 	in = &api.ResetPasswordRequest{}
 	if err = c.BindJSON(in); err != nil {
-		s.Error(c, errors.New("could not parse reset password request"))
+		s.Error(c, errors.ErrCouldNotParseResetPasswordRequest)
 		return
 	}
 
@@ -435,7 +435,7 @@ func (s *Server) ForgotPassword(c *gin.Context) {
 			// leaking information so also redirect to the success page.
 			if !errors.Is(err, errors.ErrNotFound) && !errors.Is(err, errors.ErrTooSoon) {
 				c.Error(err)
-				s.Error(c, errors.New("could not complete reset password request"))
+				s.Error(c, errors.ErrCouldNotCompleteResetPasswordRequest)
 				return
 			}
 
@@ -482,6 +482,7 @@ func (s *Server) ResetPassword(c *gin.Context) {
 	if in.Token, err = c.Cookie(auth.ResetPasswordTokenCookie); err != nil {
 		// If no cookie is submitted, then slow down the request and send back a 403.
 		// The slow down prevents spamming the reset password endpoint.
+		c.Error(errors.ErrResetPasswordCookieMissing)
 		SlowDown()
 		c.JSON(http.StatusForbidden, api.Error("unable to process reset password request"))
 		return
@@ -490,6 +491,7 @@ func (s *Server) ResetPassword(c *gin.Context) {
 	// Validate the change password input
 	if err = in.Validate(); err != nil {
 		// If the token is invalid or missing, return a 422.
+		c.Error(errors.ErrInvalidResetPasswordRequest)
 		c.JSON(http.StatusUnprocessableEntity, api.Error(err))
 		return
 	}
@@ -499,11 +501,13 @@ func (s *Server) ResetPassword(c *gin.Context) {
 		switch {
 		case errors.Is(err, errors.ErrNotFound), errors.Is(err, errors.ErrExpiredToken):
 			// If the link is not found or expired, the user needs to try to reset their password again
+			c.Error(errors.ErrInvalidOrExpiredResetPasswordLink)
 			c.JSON(http.StatusBadRequest, api.Error("your reset password link is invalid or expired, please submit a new forgot password request"))
 			return
 		case errors.Is(err, errors.ErrNotAllowed):
 			// If the link is not verified or secure, then slow down the request and send back a 403.
 			// The slow down prevents brute force attacks on the change password endpoint.
+			c.Error(errors.ErrRejectedResetPasswordLink)
 			SlowDown()
 			c.JSON(http.StatusForbidden, api.Error("unable to process reset password request"))
 			return

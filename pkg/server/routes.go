@@ -43,6 +43,7 @@ func (s *Server) setupRoutes() (err error) {
 		// o11y should be on the outside so we can record the correct latency of requests
 		// NOTE: o11y panics will not recover due to middleware ordering.
 		observability,
+		telemetry.SetSuccessfulSpanStatus(),
 
 		// Panic recovery middleware
 		gin.Recovery(),

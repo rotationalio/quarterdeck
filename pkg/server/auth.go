@@ -74,6 +74,7 @@ func (s *Server) Login(c *gin.Context) {
 		// Do not indicate whether or not the user exists to prevent enumeration attacks
 		// Simply indicate that the authentication failed.
 		if errors.Is(err, errors.ErrNotFound) {
+			c.Error(errors.ErrLoginFailed)
 			c.JSON(http.StatusUnauthorized, api.Error(errors.ErrFailedAuthentication))
 			return
 		}
@@ -87,6 +88,7 @@ func (s *Server) Login(c *gin.Context) {
 	// User must be verified before they can log in.
 	// TODO: redirect to an email verification page where they can request a new verification email
 	if !user.EmailVerified {
+		c.Error(errors.ErrLoginEmailNotVerified)
 		c.JSON(http.StatusUnauthorized, api.Error(errors.ErrEmailNotVerified))
 		return
 	}
@@ -101,6 +103,7 @@ func (s *Server) Login(c *gin.Context) {
 
 	if !verified {
 		// If the password is incorrect, return a failed authentication error.
+		c.Error(errors.ErrLoginFailed)
 		c.JSON(http.StatusUnauthorized, api.Error(errors.ErrFailedAuthentication))
 		return
 	}

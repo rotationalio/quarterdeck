@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/base64"
-	"errors"
+
 	"fmt"
 	"regexp"
 	"strconv"
 
+	"go.rtnl.ai/quarterdeck/pkg/errors"
 	"golang.org/x/crypto/argon2"
 )
 
@@ -35,7 +36,7 @@ var (
 // CreateDerivedKey creates an encoded derived key with a random hash for the password.
 func CreateDerivedKey(password string) (_ string, err error) {
 	if password == "" {
-		return "", errors.New("cannot create derived key for empty password")
+		return "", errors.ErrEmptyDerivedKeyPassword
 	}
 
 	salt := make([]byte, dkSLen)
@@ -52,7 +53,7 @@ func CreateDerivedKey(password string) (_ string, err error) {
 // VerifyDerivedKey checks that the submitted password matches the derived key.
 func VerifyDerivedKey(dk, password string) (_ bool, err error) {
 	if dk == "" || password == "" {
-		return false, errors.New("cannot verify empty derived key or password")
+		return false, errors.ErrEmptyDerivedKeyOrPassword
 	}
 
 	dkb, salt, t, m, p, err := ParseDerivedKey(dk)
@@ -67,12 +68,12 @@ func VerifyDerivedKey(dk, password string) (_ bool, err error) {
 // ParseDerivedKey returns the parts of the encoded derived key string.
 func ParseDerivedKey(encoded string) (dk, salt []byte, time, memory uint32, threads uint8, err error) {
 	if !dkParse.MatchString(encoded) {
-		return nil, nil, 0, 0, 0, errors.New("cannot parse encoded derived key, does not match regular expression")
+		return nil, nil, 0, 0, 0, errors.ErrMalformedDerivedKey
 	}
 	parts := dkParse.FindStringSubmatch(encoded)
 
 	if len(parts) != 8 {
-		return nil, nil, 0, 0, 0, errors.New("cannot parse encoded derived key, matched expression does not contain enough subgroups")
+		return nil, nil, 0, 0, 0, errors.ErrMalformedDerivedKeyGroups
 	}
 
 	// check the algorithm
