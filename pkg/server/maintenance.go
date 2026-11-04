@@ -37,7 +37,7 @@ func (s *Server) Maintenance() (err error) {
 
 	// No logging, just telemetry.
 	if observability != nil {
-		s.router.Use(observability)
+		s.router.Use(observability, telemetry.SetSuccessfulSpanStatus())
 	}
 
 	// Recovery middleware to prevent panics from crashing the server.
