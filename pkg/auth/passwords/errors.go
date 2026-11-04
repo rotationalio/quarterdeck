@@ -1,11 +1,11 @@
 package passwords
 
-import "errors"
+import "go.rtnl.ai/quarterdeck/pkg/errors"
 
 // Password Strength Errors
 var (
-	ErrPasswordEmpty      = errors.New("password must not be an empty string")
-	ErrPasswordTooShort   = errors.New("password must be at least 8 characters")
-	ErrPasswordWhitespace = errors.New("password must not start or end with whitespace")
-	ErrPasswordStrength   = errors.New("password must contain uppercase letters, lowercase letters, numbers, and special characters")
+	ErrPasswordEmpty      = errors.ErrPasswordEmpty
+	ErrPasswordTooShort   = errors.ErrPasswordTooShort
+	ErrPasswordWhitespace = errors.ErrPasswordWhitespace
+	ErrPasswordStrength   = errors.ErrPasswordStrength
 )

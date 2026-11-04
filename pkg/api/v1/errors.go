@@ -2,10 +2,12 @@ package api
 
 import (
 	"encoding/json"
-	"errors"
+
 	"fmt"
 	"net/http"
 	"strings"
+
+	"go.rtnl.ai/quarterdeck/pkg/errors"
 )
 
 //===========================================================================
@@ -20,10 +22,10 @@ var (
 )
 
 var (
-	ErrInvalidTimestamp     = errors.New("payload timestamp has invalid string format")
-	ErrInvalidRejection     = errors.New("envelope does not contain a rejection/repair error")
-	ErrParsingIVMS101Person = errors.New("unable to parse IVMS101 person record as json or protocol buffers")
-	ErrUnknownEncoding      = errors.New("could not detect data encoding please specify and try again")
+	ErrInvalidRejection     = errors.ErrInvalidRejection
+	ErrInvalidTimestamp     = errors.ErrInvalidTimestamp
+	ErrParsingIVMS101Person = errors.ErrParsingIVMS101Person
+	ErrUnknownEncoding      = errors.ErrUnknownEncoding
 )
 
 // Construct a new response for an error or simply return unsuccessful.

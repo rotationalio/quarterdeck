@@ -11,6 +11,7 @@ import (
 	"go.rtnl.ai/gimlet/auth"
 	csrf "go.rtnl.ai/gimlet/csrf/secfetch"
 	"go.rtnl.ai/quarterdeck/pkg/config"
+	"go.rtnl.ai/quarterdeck/pkg/errors"
 )
 
 const HeaderCookie = "Cookie"
@@ -50,6 +51,7 @@ func csrfProtection(conf config.CSRFConfig, issuer auth.Authenticator) gin.Handl
 		// Otherwise, perform the CSRF check.
 		middleware(c)
 		if c.Writer.Header().Get(conf.ErrorHeader()) == csrf.ErrorRequestRejected {
+			c.Error(errors.ErrCSRFRequestRejected)
 			traceCSRFEvent(c, "csrf.request.rejected")
 		}
 	}

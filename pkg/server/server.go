@@ -276,7 +276,10 @@ func ConfigureLogging(conf *config.Config) {
 
 	var handler slog.Handler = console
 	if conf.Telemetry.Enabled {
-		otelHandler := otelslog.NewHandler(ServiceName, otelslog.WithLoggerProvider(telemetry.LoggerProvider()))
+		otelHandler := telemetry.NewLevelHandler(
+			otelslog.NewHandler(ServiceName, otelslog.WithLoggerProvider(telemetry.LoggerProvider())),
+			rlog.Level,
+		)
 		handler = slog.NewMultiHandler(console, otelHandler)
 	}
 

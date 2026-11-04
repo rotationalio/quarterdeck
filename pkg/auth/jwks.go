@@ -99,12 +99,12 @@ func (j *JWKS) computeETag() (err error) {
 
 // ComputeETag to implement the ETagger interface but panics and should not be used.
 func (j *JWKS) ComputeETag([]byte) {
-	panic(errors.New("cannot compute etag on JWKS object only edit keys"))
+	panic(errors.ErrComputeJWKSCacheETag)
 }
 
 // SetETag to implement the ETagger interface but panics and should not be used.
 func (j *JWKS) SetETag(etag string) {
-	panic(errors.New("cannot set etag on JWKS object only edit keys"))
+	panic(errors.ErrSetJWKSCacheETag)
 }
 
 //===========================================================================
@@ -124,7 +124,7 @@ func (j *JWKS) Expires() time.Time {
 }
 
 func (j *JWKS) Modified(time.Time, any) {
-	panic(errors.New("cannot set modified timestamps on JWKS object only edit keys"))
+	panic(errors.ErrSetJWKSModifiedTime)
 }
 
 //===========================================================================
@@ -149,9 +149,9 @@ func (j *JWKS) Directives() string {
 }
 
 func (j *JWKS) SetMaxAge(any) {
-	panic(errors.New("cannot set max age on JWKS object only edit keys"))
+	panic(errors.ErrSetJWKSMaxAge)
 }
 
 func (j *JWKS) SetSMaxAge(any) {
-	panic(errors.New("cannot set s-max-age on JWKS object only edit keys"))
+	panic(errors.ErrSetJWKSSharedMaxAge)
 }

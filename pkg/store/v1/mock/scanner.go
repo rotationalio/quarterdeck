@@ -3,13 +3,13 @@ package mock
 import (
 	"bytes"
 	"database/sql"
-	"errors"
 	"fmt"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.rtnl.ai/quarterdeck/pkg/errors"
 )
 
 // MockScanner allows testing `Scan` interfaces for models. You can add an error
@@ -24,8 +24,8 @@ type Scanner struct {
 }
 
 var (
-	ErrNilPtr      = errors.New("destination pointer is nil")
-	ErrUnknownType = errors.New("unknown type for conversion: reflection required")
+	ErrNilPtr      = errors.ErrNilScanDestination
+	ErrUnknownType = errors.ErrUnknownScanType
 )
 
 // Scan will return an error if set, otherwise it will check that the lengths of
