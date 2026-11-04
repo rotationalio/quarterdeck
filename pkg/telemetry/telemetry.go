@@ -64,6 +64,7 @@ func Middleware() (middleware gin.HandlerFunc, err error) {
 		o11y.WithMeterProvider(qdMeterProvider),
 	}
 
+	// Return the gimlet o11y middleware configured using the setup function.
 	return o11y.Middleware(ServiceAddr(), opts...), nil
 }
 
