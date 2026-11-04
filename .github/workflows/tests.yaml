@@ -8,8 +8,8 @@ on:
       - "v*"
   pull_request:
 permissions:
-    contents: read
-    pull-requests: write
+  contents: read
+  pull-requests: write
 
 jobs:
   lint:
@@ -19,7 +19,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: 1.26.x
+          go-version: 1.26.10
 
       - name: Install Staticcheck
         run: go install honnef.co/go/tools/cmd/staticcheck@2026.2.1
@@ -36,7 +36,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        go-version: [1.26.x]
+        go-version: [1.26.10]
     env:
       GOPATH: ${{ github.workspace }}/go
       GOBIN: ${{ github.workspace }}/go/bin
@@ -86,7 +86,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: 1.26.x
+          go-version: 1.26.10
 
       - name: Cache Speedup
         uses: actions/cache@v5
